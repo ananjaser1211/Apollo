@@ -3955,7 +3955,6 @@ static int selinux_file_permission(struct file *file, int mask)
 		/* No change since file_open check. */
 		return 0;
 
-	inode_security_revalidate(inode);
 	return selinux_revalidate_file_permission(file, mask);
 }
 
@@ -4329,7 +4328,6 @@ static int selinux_file_open(struct file *file, const struct cred *cred)
 	 * new inode label or new policy.
 	 * This check is not redundant - do not remove.
 	 */
-	inode_security_revalidate(file_inode(file));
 	return file_path_has_perm(cred, file, open_file_to_av(file));
 }
 
