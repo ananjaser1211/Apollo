@@ -23,6 +23,7 @@
 
 #if defined(CONFIG_ZSWAP)
 extern u64 zswap_pool_pages;
+#if defined(CONFIG_ZSWAP)
 extern atomic_t zswap_stored_pages;
 #endif
 
@@ -105,6 +106,7 @@ unsigned long task_statm(struct mm_struct *mm,
 	*resident = *shared + get_mm_counter(mm, MM_ANONPAGES);
 	return mm->total_vm;
 }
+#if defined(CONFIG_ZSWAP)
 void task_statlmkd(struct mm_struct *mm, unsigned long *size,
 			 unsigned long *resident, unsigned long *swapresident)
 {
@@ -126,6 +128,7 @@ void task_statlmkd(struct mm_struct *mm, unsigned long *size,
 	}
 #endif
 }
+#endif
 #ifdef CONFIG_NUMA
 /*
  * Save get_task_policy() for show_numa_map().
