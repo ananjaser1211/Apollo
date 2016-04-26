@@ -3221,7 +3221,6 @@ static int replace_map_fd_with_map_ptr(struct bpf_verifier_env *env)
 			if (IS_ERR(map)) {
 				verbose("fd %d is not pointing to valid bpf_map\n",
 					insn->imm);
-				fdput(f);
 				return PTR_ERR(map);
 			}
 
