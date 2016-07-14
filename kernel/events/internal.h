@@ -154,16 +154,24 @@ static inline unsigned long perf_aux_size(struct ring_buffer *rb)
 static inline unsigned long						\
 func_name(struct perf_output_handle *handle,				\
 	  const void *buf, unsigned long len)				\
+<<<<<<< HEAD
 __DEFINE_OUTPUT_COPY_BODY(true, memcpy_func, handle->addr, buf, size)
+=======
+__DEFINE_OUTPUT_COPY_BODY(memcpy_func)
+>>>>>>> b091430f45e99 (perf, events: add non-linear data support for raw records)
 
 static inline unsigned long
 __output_custom(struct perf_output_handle *handle, perf_copy_f copy_func,
 		const void *buf, unsigned long len)
+<<<<<<< HEAD
 {
 	unsigned long orig_len = len;
 	__DEFINE_OUTPUT_COPY_BODY(false, copy_func, handle->addr, buf,
 				  orig_len - len, size)
 }
+=======
+__DEFINE_OUTPUT_COPY_BODY(copy_func)
+>>>>>>> b091430f45e99 (perf, events: add non-linear data support for raw records)
 
 static inline unsigned long
 memcpy_common(void *dst, const void *src, unsigned long n)
