@@ -670,6 +670,13 @@ static inline void cgroup_free(struct task_struct *p) {}
 
 static inline int cgroup_init_early(void) { return 0; }
 static inline int cgroup_init(void) { return 0; }
+
+static inline bool task_under_cgroup_hierarchy(struct task_struct *task,
+					       struct cgroup *ancestor)
+{
+	return true;
+}
+
 static inline void cgroup_init_kthreadd(void) {}
 static inline void cgroup_kthread_ready(void) {}
 
