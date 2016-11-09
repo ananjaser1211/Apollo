@@ -3386,6 +3386,21 @@ static __always_inline int ____dev_forward_skb(struct net_device *dev,
 
 void dev_queue_xmit_nit(struct sk_buff *skb, struct net_device *dev);
 
+static __always_inline int ____dev_forward_skb(struct net_device *dev,
+					       struct sk_buff *skb)
+{
+	if (skb_orphan_frags(skb, GFP_ATOMIC) ||
+	    unlikely(!is_skb_forwardable(dev, skb))) {
+		atomic_long_inc(&dev->rx_dropped);
+		kfree_skb(skb);
+		return NET_RX_DROP;
+	}
+
+	skb_scrub_packet(skb, true);
+	skb->priority = 0;
+	return 0;
+}
+
 extern int		netdev_budget;
 
 /* Called by rtnetlink.c:rtnl_unlock() */
