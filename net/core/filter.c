@@ -1712,6 +1712,12 @@ static int __bpf_redirect_no_mac(struct sk_buff *skb, struct net_device *dev,
 static int __bpf_redirect_common(struct sk_buff *skb, struct net_device *dev,
 				 u32 flags)
 {
+	/* Verify that a link layer header is carried */
+	if (unlikely(skb->mac_header >= skb->network_header)) {
+		kfree_skb(skb);
+		return -ERANGE;
+	}
+
 	bpf_push_mac_rcsum(skb);
 	return flags & BPF_F_INGRESS ?
 	       __bpf_rx_skb(dev, skb) : __bpf_tx_skb(dev, skb);
@@ -2211,12 +2217,53 @@ static const struct bpf_func_proto bpf_skb_change_tail_proto = {
 	.arg3_type	= ARG_ANYTHING,
 };
 
+BPF_CALL_3(bpf_skb_change_head, struct sk_buff *, skb, u32, head_room,
+	   u64, flags)
+{
+	u32 max_len = BPF_SKB_MAX_LEN;
+	u32 new_len = skb->len + head_room;
+	int ret;
+
+	if (unlikely(flags || (!skb_is_gso(skb) && new_len > max_len) ||
+		     new_len < skb->len))
+		return -EINVAL;
+
+	ret = skb_cow(skb, head_room);
+	if (likely(!ret)) {
+		/* Idea for this helper is that we currently only
+		 * allow to expand on mac header. This means that
+		 * skb->protocol network header, etc, stay as is.
+		 * Compared to bpf_skb_change_tail(), we're more
+		 * flexible due to not needing to linearize or
+		 * reset GSO. Intention for this helper is to be
+		 * used by an L3 skb that needs to push mac header
+		 * for redirection into L2 device.
+		 */
+		__skb_push(skb, head_room);
+		memset(skb->data, 0, head_room);
+		skb_reset_mac_header(skb);
+	}
+
+	bpf_compute_data_end(skb);
+	return 0;
+}
+
+static const struct bpf_func_proto bpf_skb_change_head_proto = {
+	.func		= bpf_skb_change_head,
+	.gpl_only	= false,
+	.ret_type	= RET_INTEGER,
+	.arg1_type	= ARG_PTR_TO_CTX,
+	.arg2_type	= ARG_ANYTHING,
+	.arg3_type	= ARG_ANYTHING,
+};
+
 bool bpf_helper_changes_skb_data(void *func)
 {
 	if (func == bpf_skb_vlan_push ||
 	    func == bpf_skb_vlan_pop ||
 	    func == bpf_skb_store_bytes ||
 	    func == bpf_skb_change_proto ||
+	    func == bpf_skb_change_head ||
 	    func == bpf_skb_change_tail ||
 	    func == bpf_skb_pull_data ||
 	    func == bpf_clone_redirect ||
@@ -2773,7 +2820,6 @@ lwt_xmit_func_proto(enum bpf_func_id func_id)
 }
 
 static bool __is_valid_access(int off, int size)
->>>>>>> ab66f5916fc5 (bpf: enable load bytes helper for filter/reuseport progs)
 {
 	if (off < 0 || off >= sizeof(struct __sk_buff))
 		return false;
@@ -2852,7 +2898,6 @@ static bool lwt_is_valid_access(int off, int size,
 	}
 
 	return __is_valid_access(off, size);
->>>>>>> d4eb51662de7 (bpf: allow b/h/w/dw access for bpf's cb in ctx)
 }
 
 static bool sock_filter_is_valid_access(int off, int size,
@@ -2876,6 +2921,39 @@ static bool sock_filter_is_valid_access(int off, int size,
 		return false;
 
 	return true;
+}
+
+static bool lwt_is_valid_access(int off, int size,
+				enum bpf_access_type type,
+				enum bpf_reg_type *reg_type)
+{
+	switch (off) {
+	case offsetof(struct __sk_buff, tc_classid):
+		return false;
+	}
+
+	if (type == BPF_WRITE) {
+		switch (off) {
+		case offsetof(struct __sk_buff, mark):
+		case offsetof(struct __sk_buff, priority):
+		case offsetof(struct __sk_buff, cb[0]) ...
+		     offsetof(struct __sk_buff, cb[4]):
+			break;
+		default:
+			return false;
+		}
+	}
+
+	switch (off) {
+	case offsetof(struct __sk_buff, data):
+		*reg_type = PTR_TO_PACKET;
+		break;
+	case offsetof(struct __sk_buff, data_end):
+		*reg_type = PTR_TO_PACKET_END;
+		break;
+	}
+
+	return __is_valid_access(off, size, type);
 }
 
 static int tc_cls_act_prologue(struct bpf_insn *insn_buf, bool direct_write,
@@ -3292,6 +3370,13 @@ static const struct bpf_verifier_ops cg_sock_ops = {
 };
 
 static struct bpf_prog_type_list sk_filter_type __ro_after_init = {
+=======
+	.convert_ctx_access	= sk_filter_convert_ctx_access,
+	.gen_prologue		= tc_cls_act_prologue,
+};
+
+static struct bpf_prog_type_list sk_filter_type __read_mostly = {
+>>>>>>> 761ebc5ec716 (bpf: BPF for lightweight tunnel infrastructure)
 	.ops	= &sk_filter_ops,
 	.type	= BPF_PROG_TYPE_SOCKET_FILTER,
 };
@@ -3344,6 +3429,9 @@ static int __init register_sk_filter_ops(void)
 	bpf_register_prog_type(&xdp_type);
 	bpf_register_prog_type(&cg_skb_type);
 	bpf_register_prog_type(&cg_sock_type);
+	bpf_register_prog_type(&lwt_in_type);
+	bpf_register_prog_type(&lwt_out_type);
+	bpf_register_prog_type(&lwt_xmit_type);
 
 	return 0;
 }
