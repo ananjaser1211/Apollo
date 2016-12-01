@@ -642,6 +642,9 @@ struct bpf_tunnel_key {
 
 struct bpf_sock {
 	__u32 bound_dev_if;
+	__u32 family;
+	__u32 type;
+	__u32 protocol;
 };
 
 /* User return codes for XDP prog type.
