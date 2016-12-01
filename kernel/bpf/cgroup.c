@@ -384,8 +384,8 @@ cleanup:
 }
 
 /**
- * __cgroup_bpf_run_filter() - Run a program for packet filtering
- * @sk: The socket sending or receiving traffic
+ * __cgroup_bpf_run_filter_skb() - Run a program for packet filtering
+ * @sk: The socken sending or receiving traffic
  * @skb: The skb that is being sent or received
  * @type: The type of program to be exectuted
  *
@@ -398,9 +398,9 @@ cleanup:
  * This function will return %-EPERM if any if an attached program was found
  * and if it returned != 1 during execution. In all other cases, 0 is returned.
  */
-int __cgroup_bpf_run_filter(struct sock *sk,
-			    struct sk_buff *skb,
-			    enum bpf_attach_type type)
+int __cgroup_bpf_run_filter_skb(struct sock *sk,
+				struct sk_buff *skb,
+				enum bpf_attach_type type)
 {
 	unsigned int offset = skb->data - skb_network_header(skb);
 	struct sock *save_sk;
@@ -423,7 +423,7 @@ int __cgroup_bpf_run_filter(struct sock *sk,
 	skb->sk = save_sk;
 	return ret == 1 ? 0 : -EPERM;
 }
-EXPORT_SYMBOL(__cgroup_bpf_run_filter);
+EXPORT_SYMBOL(__cgroup_bpf_run_filter_skb);
 
 /**
  * __cgroup_bpf_run_filter_sk() - Run a program on a sock
