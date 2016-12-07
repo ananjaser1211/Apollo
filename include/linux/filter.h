@@ -417,7 +417,8 @@ struct bpf_prog {
 				locked:1,	/* Program image locked? */
 				gpl_compatible:1, /* Is filter GPL compatible? */
 				cb_access:1,	/* Is control block accessed? */
-				dst_needed:1;	/* Do we need dst entry? */
+				dst_needed:1,	/* Do we need dst entry? */
+				xdp_adjust_head:1; /* Adjusting pkt head? */
 	kmemcheck_bitfield_end(meta);
 	enum bpf_prog_type	type;		/* Type of BPF program */
 	u32			len;		/* Number of filter blocks */
@@ -504,6 +505,7 @@ struct bpf_skb_data_end {
 struct xdp_buff {
 	void *data;
 	void *data_end;
+	void *data_hard_start;
 };
 
 /* compute the linear packet data range [data, data_end) which
