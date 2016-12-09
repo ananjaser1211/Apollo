@@ -915,7 +915,6 @@ const struct inode_operations cifs_file_inode_ops = {
 };
 
 const struct inode_operations cifs_symlink_inode_ops = {
-	.readlink = generic_readlink,
 	.get_link = cifs_get_link,
 	.permission = cifs_permission,
 	.listxattr = cifs_listxattr,
