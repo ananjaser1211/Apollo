@@ -914,8 +914,8 @@ static int bpf_prog_load(union bpf_attr *attr)
 	prog->len = attr->insn_cnt;
 
 	err = -EFAULT;
-	if (copy_from_user(prog->insns, u64_to_ptr(attr->insns),
-			   prog->len * sizeof(struct bpf_insn)) != 0)
+	if (copy_from_user(prog->insns, u64_to_user_ptr(attr->insns),
+			   bpf_prog_insn_size(prog)) != 0)
 		goto free_prog;
 
 	prog->orig_prog = NULL;
