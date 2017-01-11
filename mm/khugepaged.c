@@ -951,7 +951,7 @@ static void collapse_huge_page(struct mm_struct *mm,
 	VM_BUG_ON(address & ~HPAGE_PMD_MASK);
 
 	/* Only allocate from the target node */
-	gfp = alloc_hugepage_khugepaged_gfpmask() | __GFP_OTHER_NODE | __GFP_THISNODE;
+	gfp = alloc_hugepage_khugepaged_gfpmask() | __GFP_THISNODE;
 
 	/*
 	 * Before allocating the hugepage, release the mmap_sem read lock.
@@ -1322,8 +1322,7 @@ static void collapse_shmem(struct mm_struct *mm,
 	VM_BUG_ON(start & (HPAGE_PMD_NR - 1));
 
 	/* Only allocate from the target node */
-	gfp = alloc_hugepage_khugepaged_gfpmask() |
-		__GFP_OTHER_NODE | __GFP_THISNODE;
+	gfp = alloc_hugepage_khugepaged_gfpmask() | __GFP_THISNODE;
 
 	new_page = khugepaged_alloc_page(hpage, gfp, node);
 	if (!new_page) {
