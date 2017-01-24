@@ -2,6 +2,8 @@ CFLAGS += -Wall -O2 -I../../../../usr/include
 
 TEST_GEN_PROGS = test_verifier test_maps test_lru_map
 
-TEST_PROGS := test_lpm_map test_kmod.sh
+test_objs = test_tag test_lpm_map
+
+TEST_PROGS := $(test_objs) test_kmod.sh
 
 include ../lib.mk
