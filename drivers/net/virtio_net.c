@@ -333,6 +333,7 @@ static struct sk_buff *page_to_skb(struct virtnet_info *vi,
 }
 
 static struct sk_buff *receive_small(struct virtnet_info *vi, void *buf, unsigned int len)
+
 {
 	struct sk_buff * skb = buf;
 

@@ -33,6 +33,7 @@
 #include <linux/ip.h>
 #include <linux/ipv6.h>
 #include <linux/tcp.h>
+#include <linux/bpf_trace.h>
 #include <net/busy_poll.h>
 #include "en.h"
 #include "en_tc.h"
@@ -650,7 +651,7 @@ static inline void mlx5e_xmit_xdp_doorbell(struct mlx5e_sq *sq)
 	mlx5e_tx_notify_hw(sq, &wqe->ctrl, 0);
 }
 
-static inline void mlx5e_xmit_xdp_frame(struct mlx5e_rq *rq,
+static inline bool mlx5e_xmit_xdp_frame(struct mlx5e_rq *rq,
 					struct mlx5e_dma_info *di,
 					unsigned int data_offset,
 					int len)
@@ -667,8 +668,8 @@ static inline void mlx5e_xmit_xdp_frame(struct mlx5e_rq *rq,
 
 	dma_addr_t dma_addr  = di->addr + data_offset + MLX5E_XDP_MIN_INLINE;
 	unsigned int dma_len = len - MLX5E_XDP_MIN_INLINE;
-	void *data           = page_address(di->page) + data_offset;
 
+	void *data           = page_address(di->page) + data_offset;
 	if (unlikely(!mlx5e_sq_has_room_for(sq, MLX5E_XDP_TX_WQEBBS))) {
 		if (sq->db.xdp.doorbell) {
 			/* SQ is full, ring doorbell */
@@ -677,7 +678,7 @@ static inline void mlx5e_xmit_xdp_frame(struct mlx5e_rq *rq,
 		}
 		rq->stats.xdp_tx_full++;
 		mlx5e_page_release(rq, di, true);
-		return;
+		return false;
 	}
 
 	dma_sync_single_for_device(sq->pdev, dma_addr, dma_len,
@@ -706,6 +707,7 @@ static inline void mlx5e_xmit_xdp_frame(struct mlx5e_rq *rq,
 
 	sq->db.xdp.doorbell = true;
 	rq->stats.xdp_tx++;
+	return true;
 }
 
 /* returns true if packet was consumed by xdp */
@@ -728,10 +730,11 @@ static inline bool mlx5e_xdp_handle(struct mlx5e_rq *rq,
 		return false;
 	case XDP_TX:
 		mlx5e_xmit_xdp_frame(rq, di, MLX5_RX_HEADROOM, len);
-		return true;
+	return true;
 	default:
 		bpf_warn_invalid_xdp_action(act);
 	case XDP_ABORTED:
+		trace_xdp_exception(rq->netdev, prog, act);
 	case XDP_DROP:
 		rq->stats.xdp_drop++;
 		mlx5e_page_release(rq, di, true);
