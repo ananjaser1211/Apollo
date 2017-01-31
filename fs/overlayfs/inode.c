@@ -20,6 +20,8 @@ static int ovl_copy_up_truncate(struct dentry *dentry)
 	struct kstat stat;
 	struct path lowerpath;
 	const struct cred *old_cred;
+	u32 request_mask;
+	unsigned int flags;
 
 	parent = dget_parent(dentry);
 	err = ovl_copy_up(parent);
@@ -29,7 +31,7 @@ static int ovl_copy_up_truncate(struct dentry *dentry)
 	ovl_path_lower(dentry, &lowerpath);
 
 	old_cred = ovl_override_creds(dentry->d_sb);
-	err = vfs_getattr(&lowerpath, &stat);
+	err = vfs_getattr(&lowerpath, &stat, request_mask, flags);
 	if (!err) {
 		stat.size = 0;
 		err = ovl_copy_up_one(parent, dentry, &lowerpath, &stat);
@@ -105,16 +107,17 @@ out:
 	return err;
 }
 
-static int ovl_getattr(struct vfsmount *mnt, struct dentry *dentry,
-			 struct kstat *stat)
+static int ovl_getattr(const struct path *path, struct kstat *stat,
+		       u32 request_mask, unsigned int flags)
 {
+	struct dentry *dentry = path->dentry;
 	struct path realpath;
 	const struct cred *old_cred;
 	int err;
 
 	ovl_path_real(dentry, &realpath);
 	old_cred = ovl_override_creds(dentry->d_sb);
-	err = vfs_getattr(&realpath, stat);
+	err = vfs_getattr(&realpath, stat, request_mask, flags);
 	ovl_revert_creds(old_cred);
 	return err;
 }
