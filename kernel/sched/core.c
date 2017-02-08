@@ -77,6 +77,7 @@
 #include <linux/prefetch.h>
 #include <linux/exynos-ss.h>
 #include <linux/cpufreq_times.h>
+#include <linux/sched/loadavg.h>
 
 #include <asm/switch_to.h>
 #include <asm/tlb.h>
