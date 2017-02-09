@@ -90,11 +90,11 @@ static void test_hashmap(int task, void *data)
 	assert(bpf_map_delete_elem(fd, &key) == -1 && errno == ENOENT);
 
 	/* Iterate over two elements. */
-	assert(bpf_map_next_key(fd, &key, &next_key) == 0 &&
+	assert(bpf_map_get_next_key(fd, &key, &next_key) == 0 &&
 	       (next_key == 1 || next_key == 2));
-	assert(bpf_map_next_key(fd, &next_key, &next_key) == 0 &&
+	assert(bpf_map_get_next_key(fd, &next_key, &next_key) == 0 &&
 	       (next_key == 1 || next_key == 2));
-	assert(bpf_map_next_key(fd, &next_key, &next_key) == -1 &&
+	assert(bpf_map_get_next_key(fd, &next_key, &next_key) == -1 &&
 	       errno == ENOENT);
 
 	/* Delete both elements. */
@@ -106,7 +106,7 @@ static void test_hashmap(int task, void *data)
 
 	key = 0;
 	/* Check that map is empty. */
-	assert(bpf_map_next_key(fd, &key, &next_key) == -1 &&
+	assert(bpf_map_get_next_key(fd, &key, &next_key) == -1 &&
 	       errno == ENOENT);
 
 	close(fd);
@@ -194,7 +194,7 @@ static void test_hashmap_percpu(int task, void *data)
 	assert(bpf_map_delete_elem(fd, &key) == -1 && errno == ENOENT);
 
 	/* Iterate over two elements. */
-	while (!bpf_map_next_key(fd, &key, &next_key)) {
+	while (!bpf_map_get_next_key(fd, &key, &next_key)) {
 		assert((expected_key_mask & next_key) == next_key);
 		expected_key_mask &= ~next_key;
 
@@ -220,7 +220,7 @@ static void test_hashmap_percpu(int task, void *data)
 
 	key = 0;
 	/* Check that map is empty. */
-	assert(bpf_map_next_key(fd, &key, &next_key) == -1 &&
+	assert(bpf_map_get_next_key(fd, &key, &next_key) == -1 &&
 	       errno == ENOENT);
 
 	close(fd);
@@ -265,11 +265,11 @@ static void test_arraymap(int task, void *data)
 	assert(bpf_map_lookup_elem(fd, &key, &value) == -1 && errno == ENOENT);
 
 	/* Iterate over two elements. */
-	assert(bpf_map_next_key(fd, &key, &next_key) == 0 &&
+	assert(bpf_map_get_next_key(fd, &key, &next_key) == 0 &&
 	       next_key == 0);
-	assert(bpf_map_next_key(fd, &next_key, &next_key) == 0 &&
+	assert(bpf_map_get_next_key(fd, &next_key, &next_key) == 0 &&
 	       next_key == 1);
-	assert(bpf_map_next_key(fd, &next_key, &next_key) == -1 &&
+	assert(bpf_map_get_next_key(fd, &next_key, &next_key) == -1 &&
 	       errno == ENOENT);
 
 	/* Delete shouldn't succeed. */
@@ -320,11 +320,11 @@ static void test_arraymap_percpu(int task, void *data)
 	assert(bpf_map_lookup_elem(fd, &key, values) == -1 && errno == ENOENT);
 
 	/* Iterate over two elements. */
-	assert(bpf_map_next_key(fd, &key, &next_key) == 0 &&
+	assert(bpf_map_get_next_key(fd, &key, &next_key) == 0 &&
 	       next_key == 0);
-	assert(bpf_map_next_key(fd, &next_key, &next_key) == 0 &&
+	assert(bpf_map_get_next_key(fd, &next_key, &next_key) == 0 &&
 	       next_key == 1);
-	assert(bpf_map_next_key(fd, &next_key, &next_key) == -1 &&
+	assert(bpf_map_get_next_key(fd, &next_key, &next_key) == -1 &&
 	       errno == ENOENT);
 
 	/* Delete shouldn't succeed. */
@@ -402,8 +402,8 @@ static void test_map_large(void)
 
 	/* Iterate through all elements. */
 	for (i = 0; i < MAP_SIZE; i++)
-		assert(bpf_map_next_key(fd, &key, &key) == 0);
-	assert(bpf_map_next_key(fd, &key, &key) == -1 && errno == ENOENT);
+		assert(bpf_map_get_next_key(fd, &key, &key) == 0);
+	assert(bpf_map_get_next_key(fd, &key, &key) == -1 && errno == ENOENT);
 
 	key.c = 0;
 	assert(bpf_map_lookup_elem(fd, &key, &value) == 0 && value == 0);
@@ -502,8 +502,8 @@ static void test_map_parallel(void)
 	/* Check that all elements were inserted. */
 	key = -1;
 	for (i = 0; i < MAP_SIZE; i++)
-		assert(bpf_map_next_key(fd, &key, &key) == 0);
-	assert(bpf_map_next_key(fd, &key, &key) == -1 && errno == ENOENT);
+		assert(bpf_map_get_next_key(fd, &key, &key) == 0);
+	assert(bpf_map_get_next_key(fd, &key, &key) == -1 && errno == ENOENT);
 
 	/* Another check for all elements */
 	for (i = 0; i < MAP_SIZE; i++) {
@@ -519,7 +519,7 @@ static void test_map_parallel(void)
 
 	/* Nothing should be left. */
 	key = -1;
-	assert(bpf_map_next_key(fd, &key, &key) == -1 && errno == ENOENT);
+	assert(bpf_map_get_next_key(fd, &key, &key) == -1 && errno == ENOENT);
 }
 
 static void run_all_tests(void)
