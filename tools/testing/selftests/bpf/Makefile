@@ -17,4 +17,6 @@ test_objs = test_tag test_lpm_map
 
 TEST_PROGS := $(test_objs) test_kmod.sh
 
+$(test_objs): ../../../lib/bpf/bpf.o
+
 include ../lib.mk
