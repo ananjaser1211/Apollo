@@ -87,7 +87,7 @@ static void test_hashmap(int task, void *data)
 
 	/* Check that key = 0 doesn't exist. */
 	key = 0;
-	assert(bpf_map_delete(fd, &key) == -1 && errno == ENOENT);
+	assert(bpf_map_delete_elem(fd, &key) == -1 && errno == ENOENT);
 
 	/* Iterate over two elements. */
 	assert(bpf_map_next_key(fd, &key, &next_key) == 0 &&
@@ -99,10 +99,10 @@ static void test_hashmap(int task, void *data)
 
 	/* Delete both elements. */
 	key = 1;
-	assert(bpf_map_delete(fd, &key) == 0);
+	assert(bpf_map_delete_elem(fd, &key) == 0);
 	key = 2;
-	assert(bpf_map_delete(fd, &key) == 0);
-	assert(bpf_map_delete(fd, &key) == -1 && errno == ENOENT);
+	assert(bpf_map_delete_elem(fd, &key) == 0);
+	assert(bpf_map_delete_elem(fd, &key) == -1 && errno == ENOENT);
 
 	key = 0;
 	/* Check that map is empty. */
@@ -191,7 +191,7 @@ static void test_hashmap_percpu(int task, void *data)
 	       errno == E2BIG);
 
 	/* Check that key = 0 doesn't exist. */
-	assert(bpf_map_delete(fd, &key) == -1 && errno == ENOENT);
+	assert(bpf_map_delete_elem(fd, &key) == -1 && errno == ENOENT);
 
 	/* Iterate over two elements. */
 	while (!bpf_map_next_key(fd, &key, &next_key)) {
@@ -213,10 +213,10 @@ static void test_hashmap_percpu(int task, void *data)
 
 	/* Delete both elements. */
 	key = 1;
-	assert(bpf_map_delete(fd, &key) == 0);
+	assert(bpf_map_delete_elem(fd, &key) == 0);
 	key = 2;
-	assert(bpf_map_delete(fd, &key) == 0);
-	assert(bpf_map_delete(fd, &key) == -1 && errno == ENOENT);
+	assert(bpf_map_delete_elem(fd, &key) == 0);
+	assert(bpf_map_delete_elem(fd, &key) == -1 && errno == ENOENT);
 
 	key = 0;
 	/* Check that map is empty. */
@@ -274,7 +274,7 @@ static void test_arraymap(int task, void *data)
 
 	/* Delete shouldn't succeed. */
 	key = 1;
-	assert(bpf_map_delete(fd, &key) == -1 && errno == EINVAL);
+	assert(bpf_map_delete_elem(fd, &key) == -1 && errno == EINVAL);
 
 	close(fd);
 }
@@ -329,7 +329,7 @@ static void test_arraymap_percpu(int task, void *data)
 
 	/* Delete shouldn't succeed. */
 	key = 1;
-	assert(bpf_map_delete(fd, &key) == -1 && errno == EINVAL);
+	assert(bpf_map_delete_elem(fd, &key) == -1 && errno == EINVAL);
 
 	close(fd);
 }
@@ -468,7 +468,7 @@ static void do_work(int fn, void *data)
 			assert(bpf_map_update_elem(fd, &key, &value,
 						   BPF_EXIST) == 0);
 		} else {
-			assert(bpf_map_delete(fd, &key) == 0);
+			assert(bpf_map_delete_elem(fd, &key) == 0);
 		}
 	}
 }
