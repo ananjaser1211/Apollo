@@ -8,7 +8,9 @@
  * License as published by the Free Software Foundation.
  */
 
+#include <stdint.h>
 #include <stdio.h>
+#include <stdlib.h>
 #include <unistd.h>
 #include <errno.h>
 #include <string.h>
@@ -34,8 +36,6 @@
 #endif
 
 #include "../../../include/linux/filter.h"
-
-#include "bpf_sys.h"
 
 #ifndef ARRAY_SIZE
 # define ARRAY_SIZE(x) (sizeof(x) / sizeof((x)[0]))
