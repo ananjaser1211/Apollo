@@ -1065,13 +1065,22 @@ common_load:
 
 		ilen = prog - temp;
 		if (ilen > BPF_MAX_INSN_SIZE) {
-			pr_err("bpf_jit_compile fatal insn size error\n");
+			pr_err("bpf_jit: fatal insn size error\n");
 			return -EFAULT;
 		}
 
 		if (image) {
-			if (unlikely(proglen + ilen > oldproglen)) {
-				pr_err("bpf_jit_compile fatal error\n");
+			/*
+			 * When populating the image, assert that:
+			 *
+			 *  i) We do not write beyond the allocated space, and
+			 * ii) addrs[i] did not change from the prior run, in order
+			 *     to validate assumptions made for computing branch
+			 *     displacements.
+			 */
+			if (unlikely(proglen + ilen > oldproglen ||
+				     proglen + ilen != addrs[i])) {
+				pr_err("bpf_jit: fatal error\n");
 				return -EFAULT;
 			}
 			memcpy(image + proglen, temp, ilen);
@@ -1081,10 +1090,6 @@ common_load:
 		prog = temp;
 	}
 	return proglen;
-}
-
-void bpf_jit_compile(struct bpf_prog *prog)
-{
 }
 
 struct bpf_prog *bpf_int_jit_compile(struct bpf_prog *prog)
