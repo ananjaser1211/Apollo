@@ -1391,7 +1391,7 @@ struct bpf_prog *bpf_int_jit_compile(struct bpf_prog *fp)
 		bpf_jit_dump(fp->len, jit.size, pass, jit.prg_buf);
 		print_fn_code(jit.prg_buf, jit.size_prg);
 	}
-	set_memory_ro((unsigned long)header, header->pages);
+	bpf_jit_binary_lock_ro(header);
 	fp->bpf_func = (void *) jit.prg_buf;
 	fp->jited = 1;
 free_addrs:

@@ -604,7 +604,7 @@ static inline bool bpf_prog_was_classic(const struct bpf_prog *prog)
 
 #define bpf_classic_proglen(fprog) (fprog->len * sizeof(fprog->filter[0]))
 
-#ifdef CONFIG_DEBUG_SET_MODULE_RONX
+#ifdef CONFIG_ARCH_HAS_SET_MEMORY
 static inline void bpf_prog_lock_ro(struct bpf_prog *fp)
 {
 	set_memory_ro((unsigned long)fp, fp->pages);
@@ -614,6 +614,16 @@ static inline void bpf_prog_unlock_ro(struct bpf_prog *fp)
 {
 	set_memory_rw((unsigned long)fp, fp->pages);
 }
+
+static inline void bpf_jit_binary_lock_ro(struct bpf_binary_header *hdr)
+{
+	set_memory_ro((unsigned long)hdr, hdr->pages);
+}
+
+static inline void bpf_jit_binary_unlock_ro(struct bpf_binary_header *hdr)
+{
+	set_memory_rw((unsigned long)hdr, hdr->pages);
+}
 #else
 static inline void bpf_prog_lock_ro(struct bpf_prog *fp)
 {
@@ -622,7 +632,24 @@ static inline void bpf_prog_lock_ro(struct bpf_prog *fp)
 static inline void bpf_prog_unlock_ro(struct bpf_prog *fp)
 {
 }
-#endif /* CONFIG_DEBUG_SET_MODULE_RONX */
+
+static inline void bpf_jit_binary_lock_ro(struct bpf_binary_header *hdr)
+{
+}
+
+static inline void bpf_jit_binary_unlock_ro(struct bpf_binary_header *hdr)
+{
+}
+#endif /* CONFIG_ARCH_HAS_SET_MEMORY */
+
+static inline struct bpf_binary_header *
+bpf_jit_binary_hdr(const struct bpf_prog *fp)
+{
+	unsigned long real_start = (unsigned long)fp->bpf_func;
+	unsigned long addr = real_start & PAGE_MASK;
+
+	return (void *)addr;
+}
 
 int sk_filter_trim_cap(struct sock *sk, struct sk_buff *skb, unsigned int cap);
 static inline int sk_filter(struct sock *sk, struct sk_buff *skb)
