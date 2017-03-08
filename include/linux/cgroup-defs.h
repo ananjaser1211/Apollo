@@ -13,6 +13,7 @@
 #include <linux/wait.h>
 #include <linux/mutex.h>
 #include <linux/rcupdate.h>
+#include <linux/refcount.h>
 #include <linux/percpu-refcount.h>
 #include <linux/percpu-rwsem.h>
 #include <linux/workqueue.h>
@@ -152,7 +153,7 @@ struct cgroup_subsys_state {
  */
 struct css_set {
 	/* Reference count */
-	atomic_t refcount;
+	refcount_t refcount;
 
 	/*
 	 * List running through all cgroup groups in the same hash
