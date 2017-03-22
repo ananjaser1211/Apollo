@@ -161,6 +161,13 @@ enum bpf_attach_type {
 #define BPF_EXIST	2 /* update existing element */
 
 #define BPF_F_NO_PREALLOC	(1U << 0)
+/* Instead of having one common LRU list in the
+ * BPF_MAP_TYPE_LRU_[PERCPU_]HASH map, use a percpu LRU list
+ * which can scale and perform better.
+ * Note, the LRU nodes (including free nodes) cannot be moved
+ * across different LRU lists.
+ */
+#define BPF_F_NO_COMMON_LRU	(1U << 1)
 
 /* Flags for accessing BPF object */
 #define BPF_F_RDONLY		(1U << 3)
