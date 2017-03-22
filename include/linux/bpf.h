@@ -58,6 +58,7 @@ struct bpf_map {
 	struct user_struct *user ____cacheline_aligned;
 	atomic_t refcnt;
 	atomic_t usercnt;
+	struct bpf_map *inner_map_meta;
 	struct work_struct work;
 #ifdef CONFIG_SECURITY
 	void *security;
