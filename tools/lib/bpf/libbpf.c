@@ -1662,8 +1662,7 @@ int bpf_program__nth_fd(struct bpf_program *prog, int n)
 	return fd;
 }
 
-static void bpf_program__set_type(struct bpf_program *prog,
-				  enum bpf_prog_type type)
+void bpf_program__set_type(struct bpf_program *prog, enum bpf_prog_type type)
 {
 	prog->type = type;
 }
