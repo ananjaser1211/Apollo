@@ -568,6 +568,8 @@ SYSCALL_DEFINE5(statx,
 	struct kstat stat;
 	int error;
 
+	if (mask & STATX__RESERVED)
+		return -EINVAL;
 	if ((flags & AT_STATX_SYNC_TYPE) == AT_STATX_SYNC_TYPE)
 		return -EINVAL;
 	if (!access_ok(VERIFY_WRITE, buffer, sizeof(*buffer)))
