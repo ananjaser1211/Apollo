@@ -91,7 +91,6 @@ static inline void *__vmalloc_node_flags_caller(unsigned long size, int node,
 extern void *__vmalloc_node_flags_caller(unsigned long size,
 					 int node, gfp_t flags, void *caller);
 #endif
-
 extern void vfree(const void *addr);
 
 extern void *vmap(struct page **pages, unsigned int count,
