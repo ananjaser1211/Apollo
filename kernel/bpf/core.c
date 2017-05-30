@@ -840,10 +840,10 @@ EXPORT_SYMBOL_GPL(__bpf_call_base);
  *
  * Decode and execute eBPF instructions.
  */
-static unsigned int __bpf_prog_run(const struct sk_buff *ctx, const struct bpf_insn *insn)
+static unsigned int ___bpf_prog_run(u64 *regs, const struct bpf_insn *insn,
+				    u64 *stack)
 {
-	u64 stack[MAX_BPF_STACK / sizeof(u64)];
-	u64 regs[MAX_BPF_REG], tmp;
+	u64 tmp;
 	static const void *jumptable[256] = {
 		[0 ... 255] = &&default_label,
 		/* Now overwrite non-defaults ... */
@@ -958,9 +958,6 @@ static unsigned int __bpf_prog_run(const struct sk_buff *ctx, const struct bpf_i
 
 #define CONT	 ({ insn++; goto select_insn; })
 #define CONT_JMP ({ insn++; goto select_insn; })
-
-	FP = (u64) (unsigned long) &stack[ARRAY_SIZE(stack)];
-	ARG1 = (u64) (unsigned long) ctx;
 
 select_insn:
 	goto *jumptable[insn->code];
@@ -1352,7 +1349,17 @@ load_byte:
 		WARN_RATELIMIT(1, "unknown opcode %02x\n", insn->code);
 		return 0;
 }
-STACK_FRAME_NON_STANDARD(__bpf_prog_run); /* jump table */
+STACK_FRAME_NON_STANDARD(___bpf_prog_run); /* jump table */
+
+static unsigned int __bpf_prog_run(void *ctx, const struct bpf_insn *insn)
+{
+	u64 stack[MAX_BPF_STACK / sizeof(u64)];
+	u64 regs[MAX_BPF_REG];
+
+	FP = (u64) (unsigned long) &stack[ARRAY_SIZE(stack)];
+	ARG1 = (u64) (unsigned long) ctx;
+	return ___bpf_prog_run(regs, insn, stack);
+}
 
 #else
 static unsigned int __bpf_prog_ret0_warn(const void *ctx,
