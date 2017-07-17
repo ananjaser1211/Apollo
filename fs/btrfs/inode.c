@@ -5780,8 +5780,8 @@ struct inode *btrfs_lookup_dentry(struct inode *dir, struct dentry *dentry)
 	srcu_read_unlock(&root->fs_info->subvol_srcu, index);
 
 	if (!IS_ERR(inode) && root != sub_root) {
-		down_read(&root->fs_info->cleanup_work_sem);
-		if (!(inode->i_sb->s_flags & MS_RDONLY))
+		down_read(&fs_info->cleanup_work_sem);
+		if (!sb_rdonly(inode->i_sb))
 			ret = btrfs_orphan_cleanup(sub_root);
 		up_read(&root->fs_info->cleanup_work_sem);
 		if (ret) {

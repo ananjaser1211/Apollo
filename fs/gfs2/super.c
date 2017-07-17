@@ -892,7 +892,7 @@ restart:
 	}
 	spin_unlock(&sdp->sd_jindex_spin);
 
-	if (!(sb->s_flags & MS_RDONLY)) {
+	if (!sb_rdonly(sb)) {
 		error = gfs2_make_fs_ro(sdp);
 		if (error)
 			gfs2_io_error(sdp);
@@ -1531,7 +1531,7 @@ static void gfs2_evict_inode(struct inode *inode)
 		return;
 	}
 
-	if (inode->i_nlink || (sb->s_flags & MS_RDONLY))
+	if (inode->i_nlink || sb_rdonly(sb))
 		goto out;
 
 	/* Must not read inode block until block type has been verified */

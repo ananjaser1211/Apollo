@@ -107,7 +107,7 @@ void reiserfs_schedule_old_flush(struct super_block *s)
 	 * Avoid scheduling flush when sb is being shut down. It can race
 	 * with journal shutdown and free still queued delayed work.
 	 */
-	if (s->s_flags & MS_RDONLY || !(s->s_flags & MS_ACTIVE))
+	if (sb_rdonly(s) || !(s->s_flags & MS_ACTIVE))
 		return;
 
 	spin_lock(&sbi->old_work_lock);
@@ -137,7 +137,7 @@ static int reiserfs_freeze(struct super_block *s)
 	reiserfs_cancel_old_flush(s);
 
 	reiserfs_write_lock(s);
-	if (!(s->s_flags & MS_RDONLY)) {
+	if (!sb_rdonly(s)) {
 		int err = journal_begin(&th, s, 1);
 		if (err) {
 			reiserfs_block_writes(&th);
@@ -569,7 +569,7 @@ static void reiserfs_put_super(struct super_block *s)
 	 * change file system state to current state if it was mounted
 	 * with read-write permissions
 	 */
-	if (!(s->s_flags & MS_RDONLY)) {
+	if (!sb_rdonly(s)) {
 		if (!journal_begin(&th, s, 10)) {
 			reiserfs_prepare_for_journal(s, SB_BUFFER_WITH_SB(s),
 						     1);
@@ -599,6 +599,7 @@ static void reiserfs_put_super(struct super_block *s)
 	reiserfs_write_unlock(s);
 	mutex_destroy(&REISERFS_SB(s)->lock);
 	destroy_workqueue(REISERFS_SB(s)->commit_wq);
+	kfree(REISERFS_SB(s)->s_jdev);
 	kfree(s->s_fs_info);
 	s->s_fs_info = NULL;
 }
@@ -670,7 +671,7 @@ static void reiserfs_dirty_inode(struct inode *inode, int flags)
 
 	int err = 0;
 
-	if (inode->i_sb->s_flags & MS_RDONLY) {
+	if (sb_rdonly(inode->i_sb)) {
 		reiserfs_warning(inode->i_sb, "clm-6006",
 				 "writing inode %lu on readonly FS",
 				 inode->i_ino);
@@ -1495,7 +1496,7 @@ static int reiserfs_remount(struct super_block *s, int *mount_flags, char *arg)
 		reiserfs_write_unlock(s);
 		reiserfs_xattr_init(s, *mount_flags);
 		/* remount read-only */
-		if (s->s_flags & MS_RDONLY)
+		if (sb_rdonly(s))
 			/* it is read-only already */
 			goto out_ok_unlocked;
 
@@ -1521,7 +1522,7 @@ static int reiserfs_remount(struct super_block *s, int *mount_flags, char *arg)
 		journal_mark_dirty(&th, SB_BUFFER_WITH_SB(s));
 	} else {
 		/* remount read-write */
-		if (!(s->s_flags & MS_RDONLY)) {
+		if (!sb_rdonly(s)) {
 			reiserfs_write_unlock(s);
 			reiserfs_xattr_init(s, *mount_flags);
 			goto out_ok_unlocked;	/* We are read-write already */
@@ -1827,7 +1828,7 @@ static int what_hash(struct super_block *s)
 	 * the super
 	 */
 	if (code != UNSET_HASH &&
-	    !(s->s_flags & MS_RDONLY) &&
+	    !sb_rdonly(s) &&
 	    code != sb_hash_function_code(SB_DISK_SUPER_BLOCK(s))) {
 		set_sb_hash_function_code(SB_DISK_SUPER_BLOCK(s), code);
 	}
@@ -1927,7 +1928,7 @@ static int reiserfs_fill_super(struct super_block *s, void *data, int silent)
 		if (!sbi->s_jdev) {
 			SWARN(silent, s, "", "Cannot allocate memory for "
 				"journal device name");
-			goto error;
+			goto error_unlocked;
 		}
 	}
 #ifdef CONFIG_QUOTA
@@ -2026,7 +2027,9 @@ static int reiserfs_fill_super(struct super_block *s, void *data, int silent)
 	if (replay_only(s))
 		goto error_unlocked;
 
-	if (bdev_read_only(s->s_bdev) && !(s->s_flags & MS_RDONLY)) {
+	s->s_xattr = reiserfs_xattr_handlers;
+
+	if (bdev_read_only(s->s_bdev) && !sb_rdonly(s)) {
 		SWARN(silent, s, "clm-7000",
 		      "Detected readonly device, marking FS readonly");
 		s->s_flags |= MS_RDONLY;
@@ -2075,7 +2078,7 @@ static int reiserfs_fill_super(struct super_block *s, void *data, int silent)
 	else
 		set_bit(REISERFS_3_6, &sbi->s_properties);
 
-	if (!(s->s_flags & MS_RDONLY)) {
+	if (!sb_rdonly(s)) {
 
 		errval = journal_begin(&th, s, 1);
 		if (errval) {
@@ -2215,6 +2218,7 @@ error_unlocked:
 			kfree(qf_names[j]);
 	}
 #endif
+	kfree(sbi->s_jdev);
 	kfree(sbi);
 
 	s->s_fs_info = NULL;
