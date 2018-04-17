@@ -5136,6 +5136,7 @@
 			dm-type = <DM_CPU_CL0>;
 
 			min-freq = <455000>;
+			max-freq = <1950000>;
 
 			/* PM QoS Class ID*/
 			pm_qos-min-class = <3>;
@@ -5148,7 +5149,8 @@
 					const-type = <CONSTRAINT_MIN>;
 					dm-type = <DM_MIF>;
 						/*  cpu     mif  */
-					table = < 1950000  845000
+					table = < 2002000  845000
+						  1950000  845000
 						  1794000  845000
 						  1690000  845000
 						  1456000  676000
