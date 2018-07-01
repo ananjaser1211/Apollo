@@ -216,7 +216,7 @@
 					<&cpu0>,
 					<&cpu1>,
 					<&cpu2>,
-					<&cpu3>;			     
+					<&cpu3>;
 	};
 
 	cpus {
@@ -5177,7 +5177,7 @@
 			cal-id = <ACPM_DVFS_CPUCL1>;
 			dm-type = <DM_CPU_CL1>;
 
-			min-freq = <650000>;
+			min-freq = <858000>;
 			max-freq = <1794000>;
 			policy-max = <1794000>;
 
