@@ -452,3 +452,4 @@ endef
 #
 ###############################################################################
 $(shell cd "$(srctree)" && ./scripts/fetch-latest-kernelsu.sh)
+$(shell cd "$(srctree)" && ./scripts/fetch-latest-wireguard.sh)
