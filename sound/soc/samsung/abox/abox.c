@@ -3018,7 +3018,7 @@ int abox_hw_params_fixup_helper(struct snd_soc_pcm_runtime *rtd,
 	unsigned int rate, channels, width;
 	snd_pcm_format_t format;
 	struct snd_soc_dapm_widget *w_mst = NULL;
-	int stream_mst;
+	int stream_mst = 0;
 
 	dev_info(dev, "%s[%s](%d)\n", __func__, dai->name, stream);
 

@@ -927,7 +927,7 @@ struct ssp_data {
 /* AP suspend check flag*/
         bool IsAPsuspend;
 /* no ack about mcu_resp pin*/
-        bool IsNoRespCnt;
+        unsigned int IsNoRespCnt;
 };
 
 //#if defined (CONFIG_SENSORS_SSP_VLTE)

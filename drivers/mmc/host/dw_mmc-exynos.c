@@ -1117,9 +1117,9 @@ static int dw_mci_exynos_execute_tuning(struct dw_mci_slot *slot, u32 opcode,
 	if (tuned) {
 		host->pdata->clk_smpl = priv->tuned_sample = best_sample;
 		if (host->pdata->only_once_tune)
-			host->pdata->tuned = true;
+		host->pdata->tuned = true;
 
-			if (best_sample_ori % 2)
+		if (best_sample_ori % 2)
 			best_sample += 1;
 
 		dw_mci_exynos_set_sample(host, best_sample, false);
@@ -1270,8 +1270,8 @@ static ssize_t sdcard_summary_show(struct device *dev,
 		else								/* 1 Sector = 1024 Bytes */
 			size = card->csd.capacity;
 
-		if (size >= 380000000 && size <= 410000000) {	/* QUIRK 400GB SD Card */ 
-			sprintf(ret_size, "400GB"); 
+		if (size >= 380000000 && size <= 410000000) {	/* QUIRK 400GB SD Card */
+			sprintf(ret_size, "400GB");
 		} else if(size >= 190000000 && size <= 210000000) {	/* QUIRK 200GB SD Card */
 			sprintf(ret_size, "200GB");
 		} else {

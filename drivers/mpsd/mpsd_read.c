@@ -49,7 +49,7 @@ void set_cpufreq_policy_map(void)
 	unsigned int cpu = 0;
 	struct cpufreq_policy policy;
 
-	memset(cpufreq_policy_map, 0, MAX_NUM_CPUS);
+	memset(cpufreq_policy_map, 0, sizeof(cpufreq_policy_map));
 	for_each_possible_cpu(cpu) {
 		if (cpufreq_get_policy(&policy, cpu) != 0) {
 #ifdef CONFIG_MPSD_DEBUG
