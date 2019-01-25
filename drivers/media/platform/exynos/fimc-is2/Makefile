@@ -90,3 +90,6 @@ subdir-ccflags-$(CONFIG_FIMC_IS_V6_0_0) += -Idrivers/media/platform/exynos/fimc-
 subdir-ccflags-$(CONFIG_VENDER_DEFAULT) += -Idrivers/media/platform/exynos/fimc-is2/vendor/default
 subdir-ccflags-$(CONFIG_VENDER_MCD) += -Idrivers/media/platform/exynos/fimc-is2/vendor/mcd
 subdir-ccflags-$(CONFIG_VENDER_PSV) += -Idrivers/media/platform/exynos/fimc-is2/vendor/psv
+
+subdir-ccflags-y += -Wno-sizeof-pointer-memaccess
+subdir-ccflags-y += -Wno-stringop-overflow
