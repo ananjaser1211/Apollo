@@ -5699,7 +5699,8 @@ static int sched_group_energy(struct energy_env *eenv)
 				if (!sd->child)
 					cpumask_xor(&visit_cpus, &visit_cpus, sched_group_cpus(sg));
 
-				if (cpumask_equal(sched_group_cpus(sg), sched_group_cpus(eenv->sg_top)))
+				if (cpumask_equal(sched_group_cpus(sg), sched_group_cpus(eenv->sg_top)) &&
+					sd->child)
 					goto next_cpu;
 
 			} while (sg = sg->next, sg != sd->groups);
