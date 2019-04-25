@@ -854,7 +854,7 @@ static ssize_t read_pressure_raw_check_show(struct device *dev,
 
 			snprintf(tmp, sizeof(tmp), "\"TP%02d%c\":\"%d\"",
 					data[i], loc[j], ts->pressure_data[data[i]][j]);
-			strncat(buff, tmp, sizeof(*tmp));
+			strlcat(buff, tmp, sizeof(buff));
 			if (i < 3 || j < PRESSURE_CHANNEL_NUM - 1)
 				strncat(buff, ",", 2);
 		}
@@ -900,13 +900,13 @@ static ssize_t read_ambient_channel_info_show(struct device *dev,
 	for (i = 0; i < ts->tx_count; i++) {
 		snprintf(temp, sizeof(temp), "\"TAMB_TX%02d\":\"%d\",",
 				i, ts->ambient_tx[i]);
-		strncat(buffer, temp, sizeof(*temp));
+		strlcat(buffer, temp, (ts->tx_count + ts->rx_count) * 25);
 	}
 
 	for (i = 0; i < ts->rx_count; i++) {
 		snprintf(temp, sizeof(temp), "\"TAMB_RX%02d\":\"%d\"",
 				i, ts->ambient_rx[i]);
-		strncat(buffer, temp, sizeof(*temp));
+		strlcat(buffer, temp, (ts->tx_count + ts->rx_count) * 25);
 		if (i  != (ts->rx_count - 1))
 			strncat(buffer, ",", 2);
 	}
@@ -938,13 +938,13 @@ static ssize_t read_ambient_channel_delta_show(struct device *dev,
 	for (i = 0; i < ts->tx_count; i++) {
 		snprintf(temp, sizeof(temp), "\"TCDT%02d\":\"%d\",",
 				i, ts->ambient_tx_delta[i]);
-		strncat(buffer, temp, sizeof(*temp));
+		strlcat(buffer, temp, (ts->tx_count + ts->rx_count) * 25);
 	}
 
 	for (i = 0; i < ts->rx_count; i++) {
 		snprintf(temp, sizeof(temp), "\"TCDR%02d\":\"%d\"",
 				i, ts->ambient_rx_delta[i]);
-		strncat(buffer, temp, sizeof(*temp));
+		strlcat(buffer, temp, (ts->tx_count + ts->rx_count) * 25);
 		if (i  != (ts->rx_count - 1))
 			strncat(buffer, ",", 2);
 	}
@@ -1030,7 +1030,7 @@ static ssize_t get_lp_dump(struct device *dev, struct device_attribute *attr, ch
 			snprintf(buff, sizeof(buff),
 					"%d: %04x%04x%04x%04x\n",
 					string_addr, data0, data1, data2, data3);
-			strncat(buf, buff, sizeof(*buff));
+			strlcat(buf, buff, PAGE_SIZE);
 		}
 	}
 
@@ -1086,21 +1086,21 @@ static ssize_t ic_status_show(struct device *dev,
 		return snprintf(buf, SEC_CMD_BUF_SIZE, "%s\n", buff);
 
 	snprintf(temp, sizeof(temp), "mutual,%d,", data[0] & 0x01 ? 1 : 0);
-	strncat(buff, temp, sizeof(*temp));
+	strlcat(buff, temp, sizeof(buff));
 	snprintf(temp, sizeof(temp), "hover,%d,", data[0] & 0x02 ? 1 : 0);
-	strncat(buff, temp, sizeof(*temp));
+	strlcat(buff, temp, sizeof(buff));
 	snprintf(temp, sizeof(temp), "cover,%d,", data[0] & 0x04 ? 1 : 0);
-	strncat(buff, temp, sizeof(*temp));
+	strlcat(buff, temp, sizeof(buff));
 	snprintf(temp, sizeof(temp), "glove,%d,", data[0] & 0x08 ? 1 : 0);
-	strncat(buff, temp, sizeof(*temp));
+	strlcat(buff, temp, sizeof(buff));
 	snprintf(temp, sizeof(temp), "stylus,%d,", data[0] & 0x10 ? 1 : 0);
-	strncat(buff, temp, sizeof(*temp));
+	strlcat(buff, temp, sizeof(buff));
 	snprintf(temp, sizeof(temp), "palm,%d,", data[0] & 0x20 ? 1 : 0);
-	strncat(buff, temp, sizeof(*temp));
+	strlcat(buff, temp, sizeof(buff));
 	snprintf(temp, sizeof(temp), "wet,%d,", data[0] & 0x40 ? 1 : 0);
-	strncat(buff, temp, sizeof(*temp));
+	strlcat(buff, temp, sizeof(buff));
 	snprintf(temp, sizeof(temp), "prox,%d,", data[0] & 0x80 ? 1 : 0);
-	strncat(buff, temp, sizeof(*temp));
+	strlcat(buff, temp, sizeof(buff));
 
 	memset(data, 0x00, 2);
 	ret = ts->sec_ts_i2c_read(ts, SEC_TS_CMD_SET_POWER_MODE, data, 1);
@@ -1108,13 +1108,13 @@ static ssize_t ic_status_show(struct device *dev,
 		return snprintf(buf, SEC_CMD_BUF_SIZE, "%s\n", buff);
 
 	snprintf(temp, sizeof(temp), "npm,%d,", data[0] == 0 ? 1 : 0);
-	strncat(buff, temp, sizeof(*temp));
+	strlcat(buff, temp, sizeof(buff));
 	snprintf(temp, sizeof(temp), "lpm,%d,", data[0] == 1 ? 1 : 0);
-	strncat(buff, temp, sizeof(*temp));
+	strlcat(buff, temp, sizeof(buff));
 	snprintf(temp, sizeof(temp), "test,%d,", data[0] == 2 ? 1 : 0);
-	strncat(buff, temp, sizeof(*temp));
+	strlcat(buff, temp, sizeof(buff));
 	snprintf(temp, sizeof(temp), "flash,%d,", data[0] == 3 ? 1 : 0);
-	strncat(buff, temp, sizeof(*temp));
+	strlcat(buff, temp, sizeof(buff));
 
 	memset(data, 0x00, 2);
 	ret = ts->sec_ts_i2c_read(ts, SET_TS_CMD_SET_CHARGER_MODE, data, 1);
@@ -1122,11 +1122,11 @@ static ssize_t ic_status_show(struct device *dev,
 		return snprintf(buf, SEC_CMD_BUF_SIZE, "%s\n", buff);
 
 	snprintf(temp, sizeof(temp), "no_charge,%d,", data[0] == 0 ? 1 : 0);
-	strncat(buff, temp, sizeof(*temp));
+	strlcat(buff, temp, sizeof(buff));
 	snprintf(temp, sizeof(temp), "wire_charge,%d,", data[0] == 1 ? 1 : 0);
-	strncat(buff, temp, sizeof(*temp));
+	strlcat(buff, temp, sizeof(buff));
 	snprintf(temp, sizeof(temp), "wireless_charge,%d,", data[0] == 2 ? 1 : 0);
-	strncat(buff, temp, sizeof(*temp));
+	strlcat(buff, temp, sizeof(buff));
 
 	memset(data, 0x00, 2);
 	ret = ts->sec_ts_i2c_read(ts, SET_TS_CMD_SET_NOISE_MODE, data, 1);
@@ -1134,7 +1134,7 @@ static ssize_t ic_status_show(struct device *dev,
 		return snprintf(buf, SEC_CMD_BUF_SIZE, "%s\n", buff);
 
 	snprintf(temp, sizeof(temp), "noise,%d,", data[0]);
-	strncat(buff, temp, sizeof(*temp));
+	strlcat(buff, temp, sizeof(buff));
 
 	memset(data, 0x00, 2);
 	ret = ts->sec_ts_i2c_read(ts, SEC_TS_CMD_SET_COVERTYPE, data, 1);
@@ -1142,7 +1142,7 @@ static ssize_t ic_status_show(struct device *dev,
 		return snprintf(buf, SEC_CMD_BUF_SIZE, "%s\n", buff);
 
 	snprintf(temp, sizeof(temp), "cover_type,%d,", data[0]);
-	strncat(buff, temp, sizeof(*temp));
+	strlcat(buff, temp, sizeof(buff));
 
 	memset(data, 0x00, 2);
 	ret = ts->sec_ts_read_sponge(ts, data, 1);
@@ -1150,13 +1150,13 @@ static ssize_t ic_status_show(struct device *dev,
 		return snprintf(buf, SEC_CMD_BUF_SIZE, "%s\n", buff);
 
 	snprintf(temp, sizeof(temp), "pressure,%d,", data[0] & 0x40 ? 1 : 0);
-	strncat(buff, temp, sizeof(*temp));
+	strlcat(buff, temp, sizeof(buff));
 
 	snprintf(temp, sizeof(temp), "aod,%d,", data[0] & 0x04 ? 1 : 0);
-	strncat(buff, temp, sizeof(*temp));
+	strlcat(buff, temp, sizeof(buff));
 
 	snprintf(temp, sizeof(temp), "spay,%d,", data[0] & 0x02 ? 1 : 0);
-	strncat(buff, temp, sizeof(*temp));
+	strlcat(buff, temp, sizeof(buff));
 
 	data[0] = 0;
 
@@ -1165,7 +1165,7 @@ static ssize_t ic_status_show(struct device *dev,
 		return snprintf(buf, SEC_CMD_BUF_SIZE, "%s\n", buff);
 
 	snprintf(temp, sizeof(temp), "dex,%d,", data[0]);
-	strncat(buff, temp, sizeof(*temp));
+	strlcat(buff, temp, sizeof(buff));
 
 	data[0] = 0;
 
@@ -1174,7 +1174,7 @@ static ssize_t ic_status_show(struct device *dev,
 		return snprintf(buf, SEC_CMD_BUF_SIZE, "%s\n", buff);
 
 	snprintf(temp, sizeof(temp), "artcanvas,%d,", data[0]);
-	strncat(buff, temp, sizeof(*temp));
+	strlcat(buff, temp, sizeof(buff));
 
 	input_info(true, &ts->client->dev, "%s: %s\n", __func__, buff);
 
@@ -1294,10 +1294,10 @@ static ssize_t get_cmoffset_dump(struct sec_ts_data *ts, char *buf, u8 position)
 				temp = avg + temp;
 
 			snprintf(buff, sizeof(buff), " %4x", temp);
-			strncat(buf, buff, sizeof(*buff));
+			strlcat(buf, buff, PAGE_SIZE);
 		}
 		snprintf(buff, sizeof(buff), "\n");
-		strncat(buf, buff, sizeof(*buff));
+		strlcat(buf, buff, PAGE_SIZE);
 	}
 
 	input_err(true, &ts->client->dev, "%s: total buf size:%d\n", __func__, strlen(buf));
@@ -1405,7 +1405,7 @@ static ssize_t get_pressure_cfoffset_strength_all(struct device *dev, struct dev
 
 	memset(buff, 0x00, 16);
 	snprintf(buff, sizeof(buff), "[CFOFFSET]");
-	strncat(buf, buff, sizeof(*buff));
+	strlcat(buf, buff, PAGE_SIZE);
 
 	for (i = 0; i < cfoffset_max; i++) {
 		temp = rBuff[2 * i + 1] | rBuff[2 * i] << 8;
@@ -1413,34 +1413,34 @@ static ssize_t get_pressure_cfoffset_strength_all(struct device *dev, struct dev
 		memset(buff, 0x00, 16);
 		if (i % 3 == 0) {
 			snprintf(buff, sizeof(buff), "\n");
-			strncat(buf, buff, sizeof(*buff));
+			strlcat(buf, buff, PAGE_SIZE);
 			if (i / 3 == 0) {
 				snprintf(buff, sizeof(buff), "SDC: ");
-				strncat(buf, buff, sizeof(*buff));
+				strlcat(buf, buff, PAGE_SIZE);
 			} else if (i / 3 == 1) {
 				snprintf(buff, sizeof(buff), "SUB: ");
-				strncat(buf, buff, sizeof(*buff));
+				strlcat(buf, buff, PAGE_SIZE);
 			} else if (i / 3 == 2) {
 				snprintf(buff, sizeof(buff), "MAI: ");
-				strncat(buf, buff, sizeof(*buff));
+				strlcat(buf, buff, PAGE_SIZE);
 			}
 		}
 
 		memset(buff, 0x00, 16);
 		snprintf(buff, sizeof(buff), "\t%d", temp);
-		strncat(buf, buff, sizeof(*buff));
+		strlcat(buf, buff, PAGE_SIZE);
 	}
 
 	memset(buff, 0x00, 16);
 	snprintf(buff, sizeof(buff), "\n[STRENGTH]");
-	strncat(buf, buff, sizeof(*buff));
+	strlcat(buf, buff, PAGE_SIZE);
 
 	/* strength 30byte */
 	ret = ts->sec_ts_i2c_read(ts, SEC_TS_GET_FORCE_PRESSURE_DATA, rBuff, strength_max * 2);
 	if (ret < 0) {
 		input_err(true, &ts->client->dev, "%s: read strength failed!\n", __func__);
 		snprintf(buff, sizeof(buff), "\n NG");
-		strncat(buf, buff, sizeof(*buff));
+		strlcat(buf, buff, PAGE_SIZE);
 		goto err_i2c;
 	}
 
@@ -1450,31 +1450,31 @@ static ssize_t get_pressure_cfoffset_strength_all(struct device *dev, struct dev
 		memset(buff, 0x00, 16);
 		if (i % 3 == 0) {
 			snprintf(buff, sizeof(buff), "\n");
-			strncat(buf, buff, sizeof(*buff));
+			strlcat(buf, buff, PAGE_SIZE);
 			if (i / 3 == 0) {
 				snprintf(buff, sizeof(buff), "LAT: ");
-				strncat(buf, buff, sizeof(*buff));
+				strlcat(buf, buff, PAGE_SIZE);
 			} else if (i / 3 == 1) {
 				snprintf(buff, sizeof(buff), "SDC: ");
-				strncat(buf, buff, sizeof(*buff));
+				strlcat(buf, buff, PAGE_SIZE);
 			} else if (i / 3 == 2) {
 				snprintf(buff, sizeof(buff), "SUB: ");
-				strncat(buf, buff, sizeof(*buff));
+				strlcat(buf, buff, PAGE_SIZE);
 			} else if (i / 3 == 3) {
 				snprintf(buff, sizeof(buff), "MAI: ");
-				strncat(buf, buff, sizeof(*buff));
+				strlcat(buf, buff, PAGE_SIZE);
 			} else if (i / 3 == 4) {
 				snprintf(buff, sizeof(buff), "SVC: ");
-				strncat(buf, buff, sizeof(*buff));
+				strlcat(buf, buff, PAGE_SIZE);
 			}
 		}
 
 		snprintf(buff, sizeof(buff), "\t%d", temp);
-		strncat(buf, buff, sizeof(*buff));
+		strlcat(buf, buff, PAGE_SIZE);
 	}
 
 	snprintf(buff, sizeof(buff), "\n");
-	strncat(buf, buff, sizeof(*buff));
+	strlcat(buf, buff, PAGE_SIZE);
 
 	input_err(true, &ts->client->dev, "%s: total buf size:%d\n", __func__, strlen(buf));
 
