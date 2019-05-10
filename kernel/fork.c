@@ -1926,7 +1926,7 @@ static __latent_entropy struct task_struct *copy_process(
 	 */
 	retval = cgroup_can_fork(p);
 	if (retval)
-		goto bad_fork_put_pidfd;
+		goto bad_fork_cgroup_threadgroup_change_end;
 
 	retval = dup_task_integrity(clone_flags, p);
 	if (retval)
@@ -2033,11 +2033,12 @@ bad_fork_cancel_cgroup:
 	write_unlock_irq(&tasklist_lock);
 	cgroup_cancel_fork(p);
 	task_integrity_cleanup(p);
+bad_fork_cgroup_threadgroup_change_end:
+	threadgroup_change_end(current);
 bad_fork_put_pidfd:
 	if (clone_flags & CLONE_PIDFD)
 		sys_close(pidfd);
 bad_fork_free_pid:
-	threadgroup_change_end(current);
 	if (pid != &init_struct_pid)
 		free_pid(pid);
 bad_fork_cleanup_thread:
