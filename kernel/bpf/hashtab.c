@@ -43,12 +43,12 @@ struct bpf_htab {
 /* each htab element is struct htab_elem + key + value */
 struct htab_elem {
 	union {
-		struct hlist_nulls_node hash_node;
+		struct hlist_node hash_node;
 		struct {
 			void *padding;
 			union {
-		struct bpf_htab *htab;
-		struct pcpu_freelist_node fnode;
+				struct bpf_htab *htab;
+				struct pcpu_freelist_node fnode;
 	};
 		};
 	};
@@ -211,7 +211,7 @@ static struct bpf_map *htab_map_alloc(union bpf_attr *attr)
 	BUILD_BUG_ON(offsetof(struct htab_elem, fnode.next) !=
 		     offsetof(struct htab_elem, hash_node.pprev));
 
-	if (attr->map_flags & ~HTAB_CREATE_FLAG_MASK)
+	if (attr->map_flags & ~BPF_F_NO_PREALLOC)
 		/* reserved bits should not be used */
 		return ERR_PTR(-EINVAL);
 
