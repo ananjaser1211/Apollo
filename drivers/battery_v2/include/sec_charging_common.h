@@ -1074,7 +1074,8 @@ static inline struct power_supply *get_power_supply_by_name(char *name)
 		ret = -ENOENT;	\
 	} else {	\
 		if (psy->desc->function##_property != NULL) { \
-			ret = psy->desc->function##_property(psy, (property), &(value)); \
+			ret = psy->desc->function##_property(psy, \
+				(enum power_supply_property) (property), &(value)); \
 			if (ret < 0) {	\
 				pr_err("%s: Fail to %s "#function" (%d=>%d)\n", \
 						__func__, name, (property), ret);	\
@@ -1155,7 +1156,7 @@ static inline struct power_supply *get_power_supply_by_name(char *name)
 		cable_type == SEC_BATTERY_CABLE_NONE || \
 		cable_type == SEC_BATTERY_CABLE_OTG || \
 		cable_type == SEC_BATTERY_CABLE_POWER_SHARING)
-	
+
 #define is_slate_mode(battery) ((battery->current_event & SEC_BAT_CURRENT_EVENT_SLATE) \
 			== SEC_BAT_CURRENT_EVENT_SLATE)
 #endif /* __SEC_CHARGING_COMMON_H */

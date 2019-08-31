@@ -56,7 +56,7 @@ static irqreturn_t mfc_wpc_irq_thread(int irq, void *irq_data);
 #define MAX_I2C_ERROR_COUNT		30
 static void mfc_check_i2c_error(struct mfc_charger_data *charger, bool is_error)
 {
-	charger->i2c_error_count = 
+	charger->i2c_error_count =
 		(charger->wc_w_state && gpio_get_value(charger->pdata->wpc_det) && is_error) ?
 		(charger->i2c_error_count + 1) : 0;
 
@@ -1832,7 +1832,7 @@ static int mfc_chg_get_property(struct power_supply *psy,
 		union power_supply_propval *val)
 {
 	struct mfc_charger_data *charger = power_supply_get_drvdata(psy);
-	enum power_supply_ext_property ext_psp = psp;
+	enum power_supply_ext_property ext_psp = (enum power_supply_ext_property) psp;
 //	union power_supply_propval value;
 	u8 mst_mode;
 	u8 reg_data;
@@ -3819,4 +3819,3 @@ module_exit(mfc_charger_exit);
 MODULE_DESCRIPTION("Samsung MFC Charger Driver");
 MODULE_AUTHOR("Samsung Electronics");
 MODULE_LICENSE("GPL");
-

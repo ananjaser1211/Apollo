@@ -807,7 +807,7 @@ static int max77705_set_otg(struct max77705_charger_data *charger, int enable)
 		enable > 0 ? "on" : "off");
 	if (charger->otg_on == enable ||lpcharge)
 		return 0;
-		
+
 	ret = max77705_check_wcin_before_otg_on(charger);
 	pr_info("%s: wc_state = %d\n", __func__, ret);
 	if (ret < 0)
@@ -1158,7 +1158,7 @@ static int max77705_chg_get_property(struct power_supply *psy,
 {
 	struct max77705_charger_data *charger = power_supply_get_drvdata(psy);
 	u8 reg_data;
-	enum power_supply_ext_property ext_psp = psp;
+	enum power_supply_ext_property ext_psp = (enum power_supply_ext_property) psp;
 
 	switch (psp) {
 	case POWER_SUPPLY_PROP_ONLINE:
@@ -1301,7 +1301,7 @@ static int max77705_chg_set_property(struct power_supply *psy,
 	u8 reg = 0;
 	static u8 chg_int_state;
 	int buck_state = ENABLE;
-	enum power_supply_ext_property ext_psp = psp;
+	enum power_supply_ext_property ext_psp = (enum power_supply_ext_property) psp;
 	union power_supply_propval value = {0, };
 
 	/* check unlock status before does set the register */
@@ -2707,4 +2707,3 @@ module_exit(max77705_charger_exit);
 MODULE_DESCRIPTION("Samsung MAX77705 Charger Driver");
 MODULE_AUTHOR("Samsung Electronics");
 MODULE_LICENSE("GPL");
-
