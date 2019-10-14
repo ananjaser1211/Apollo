@@ -171,5 +171,7 @@ struct security_class_mapping secclass_map[] = {
 	  { COMMON_CAP_PERMS, NULL } },
 	{ "cap2_lod",
 	  { COMMON_CAP2_PERMS, NULL } },
+	{ "perf_event",
+	  {"open", "cpu", "kernel", "tracepoint", "read", "write"} },
 	{ NULL }
   };
