@@ -935,6 +935,7 @@ static int is_client_alive(struct ion_client *client)
 
 static int ion_debug_client_show(struct seq_file *s, void *unused)
 {
+#ifdef CONFIG_ION_EXYNOS_STAT_LOG
 	struct ion_client *client = s->private;
 	struct rb_node *n;
 	size_t sizes[ION_NUM_HEAP_IDS] = {0};
@@ -984,6 +985,7 @@ static int ion_debug_client_show(struct seq_file *s, void *unused)
 		seq_printf(s, "%16.16s: %16zu %18zu\n",
 				names[i], sizes[i], sizes_pss[i]);
 	}
+#endif
 	return 0;
 }
 
