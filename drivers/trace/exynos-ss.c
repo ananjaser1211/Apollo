@@ -43,8 +43,6 @@ extern void register_hook_logbuf(void (*)(const char *, size_t));
 #endif
 extern void register_hook_logger(void (*)(const char *, const char *, size_t));
 
-typedef int (*ess_initcall_t)(const struct device_node *);
-
 struct exynos_ss_interface {
 	struct exynos_ss_log *info_event;
 	struct exynos_ss_item info_log[ESS_ITEM_MAX_NUM];
