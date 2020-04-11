@@ -389,7 +389,7 @@ unsigned int ion_buffer_flag_sanity_check(unsigned int heap_id_mask, unsigned in
 	 * This is the exynos9810-specific requirement.
 	 * - SEC MOBILE, kernel core memory
 	 */
-	if (flags && ION_FLAG_PROTECTED) {
+	if (flags & ION_FLAG_PROTECTED) {
 		if ((camera_heap_id && (heap_id_mask == (1 << camera_heap_id))) ||
 		    (camera_contig_heap_id && (heap_id_mask == (1 << camera_contig_heap_id))))
 			return flags & ~ION_FLAG_PROTECTED;
