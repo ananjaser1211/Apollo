@@ -1479,9 +1479,6 @@ static inline enum dma_input_order change_to_input_order(enum dma_output_order o
 	enum dma_input_order input_order;
 
 	switch (output_order) {
-	case DMA_OUTPUT_ORDER_NO:
-		input_order = DMA_INPUT_ORDER_NO;
-		break;
 	case DMA_OUTPUT_ORDER_CrCb:
 		input_order = DMA_INPUT_ORDER_CrCb;
 		break;
@@ -1506,8 +1503,9 @@ static inline enum dma_input_order change_to_input_order(enum dma_output_order o
 	case DMA_OUTPUT_ORDER_YCbCr:
 		input_order = DMA_INPUT_ORDER_YCbCr;
 		break;
+	case DMA_OUTPUT_ORDER_NO:
 	default:
-		input_order = output_order;
+		input_order = DMA_INPUT_ORDER_NO;
 		break;
 	}
 
