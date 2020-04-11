@@ -3429,7 +3429,7 @@ static int sd_remove(struct device *dev)
 
 	/* restore bdi min/max ratio before device removal */
 	sdp = to_scsi_device(dev);
-	if (sdp && sdp->request_queue && &sdp->request_queue->backing_dev_info) {
+	if (sdp && sdp->request_queue) {
 		bdi_set_min_ratio(&sdp->request_queue->backing_dev_info, 0);
 		bdi_set_max_ratio(&sdp->request_queue->backing_dev_info, 100);
 	}
