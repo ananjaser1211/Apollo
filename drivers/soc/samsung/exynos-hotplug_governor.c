@@ -587,7 +587,7 @@ static struct sched_group * get_cl_group(unsigned int cl)
 
 	sd = rcu_dereference(per_cpu(sd_ea, 0));
 	if (!sd)
-		return false;
+		return NULL;
 
 	sg = sd->groups;
 	for (i = 0; i < cl; i++)
