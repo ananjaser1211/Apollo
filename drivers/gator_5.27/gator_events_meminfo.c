@@ -17,7 +17,11 @@
 #include <linux/workqueue.h>
 #include <trace/events/kmem.h>
 
-#define USE_THREAD defined(CONFIG_PREEMPT_RT_FULL)
+#if defined(CONFIG_PREEMPT_RT_FULL)
+	#define USE_THREAD 1
+#else
+	#define USE_THREAD 0
+#endif
 
 enum {
     MEMINFO_MEMFREE,
