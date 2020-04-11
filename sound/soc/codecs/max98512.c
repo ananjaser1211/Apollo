@@ -2842,8 +2842,7 @@ static int max98512_i2c_probe(struct i2c_client *i2c,
 #ifdef CONFIG_SND_SOC_MAXIM_DSM
 	/* If maxdsm module was already registerd, will be ignored. */
 	maxdsm_init();
-	if (pdata->pinfo)
-		maxdsm_update_info(pdata->pinfo);
+	maxdsm_update_info(pdata->pinfo);
 	maxdsm_update_sub_reg(pdata->sub_reg);
 	maxdsm_update_ppr_info(pdata->ppr_info);
 #endif
