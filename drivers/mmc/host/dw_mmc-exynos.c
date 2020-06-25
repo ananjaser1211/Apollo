@@ -414,6 +414,8 @@ static void dw_mci_exynos_adjust_clock(struct dw_mci *host, unsigned int wanted)
 	host->current_speed = 0;
 }
 
+#define KHZ (1000)
+
 static void dw_mci_exynos_set_ios(struct dw_mci *host, struct mmc_ios *ios)
 {
 	struct dw_mci_exynos_priv_data *priv = host->priv;
@@ -478,6 +480,9 @@ static void dw_mci_exynos_set_ios(struct dw_mci *host, struct mmc_ios *ios)
 	default:
 		clksel = priv->sdr_timing;
 	}
+
+	if ((ios->clock > 0) && (ios->clock <= 400 * KHZ))
+		sample_path_sel_dis(host, AXI_BURST_LEN);
 
 	host->cclk_in = wanted;
 

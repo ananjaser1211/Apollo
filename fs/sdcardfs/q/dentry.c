@@ -21,6 +21,10 @@
 #include "sdcardfs.h"
 #include "linux/ctype.h"
 
+#ifdef CONFIG_FSCRYPT_SDP
+extern
+int __fscrypt_sdp_d_delete(const struct dentry *dentry, int dek_is_locked);
+#endif
 
 /*
  * returns: -ERRNO if error (returned to user)
@@ -147,6 +151,8 @@ static int sdcardfs_d_delete(const struct dentry *d)
 
 static void sdcardfs_d_release(struct dentry *dentry)
 {
+	if (!dentry || !dentry->d_fsdata)
+		return;
 	/* release and reset the lower paths */
 	if (has_graft_path(dentry))
 		sdcardfs_put_reset_orig_path(dentry);

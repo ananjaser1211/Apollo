@@ -811,3 +811,9 @@ config RBIN
 	  __GFP_RBIN can be allocated in the RBIN memory. (In this way,
 	  we can differentiate the pages going to CMA and RBIN.) Currently,
 	  there is only one user of RBIN memory, ION RBIN heap.
+
+config VMPRESSURE_LEVEL_MED
+	int "Threshold to account memory pressure"
+	default 60
+	help
+	  This supports to adjust vmpressure_level_med threshold value

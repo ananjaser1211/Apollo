@@ -214,7 +214,7 @@ obj-$(CONFIG_TRUSTONIC_TEE)     += gud/
 obj-$(CONFIG_TEE)		+= tee/
 
 # FIVE TEE driver
-obj-$(CONFIG_FIVE_TEE_DRIVER)	+= five/
+obj-$(CONFIG_FIVE_TEE_DRIVER)	+= security/samsung/five_tee_driver/
 
 # ICDriver
 obj-$(CONFIG_ICD)		+= security/samsung/icdrv/
@@ -232,3 +232,6 @@ obj-$(CONFIG_UH)		+= uh/
 obj-$(CONFIG_MPSD)	+= mpsd/
 
 obj-y				+= kperfmon/
+
+#TZIC
+obj-y  += security/samsung/tzic/

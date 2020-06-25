@@ -1,7 +1,7 @@
 /*
  * Linux cfg80211 driver
  *
- * Copyright (C) 1999-2019, Broadcom.
+ * Copyright (C) 1999-2020, Broadcom.
  *
  *      Unless you and Broadcom execute a separate written software license
  * agreement governing use of this software, this software is licensed to you
@@ -24,7 +24,7 @@
  *
  * <<Broadcom-WL-IPTag/Open:>>
  *
- * $Id: wl_cfg80211.h 850437 2019-11-13 13:01:26Z $
+ * $Id: wl_cfg80211.h 854461 2019-12-09 02:16:27Z $
  */
 
 /**
@@ -2501,4 +2501,5 @@ do {	\
 	}	\
 } while (0)
 extern s32 wl_cfg80211_handle_macaddr_change(struct net_device *dev, u8 *macaddr);
+extern void wl_cfg80211_concurrent_roam(struct bcm_cfg80211 *cfg, int enable);
 #endif /* _wl_cfg80211_h_ */

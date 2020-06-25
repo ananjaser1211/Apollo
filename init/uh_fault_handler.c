@@ -118,7 +118,7 @@ void uh_fault_handler(void)
 	memcpy(&kregs, &uh_handler_data->regs, sizeof(struct uh_registers));
 	__show_regs(&kregs);
 	do_not_show_extra = 0;	
-	panic("%s", exception_class_string[exception_class]);
+	panic("uH Fault handler : %s", exception_class_string[exception_class]);
 }
 
 u64 uh_get_fault_handler(void)

@@ -632,7 +632,7 @@ static void tx_complete(struct usb_ep *ep, struct usb_request *req)
 				retval = usb_ep_queue(in, new_req, GFP_ATOMIC);
 				switch (retval) {
 				default:
-					printk(KERN_ERR"usb: dropped tx_complete_newreq(%p)\n", new_req);
+					printk(KERN_ERR"usb: dropped tx_complete_newreq(%pK)\n", new_req);
 					DBG(dev, "tx queue err %d\n", retval);
 					new_req->length = 0;
 					spin_lock(&dev->req_lock);
@@ -796,6 +796,10 @@ static netdev_tx_t eth_start_xmit(struct sk_buff *skb,
 	unsigned long		flags;
 	struct usb_ep		*in;
 	u16			cdc_filter;
+	bool eth_multi_pkt_xfer = 0;
+	bool eth_supports_multi_frame = 0;
+	bool eth_is_fixed = 0;
+
 #ifdef CONFIG_USB_RNDIS_MULTIPACKET_WITH_TIMER
 	if (dev->en_timer) {
 		hrtimer_cancel(&dev->tx_timer);
@@ -806,6 +810,9 @@ static netdev_tx_t eth_start_xmit(struct sk_buff *skb,
 	if (dev->port_usb) {
 		in = dev->port_usb->in_ep;
 		cdc_filter = dev->port_usb->cdc_filter;
+		eth_multi_pkt_xfer = dev->port_usb->multi_pkt_xfer;
+		eth_supports_multi_frame = dev->port_usb->supports_multi_frame;
+		eth_is_fixed = dev->port_usb->is_fixed;
 	} else {
 		in = NULL;
 		cdc_filter = 0;
@@ -819,7 +826,7 @@ static netdev_tx_t eth_start_xmit(struct sk_buff *skb,
 
 #if 0
 	/* Allocate memory for tx_reqs to support multi packet transfer */
-	if (dev->port_usb->multi_pkt_xfer && !dev->tx_req_bufsize)
+	if (eth_multi_pkt_xfer && !dev->tx_req_bufsize)
 		alloc_tx_buffer(dev);
 #endif
 
@@ -879,7 +886,7 @@ static netdev_tx_t eth_start_xmit(struct sk_buff *skb,
 			/* Multi frame CDC protocols may store the frame for
 			 * later which is not a dropped frame.
 			 */
-			if (dev->port_usb->supports_multi_frame)
+			if (eth_supports_multi_frame)
 				goto multiframe;
 			goto drop;
 		}
@@ -889,10 +896,14 @@ static netdev_tx_t eth_start_xmit(struct sk_buff *skb,
 	dev->tx_skb_hold_count++;
 	spin_unlock_irqrestore(&dev->req_lock, flags);
 
-	if (dev->port_usb->multi_pkt_xfer) {
+	if (eth_multi_pkt_xfer) {
 		/* Add RNDIS Header */
-		memcpy(req->buf + req->length, dev->port_usb->header,
+		if (dev->port_usb)
+			memcpy(req->buf + req->length, dev->port_usb->header,
 						dev->header_len);
+		else
+			goto success;
+		
 		/* Increment req length by header size */
 		req->length += dev->header_len;
 		/* Copy received IP data from SKB */
@@ -929,13 +940,26 @@ static netdev_tx_t eth_start_xmit(struct sk_buff *skb,
 		dev->tx_skb_hold_count = 0;
 		spin_unlock_irqrestore(&dev->lock, flags);
 	} else {
+		if (eth_is_fixed) { /* ncm case */
 #ifdef CONFIG_USB_RNDIS_MULTIPACKET_WITH_TIMER
-		req->length = skb->len;
+			req->length = skb->len;
 #else
-		length = skb->len;
+			length = skb->len;
 #endif
-		req->buf = skb->data;
-		req->context = skb;
+			req->buf = skb->data;
+			req->context = skb;
+		} else { /* rndis case : multipacket not used */
+#ifdef CONFIG_USB_RNDIS_MULTIPACKET_WITH_TIMER
+			req->length = skb->len;
+#else
+			length = skb->len;
+#endif
+			/* copy skb data */
+			memcpy(req->buf, skb->data,
+				skb->len);
+			dev_kfree_skb_any(skb);
+			req->context = NULL;
+		}
 	}
 #ifdef CONFIG_USB_RNDIS_MULTIPACKET_WITH_TIMER
 	retval = tx_task(dev, req);
@@ -986,7 +1010,7 @@ static netdev_tx_t eth_start_xmit(struct sk_buff *skb,
 #endif
 
 	if (retval) {
-		if (!dev->port_usb->multi_pkt_xfer)
+		if (!eth_multi_pkt_xfer)
 			dev_kfree_skb_any(skb);
 drop:
 		dev->net->stats.tx_dropped++;
@@ -1213,8 +1237,8 @@ struct eth_dev *gether_setup_name(struct usb_gadget *g,
 		free_netdev(net);
 		dev = ERR_PTR(status);
 	} else {
-		INFO(dev, "MAC %pM\n", net->dev_addr);
-		INFO(dev, "HOST MAC %pM\n", dev->host_mac);
+		DBG(dev, "MAC %pM\n", net->dev_addr);
+		DBG(dev, "HOST MAC %pM\n", dev->host_mac);
 
 		/*
 		 * two kinds of host-initiated state changes:

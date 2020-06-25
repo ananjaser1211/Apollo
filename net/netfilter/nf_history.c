@@ -21,6 +21,9 @@ static ssize_t nf_history_read(struct file *file,
 	if (!nf_history_buffer)
 		return 0;
 
+	if (pos < 0)
+		return -EINVAL;
+
 	if (pos + count > nf_history_buffer_size)
 		return 0;
 
@@ -89,7 +92,7 @@ static int __init nf_history_init(void)
 		return 0;
 	}
 
-	entry = proc_create("nf_history", 0666,
+	entry = proc_create("nf_history", 0664,
 			    init_net.proc_net, &nfhistory_file_ops);
 	if (!entry) {
 		pr_err("%s: failed to create proc entry\n", __func__);

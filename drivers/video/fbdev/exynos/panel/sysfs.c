@@ -1228,8 +1228,8 @@ static ssize_t poc_store(struct device *dev,
 	poc_info = &poc_dev->poc_info;
 
 
-	rc = sscanf(buf, "%d", &value);
-	if (rc < 1) {
+	rc = kstrtouint(buf, 0, &value);
+	if (rc < 0) {
 		pr_err("%s poc_op required\n", __func__);
 		return -EINVAL;
 	}

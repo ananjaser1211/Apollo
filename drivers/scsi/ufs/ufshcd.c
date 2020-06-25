@@ -1092,6 +1092,21 @@ start:
 		if (async)
 			hba->clk_gating.active_reqs--;
 	case CLKS_ON:
+		/*
+		*Wait for the ungate work to complete if in progress.
+		* Though the clocks may be in ON state, the link could
+		* still be in hibner8 state if hibern8 is allowed
+		* during clock gating.
+		* Make sure we exit hibern8 state also in addition to
+		* clocks being ON.
+		*/
+		if (!async && ufshcd_can_hibern8_during_gating(hba) &&
+				ufshcd_is_link_hibern8(hba)) {
+			spin_unlock_irqrestore(hba->host->host_lock, flags);
+			flush_work(&hba->clk_gating.ungate_work);
+			spin_lock_irqsave(hba->host->host_lock, flags);
+			goto start;
+		}
 		break;
 	case REQ_CLKS_OFF:
 		if (cancel_delayed_work(&hba->clk_gating.gate_work)) {
@@ -2286,8 +2301,18 @@ static int ufshcd_exec_dev_cmd(struct ufs_hba *hba,
 	struct completion wait;
 	unsigned long flags;
 
-	if (!ufshcd_is_link_active(hba))
-		return -EPERM;
+	ktime_t start = ktime_get();
+
+	/*
+	 * Add timeout to ensure link actvie status.
+	 * There is a case where link activity takes
+	 * a long time during tw control.
+	 */
+	while (!ufshcd_is_link_active(hba)) {
+		if (ktime_to_us(ktime_sub(ktime_get(), start)) > 50000)
+			return -EPERM;
+		usleep_range(200, 400);
+	}
 
 	/*
 	 * Get free slot, sleep if slots are unavailable.

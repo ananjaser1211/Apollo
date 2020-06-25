@@ -236,10 +236,12 @@ source "drivers/fingerprint/Kconfig"
 
 source "drivers/gator_5.27/Kconfig"
 
-source "drivers/five/Kconfig"
+source "drivers/security/samsung/five_tee_driver/Kconfig"
 
 source "drivers/mpsd/Kconfig"
 
 source "drivers/security/samsung/icdrv/Kconfig"
+
+source "drivers/security/samsung/tzic/Kconfig"
 
 endmenu

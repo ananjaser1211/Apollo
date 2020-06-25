@@ -25,18 +25,18 @@
 struct tee_client;
 
 struct teec_context_imp {
-	struct tee_client *client;
+	struct tee_client	*client;
 };
 
 struct teec_session_imp {
 	u32			session_id;
 	struct teec_context_imp context;
-	bool			active;
+	int			active;
 };
 
 struct teec_shared_memory_imp {
-	struct tee_client *client;
-	bool implementation_allocated;
+	struct tee_client	*client;
+	int			implementation_allocated;
 };
 
 struct teec_operation_imp {
