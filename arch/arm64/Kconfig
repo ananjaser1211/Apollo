@@ -1354,6 +1354,39 @@ config BUILD_ARM64_APPENDED_DTB_IMAGE_NAMES
 	  Space separated list of names of dtbs to append when
 	  building a concatenated Image.gz-dtb.
 
+choice
+	prompt "Exynos device target"
+	default MACH_EXYNOS9810_NONE
+
+config MACH_EXYNOS9810_NONE
+	bool "None"
+
+config MACH_EXYNOS9810_CROWNLTE_EUR_OPEN
+	bool "Galaxy Note9 (SM-N960F)"
+	select EXYNOS_DTBTOOL
+
+config MACH_EXYNOS9810_STARLTE_EUR_OPEN
+	bool "Galaxy S9 (SM-G960F)"
+	select EXYNOS_DTBTOOL
+
+config MACH_EXYNOS9810_STAR2LTE_EUR_OPEN
+	bool "Galaxy S9+ (SM-G965F)"
+	select EXYNOS_DTBTOOL
+
+config MACH_EXYNOS9810_CROWNLTE_KOR
+	bool "Galaxy Note9 (SM-N960N)"
+	select EXYNOS_DTBTOOL
+
+config MACH_EXYNOS9810_STARLTE_KOR
+	bool "Galaxy S9 (SM-G960N)"
+	select EXYNOS_DTBTOOL
+
+config MACH_EXYNOS9810_STAR2LTE_KOR
+	bool "Galaxy S9+ (SM-G965N)"
+	select EXYNOS_DTBTOOL
+
+endchoice
+
 endmenu
 
 menu "Userspace binary formats"
