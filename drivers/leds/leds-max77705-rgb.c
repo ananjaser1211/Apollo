@@ -999,6 +999,10 @@ static ssize_t led_fade_time_down_store(struct device *dev,
 	retval = sscanf(buf, "%d", &val);
 	if (retval != 0 && val >= 100 && val <= 4000)
 		led_fade_time_down = val;
+		
+	return count;
+}
+
 
 /* permission for sysfs node */
 static DEVICE_ATTR(delay_on, 0640, led_delay_on_show, led_delay_on_store);
