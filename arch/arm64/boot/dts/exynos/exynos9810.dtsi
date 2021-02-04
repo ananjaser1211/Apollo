@@ -5024,8 +5024,8 @@
 		cl_busy_ratio = <65>;
 		/* single_freq is parsed from ECT */
 		dual_freq = <2314000>;
-		triple_freq = <1794000>;
-		quad_freq = <1794000>;
+		triple_freq = <2314000>;
+		quad_freq = <2314000>;
 		cal-id = <ACPM_DVFS_CPUCL1>;
 	};
 
