@@ -653,7 +653,7 @@ static int pcmidi_snd_initialise(struct pcmidi_snd *pm)
 		goto fail;
 	}
 	pm->rwmidi = rwmidi;
-	strncpy(rwmidi->name, card->shortname, sizeof(rwmidi->name));
+	strcpy(rwmidi->name, card->shortname);
 	rwmidi->info_flags = SNDRV_RAWMIDI_INFO_INPUT;
 	rwmidi->private_data = pm;
 
