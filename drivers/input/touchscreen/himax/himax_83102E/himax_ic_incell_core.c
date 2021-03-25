@@ -963,7 +963,7 @@ static void himax_mcu_set_HSEN_enable(uint8_t HSEN_enable)
 		}
 
 		g_core_fp.fp_register_read(pfw_op->addr_hsen_enable, DATA_LEN_4, tmp_data, 0);
-		/*I("%s: tmp_data[0]=%d, HSEN_enable=%d, retry_cnt=%d\n", __func__, tmp_data[0],HSEN_enable,retry_cnt);*/
+		I("%s: tmp_data[0]=%d, HSEN_enable=%d, retry_cnt=%d\n", __func__, tmp_data[0],HSEN_enable,retry_cnt);
 		retry_cnt++;
 	} while ((tmp_data[3] != back_data[3] || tmp_data[2] != back_data[2] || tmp_data[1] != back_data[1]  || tmp_data[0] != back_data[0]) && retry_cnt < HIMAX_REG_RETRY_TIMES);
 }
@@ -1189,6 +1189,8 @@ static void himax_mcu_read_FW_ver(void)
 {
 	uint8_t data[12];
 	uint8_t data_2[DATA_LEN_4];
+	uint8_t tmp_addr[4] = {0};
+	uint8_t tmp_data[4] = {0};
 	int retry = 200;
 	int reload_status = 0;
 
@@ -1214,16 +1216,39 @@ static void himax_mcu_read_FW_ver(void)
 			ic_data->vendor_display_cfg_ver = 0;
 			ic_data->vendor_cid_maj_ver = 0;
 			ic_data->vendor_cid_min_ver = 0;
+			g_core_fp.fp_sense_off(true);
 			goto END;
 		} else {
 			retry--;
 			usleep_range(10000, 11000);
-			if (retry % 10 == 0)
+			if (retry % 10 == 0) {
 				I("reload fail ,delay 10ms retry=%d\n", retry);
+
+				himax_in_parse_assign_cmd(fw_addr_chk_fw_status, tmp_addr, sizeof(tmp_addr));
+				g_core_fp.fp_register_read(tmp_addr, 4, tmp_data, false);
+				I("%s: 0x900000A8 = 0x%02X%02X%02X%02X\n", __func__,
+					tmp_data[0], tmp_data[1], tmp_data[2], tmp_data[3]);
+
+				himax_in_parse_assign_cmd(fw_addr_flag_reset_event, tmp_addr, sizeof(tmp_addr));
+				g_core_fp.fp_register_read(tmp_addr, 4, tmp_data, false);
+				I("%s: 0x900000E4 = 0x%02X%02X%02X%02X\n", __func__,
+						tmp_data[0], tmp_data[1], tmp_data[2], tmp_data[3]);
+
+				himax_in_parse_assign_cmd(fw_addr_fw_dbg_msg_addr, tmp_addr, sizeof(tmp_addr));
+				g_core_fp.fp_register_read(tmp_addr, 4, tmp_data, false);
+				I("%s: 0x10007F40 = 0x%02X%02X%02X%02X\n", __func__,
+						tmp_data[0], tmp_data[1], tmp_data[2], tmp_data[3]);
+
+				himax_in_parse_assign_cmd(fw_addr_chk_dd_status, tmp_addr, sizeof(tmp_addr));
+				g_core_fp.fp_register_read(tmp_addr, 4, tmp_data, false);
+				I("%s: 0x900000E8 = 0x%02X%02X%02X%02X\n", __func__,
+					tmp_data[0], tmp_data[1], tmp_data[2], tmp_data[3]);
+			}
 		}
 	}
 
-	I("%s : data[0]=0x%2.2X,data[1]=0x%2.2X,data_2[0]=0x%2.2X,data_2[1]=0x%2.2X\n", __func__, data[0], data[1], data_2[0], data_2[1]);
+	I("%s : data[0]=0x%2.2X,data[1]=0x%2.2X,data_2[0]=0x%2.2X,data_2[1]=0x%2.2X\n",
+			__func__, data[0], data[1], data_2[0], data_2[1]);
 	I("reload_status=%d\n", reload_status);
 	/* =====================================
 	 * Read FW version
@@ -1789,6 +1814,16 @@ static void himax_mcu_flash_page_write(uint8_t *write_addr, int length, uint8_t 
 {
 }
 
+static void himax_flash_speed_set(HX_FLASH_SPEED_ENUM speed)
+{
+	uint8_t tmp_addr[4];
+	uint8_t tmp_data[4];
+
+	himax_in_parse_assign_cmd(flash_clk_setup_addr, tmp_addr, 4);
+	himax_in_parse_assign_cmd((uint32_t)speed, tmp_data, 4);
+	g_core_fp.fp_register_write(tmp_addr, 4, tmp_data, 0);
+}
+
 static int himax_mcu_fts_ctpm_fw_upgrade_with_sys_fs_32k(unsigned char *fw, int len, bool change_iref)
 {
 	/* Not use */
@@ -1816,6 +1851,7 @@ static int himax_mcu_fts_ctpm_fw_upgrade_with_sys_fs_64k(unsigned char *fw, int 
 	g_core_fp.fp_system_reset();
 #endif
 	g_core_fp.fp_sense_off(true);
+	himax_flash_speed_set(HX_FLASH_SPEED_12p5M);
 	g_core_fp.fp_block_erase(0x00, FW_SIZE_64k);
 	g_core_fp.fp_flash_programming(fw, FW_SIZE_64k);
 
@@ -1857,6 +1893,7 @@ static int himax_mcu_fts_ctpm_fw_upgrade_with_sys_fs_128k(unsigned char *fw, int
 	g_core_fp.fp_system_reset();
 #endif
 	g_core_fp.fp_sense_off(true);
+	himax_flash_speed_set(HX_FLASH_SPEED_12p5M);
 	g_core_fp.fp_block_erase(0x00, FW_SIZE_128k);
 	g_core_fp.fp_flash_programming(fw, FW_SIZE_128k);
 
@@ -2175,9 +2212,9 @@ static void himax_mcu_touch_information(void)
 	uint8_t err_cnt = 0;
 
 	g_core_fp.fp_register_read(pdriver_op->addr_fw_define_rxnum_txnum_maxpt, DATA_LEN_8, data, 0);
-	ic_data->HX_RX_NUM				= data[2];
-	ic_data->HX_TX_NUM				= data[3];
-	ic_data->HX_MAX_PT				= data[4];
+	ic_data->HX_RX_NUM = data[2];
+	ic_data->HX_TX_NUM = data[3];
+	ic_data->HX_MAX_PT = FIX_HX_MAX_PT;
 	/*I("%s : HX_RX_NUM=%d,ic_data->HX_TX_NUM=%d,ic_data->HX_MAX_PT=%d\n",__func__,ic_data->HX_RX_NUM,ic_data->HX_TX_NUM,ic_data->HX_MAX_PT);*/
 	g_core_fp.fp_register_read(pdriver_op->addr_fw_define_xy_res_enable, DATA_LEN_4, data, 0);
 
@@ -2192,13 +2229,7 @@ static void himax_mcu_touch_information(void)
 	ic_data->HX_X_RES = data[2] * 256 + data[3];
 	/*I("%s : ic_data->HX_Y_RES=%d,ic_data->HX_X_RES=%d\n",__func__,ic_data->HX_Y_RES,ic_data->HX_X_RES);*/
 
-	g_core_fp.fp_register_read(pdriver_op->addr_fw_define_int_is_edge, DATA_LEN_4, data, 0);
-	/*I("%s : data[0]=0x%2.2X,data[1]=0x%2.2X,data[2]=0x%2.2X,data[3]=0x%2.2X\n",__func__,data[0],data[1],data[2],data[3]);*/
-	/*I("data[0] & 0x01 = %d\n",(data[0] & 0x01));*/
-	if ((data[1] & 0x01) == 1)
-		ic_data->HX_INT_IS_EDGE = true;
-	else
-		ic_data->HX_INT_IS_EDGE = false;
+	ic_data->HX_INT_IS_EDGE = FIX_HX_INT_IS_EDGE;
 
 	/*1. Read number of MKey R100070E8H to determin data size*/
 	g_core_fp.fp_register_read(psram_op->addr_mkey, DATA_LEN_4, data, 0);

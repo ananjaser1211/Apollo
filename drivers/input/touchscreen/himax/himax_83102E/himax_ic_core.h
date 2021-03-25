@@ -185,6 +185,13 @@ extern int i2c_error_count;
 	extern void (*himax_mcu_cmd_struct_free)(void);
 #endif
 
+typedef enum {
+	HX_FLASH_SPEED_25M = 0,
+	HX_FLASH_SPEED_12p5M = 0x01,
+	HX_FLASH_SPEED_8p3M = 0x02,
+	HX_FLASH_SPEED_6p25M = 0x03,
+} HX_FLASH_SPEED_ENUM;
+
 #ifdef HX_TP_PROC_GUEST_INFO
 #define HX_GUEST_INFO_SIZE	10
 #define HX_GUEST_INFO_LEN_SIZE	4
@@ -300,6 +307,7 @@ struct hx_guest_info {
 	#define fw_addr_fw_state_addr							0x900000f8
 	#define fw_addr_fw_dbg_msg_addr							0x10007f40
 	#define fw_addr_chk_fw_status							0x900000a8
+	#define fw_addr_chk_dd_status							0x900000E8
 	#define fw_addr_dd_handshak_addr						0x900000fc
 	#define fw_addr_dd_data_addr							0x10007f80
 	#define fw_data_dd_request								0xaa
@@ -391,6 +399,7 @@ struct hx_guest_info {
 	#define flash_data_spi200_cmd_6							0x00000002
 	#define flash_data_spi200_cmd_7							0x0000003b
 	#define flash_data_spi200_addr							0x00000000
+	#define flash_clk_setup_addr							0x80000040
 
 	#define on_flash_addr_ctrl_base							0x80000000
 	#define on_flash_addr_ctrl_auto							0x80000004

@@ -9829,23 +9829,19 @@ exit:
 #endif /* WL_BCNRECV */
 
 #ifdef SUPPORT_LATENCY_CRITICAL_DATA
-#define DISABLE_LATENCY_CRT_DATA	0
-#define ENABLE_LATENCY_CRT_DATA		1
-
 static int
-wl_android_set_latency_crt_data(struct net_device *dev, int enable)
+wl_android_set_latency_crt_data(struct net_device *dev, int mode)
 {
 	int ret;
 #ifdef DHD_GRO_ENABLE_HOST_CTRL
 	dhd_pub_t *dhdp = NULL;
 #endif /* DHD_GRO_ENABLE_HOST_CTRL */
-	if (!(enable == DISABLE_LATENCY_CRT_DATA ||
-		enable == ENABLE_LATENCY_CRT_DATA)) {
+	if (mode >= LATENCY_CRT_DATA_MODE_LAST) {
 		return BCME_BADARG;
 	}
 #ifdef DHD_GRO_ENABLE_HOST_CTRL
 	dhdp = wl_cfg80211_get_dhdp(dev);
-	if (enable == ENABLE_LATENCY_CRT_DATA) {
+	if (mode != LATENCY_CRT_DATA_MODE_OFF) {
 		WL_ERR(("Not permitted GRO by framework\n"));
 		dhdp->permitted_gro = FALSE;
 	} else {
@@ -9853,10 +9849,10 @@ wl_android_set_latency_crt_data(struct net_device *dev, int enable)
 		dhdp->permitted_gro = TRUE;
 	}
 #endif /* DHD_GRO_ENABLE_HOST_CTRL */
-	ret = wldev_iovar_setint(dev, "latency_critical_data", enable);
+	ret = wldev_iovar_setint(dev, "latency_critical_data", mode);
 	if (ret != BCME_OK) {
-		WL_ERR(("failed to set latency_critical_data enable %d, error = %d\n",
-			enable, ret));
+		WL_ERR(("failed to set latency_critical_data mode %d, error = %d\n",
+			mode, ret));
 		return ret;
 	}
 
@@ -9867,17 +9863,17 @@ static int
 wl_android_get_latency_crt_data(struct net_device *dev, char *command, int total_len)
 {
 	int ret;
-	int enable = DISABLE_LATENCY_CRT_DATA;
+	int mode = LATENCY_CRT_DATA_MODE_OFF;
 	int bytes_written;
 
-	ret = wldev_iovar_getint(dev, "latency_critical_data", &enable);
+	ret = wldev_iovar_getint(dev, "latency_critical_data", &mode);
 	if (ret != BCME_OK) {
 		WL_ERR(("failed to get latency_critical_data error = %d\n", ret));
 		return ret;
 	}
 
 	bytes_written = snprintf(command, total_len, "%s %d",
-		CMD_GET_LATENCY_CRITICAL_DATA, enable);
+		CMD_GET_LATENCY_CRITICAL_DATA, mode);
 
 	return bytes_written;
 }

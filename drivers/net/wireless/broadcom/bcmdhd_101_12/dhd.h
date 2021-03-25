@@ -1207,7 +1207,7 @@ typedef struct dhd_pub {
 	void    *flowid_lock;       /* per os lock for flowid info protection */
 	void    *flowring_list_lock;       /* per os lock for flowring list protection */
 	uint8	max_multi_client_flow_rings;
-	uint8	multi_client_flow_rings;
+	osl_atomic_t multi_client_flow_rings;
 	uint32  num_h2d_rings;		/* Max h2d rings including static and dynamic rings */
 	uint32  max_tx_flowid;		/* used to validate flowid */
 	cumm_ctr_t cumm_ctr;        /* cumm queue length placeholder  */

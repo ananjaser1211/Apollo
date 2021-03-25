@@ -102,6 +102,7 @@ struct dbmdx_platform_data {
 	u32				min_samples_chunk_size;
 	u32				pcm_streaming_mode;
 	int				buffering_timeout;
+	u32				retrigger_interval_sec;
 
 	struct va_speed	va_speed_cfg[DBMDX_VA_NR_OF_SPEEDS];
 	u32				va_mic_config[5];

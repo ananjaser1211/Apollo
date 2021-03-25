@@ -24,9 +24,10 @@
 #include "fimc-is-device-sensor-peri.h"
 #include "fimc-is-core.h"
 
-#if defined(CONFIG_LEDS_RT8547)
 #include <linux/leds-rt8547.h>
 extern int rt8547_led_mode_ctrl(int state);
+#if defined(CONFIG_FLASH_CURRENT_CHANGE_SUPPORT)
+extern int rt8547_set_flash_current(int intensity);
 #endif
 
 static int flash_rt8547_init(struct v4l2_subdev *subdev, u32 val)
@@ -55,6 +56,7 @@ static int flash_rt8547_init(struct v4l2_subdev *subdev, u32 val)
 static int sensor_rt8547_flash_control(struct v4l2_subdev *subdev, enum flash_mode mode, u32 intensity)
 {
 	int ret = 0;
+	int flash_en = 0;
 	struct fimc_is_flash *flash = NULL;
 
 	BUG_ON(!subdev);
@@ -62,30 +64,33 @@ static int sensor_rt8547_flash_control(struct v4l2_subdev *subdev, enum flash_mo
 	flash = (struct fimc_is_flash *)v4l2_get_subdevdata(subdev);
 	BUG_ON(!flash);
 
+	flash_en = flash->flash_gpio;
+	if (flash_en < 0) {
+		ret = -EINVAL;
+		goto p_err;
+	}
+
 	dbg_flash("%s : mode = %s, intensity = %d\n", __func__,
 		mode == CAM2_FLASH_MODE_OFF ? "OFF" :
 		mode == CAM2_FLASH_MODE_SINGLE ? "FLASH" : "TORCH",
 		intensity);
 
 	if (mode == CAM2_FLASH_MODE_OFF) {
-#if defined(CONFIG_LEDS_RT8547)
 		ret = rt8547_led_mode_ctrl(RT8547_DISABLES_MOVIE_FLASH_MODE);
-#endif
-		ret = control_flash_gpio(flash->flash_gpio, 0);
+		ret = control_flash_gpio(flash_en, 0);
 		if (ret)
 			err("capture flash off fail");
 	} else if (mode == CAM2_FLASH_MODE_SINGLE) {
-#if defined(CONFIG_LEDS_RT8547)
 		ret = rt8547_led_mode_ctrl(RT8547_ENABLE_FLASH_MODE);
+#if defined(CONFIG_FLASH_CURRENT_CHANGE_SUPPORT)
+		ret = rt8547_set_flash_current(intensity);
 #endif
-		ret = control_flash_gpio(flash->flash_gpio, 1);
+		ret = control_flash_gpio(flash_en, 1);
 		if (ret)
 			err("capture flash on fail");
 	} else if (mode == CAM2_FLASH_MODE_TORCH) {
-#if defined(CONFIG_LEDS_RT8547)
 		ret = rt8547_led_mode_ctrl(RT8547_ENABLE_PRE_FLASH_MODE);
-#endif
-		ret = control_flash_gpio(flash->torch_gpio, 1);
+		ret = control_flash_gpio(flash_en, 1);
 		if (ret)
 			err("torch flash on fail");
 	} else {
@@ -156,24 +161,20 @@ static const struct v4l2_subdev_ops subdev_ops = {
 
 int flash_rt8547_probe(struct device *dev, struct i2c_client *client)
 {
-	int ret = 0;
+	int ret = 0, i = 0;
 	struct fimc_is_core *core;
-	struct v4l2_subdev *subdev_flash;
+	struct v4l2_subdev *subdev_flash = NULL;
 	struct fimc_is_device_sensor *device;
-	u32 sensor_id = 0;
-	struct fimc_is_flash *flash;
+	u32 sensor_id[FIMC_IS_SENSOR_COUNT];
+	u32 sensor_id_len;
+	const u32 *sensor_id_spec;
+	struct fimc_is_flash *flash = NULL;
 	struct device_node *dnode;
 
 	BUG_ON(!fimc_is_dev);
 	BUG_ON(!dev);
 
 	dnode = dev->of_node;
-
-	ret = of_property_read_u32(dnode, "id", &sensor_id);
-	if (ret) {
-		err("sensor_id read is fail(%d)", ret);
-		goto p_err;
-	}
 
 	core = (struct fimc_is_core *)dev_get_drvdata(fimc_is_dev);
 	if (!core) {
@@ -182,54 +183,79 @@ int flash_rt8547_probe(struct device *dev, struct i2c_client *client)
 		goto p_err;
 	}
 
-	device = &core->sensor[sensor_id];
-	if (!device) {
-		err("sensor device is NULL");
-		ret = -ENOMEM;
+	sensor_id_spec = of_get_property(dnode, "id", &sensor_id_len);
+	if (!sensor_id_spec) {
+		err("sensor_id num read is fail(%d)", ret);
 		goto p_err;
 	}
 
-	flash = kzalloc(sizeof(struct fimc_is_flash), GFP_KERNEL);
+	sensor_id_len /= (unsigned int)sizeof(*sensor_id_spec);
+
+	ret = of_property_read_u32_array(dnode, "id", sensor_id, sensor_id_len);
+	if (ret) {
+		err("sensor_id read is fail(%d)", ret);
+		goto p_err;
+	}
+
+	for (i = 0; i < sensor_id_len; i++) {
+		device = &core->sensor[sensor_id[i]];
+		if (!device) {
+			err("sensor device is NULL");
+			ret = -EPROBE_DEFER;
+			goto p_err;
+		}
+	}
+
+	flash = kzalloc(sizeof(struct fimc_is_flash) * sensor_id_len, GFP_KERNEL);
 	if (!flash) {
 		err("flash is NULL");
 		ret = -ENOMEM;
 		goto p_err;
 	}
 
-	flash->flash_gpio = of_get_named_gpio(dnode, "flash-gpio", 0);
-	if (!gpio_is_valid(flash->flash_gpio)) {
-		dev_err(dev, "failed to get enable gpio\n");
-		kfree(flash);
-		return -EINVAL;
-	}
-	flash->torch_gpio = flash->flash_gpio;
-
-	subdev_flash = kzalloc(sizeof(struct v4l2_subdev), GFP_KERNEL);
+	subdev_flash = kzalloc(sizeof(struct v4l2_subdev) * sensor_id_len, GFP_KERNEL);
 	if (!subdev_flash) {
 		err("subdev_flash is NULL");
 		ret = -ENOMEM;
-		kfree(flash);
 		goto p_err;
 	}
 
-	flash->id = FLADRV_NAME_RT8547;
-	flash->subdev = subdev_flash;
-	flash->client = client;
-	flash->device = sensor_id;
-	device->subdev_flash = subdev_flash;
-	device->flash = flash;
+	for (i = 0; i < sensor_id_len; i++) {
+		flash[i].flash_gpio = of_get_named_gpio(dnode, "flash-gpio", 0);
+		if (!gpio_is_valid(flash[i].flash_gpio)) {
+			dev_err(dev, "failed to get enable gpio\n");
+			kfree(flash);
+			kfree(subdev_flash);
+			return -EINVAL;
+		}
 
-	flash->flash_data.mode = CAM2_FLASH_MODE_OFF;
-	flash->flash_data.intensity = 100; /* TODO: Need to figure out min/max range */
-	flash->flash_data.firing_time_us = 1 * 1000 * 1000; /* Max firing time is 1sec */
+		flash[i].torch_gpio = flash[i].flash_gpio;
+		flash[i].id = FLADRV_NAME_RT8547;
+		flash[i].subdev = &subdev_flash[i];
+		flash[i].client = client;
+		flash[i].device = sensor_id[i];
 
-	v4l2_subdev_init(subdev_flash, &subdev_ops);
+		device = &core->sensor[sensor_id[i]];
+		device->subdev_flash = &subdev_flash[i];
+		device->flash = &flash[i];
 
-	v4l2_set_subdevdata(subdev_flash, flash);
-	v4l2_set_subdev_hostdata(subdev_flash, device);
-	snprintf(subdev_flash->name, V4L2_SUBDEV_NAME_SIZE, "flash-subdev.%d", flash->id);
+		v4l2_subdev_init(&subdev_flash[i], &subdev_ops);
+		v4l2_set_subdevdata(&subdev_flash[i], &flash[i]);
+		v4l2_set_subdev_hostdata(&subdev_flash[i], device);
+		snprintf(subdev_flash[i].name, V4L2_SUBDEV_NAME_SIZE,
+				"flash-subdev.%d", flash[i].id);
+	}
+
+	probe_info("%s done\n", __func__);
+
+	return 0;
 
 p_err:
+	if (flash)
+		kfree(flash);
+	if (subdev_flash)
+		kfree(subdev_flash);
+
 	return ret;
 }
 

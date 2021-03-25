@@ -86,7 +86,9 @@ enum hnd_ioctl_cmd {
 	BUS_SET_MAC_WAKE_STATE = 13,
 	BUS_FRWD_PKT_RXCMPLT = 14,
 	BUS_PCIE_LATENCY_ENAB = 15, /* to enable latency feature in pcie */
-	BUS_GET_MAXITEMS = 16
+	BUS_GET_MAXITEMS = 16,
+	BUS_SET_BUS_CSO_CAP = 17,	/* Update the CSO cap from wl layer to bus layer */
+	BUS_DUMP_RX_DMA_STALL_RELATED_INFO = 18
 };
 
 #define SDPCMDEV_SET_MAXTXPKTGLOM	1

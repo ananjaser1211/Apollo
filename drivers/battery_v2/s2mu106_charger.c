@@ -832,12 +832,9 @@ static int s2mu106_get_charge_type(struct s2mu106_charger_data *charger)
 
 	switch ((ret & BAT_STATUS_MASK) >> BAT_STATUS_SHIFT) {
 	case 0x6:
+	case 0x2: /* pre-charge mode */
+	case 0x3: /* pre-charge mode */
 		status = POWER_SUPPLY_CHARGE_TYPE_FAST;
-		break;
-	case 0x2:
-	case 0x3:
-		/* pre-charge mode */
-		status = POWER_SUPPLY_CHARGE_TYPE_TRICKLE;
 		break;
 	}
 

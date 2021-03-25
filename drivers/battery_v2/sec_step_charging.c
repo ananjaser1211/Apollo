@@ -169,6 +169,19 @@ bool sec_bat_check_step_charging(struct sec_battery_info *battery)
 }
 
 #if defined(CONFIG_DIRECT_CHARGING)
+bool skip_check_dc_step(struct sec_battery_info *battery)
+{
+	if (battery->current_event & SEC_BAT_CURRENT_EVENT_SWELLING_MODE ||
+		battery->current_event & SEC_BAT_CURRENT_EVENT_HV_DISABLE ||
+		battery->current_event & SEC_BAT_CURRENT_EVENT_SIOP_LIMIT ||
+		battery->current_event & SEC_BAT_CURRENT_EVENT_SELECT_PDO ||
+		((battery->current_event & SEC_BAT_CURRENT_EVENT_DC_ERR) &&
+		(battery->ta_alert_mode == OCP_NONE)))
+		return true;
+	else
+		return false;
+}
+
 bool sec_bat_check_dc_step_charging(struct sec_battery_info *battery)
 {
 	int i, value;
@@ -188,11 +201,7 @@ bool sec_bat_check_dc_step_charging(struct sec_battery_info *battery)
 			return false;
 	}
 
-    if (battery->current_event & SEC_BAT_CURRENT_EVENT_SWELLING_MODE ||
-		battery->current_event & SEC_BAT_CURRENT_EVENT_HV_DISABLE ||
-		((battery->current_event & SEC_BAT_CURRENT_EVENT_DC_ERR) &&
-		(battery->ta_alert_mode == OCP_NONE)) ||
-		battery->current_event & SEC_BAT_CURRENT_EVENT_SIOP_LIMIT) {
+	if (skip_check_dc_step(battery)) {
 		if (battery->step_charging_status >= 0)
 			sec_bat_reset_step_charging(battery);
 		return false;

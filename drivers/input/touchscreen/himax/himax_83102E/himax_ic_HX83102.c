@@ -1460,7 +1460,12 @@ static bool hx83102_chip_detect(void)
 		E("%s: i2c access fail!\n", __func__);
 		return false;
 	}
+
+#if defined(HX_ZERO_FLASH)
 	if (hx83102_sense_off(false) == false) {
+#else
+	if (hx83102_sense_off(true) == false) {
+#endif
 		ret_data = false;
 		E("%s:hx83102_sense_off Fail:\n", __func__);
 		return ret_data;

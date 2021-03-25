@@ -146,6 +146,9 @@ enum power_supply_ext_property {
 	POWER_SUPPLY_EXT_PROP_FLED_BOOST_OFF,
 #endif
 	POWER_SUPPLY_EXT_PROP_BYPASS_MODE_DISABLE,
+#if defined(CONFIG_BATTERY_SAMSUNG_DP)
+	POWER_SUPPLY_EXT_PROP_DIRECT_POWER_MODE,
+#endif
 };
 
 enum rx_device_type {
@@ -883,6 +886,7 @@ struct sec_battery_platform_data {
 	/* NO NEED TO BE CHANGED */
 	unsigned int pre_afc_input_current;
 	unsigned int pre_wc_afc_input_current;
+	unsigned int select_pd_input_current;
 	unsigned int store_mode_afc_input_current;
 	unsigned int store_mode_hv_wireless_input_current;
 	unsigned int prepare_ta_delay;
@@ -1232,6 +1236,7 @@ struct sec_battery_platform_data {
 
 	bool fake_capacity;
 
+	bool enable_vf_short_chk;
 	bool dis_auto_shipmode_temp_ctrl;
 	unsigned int slow_charging_current;
 

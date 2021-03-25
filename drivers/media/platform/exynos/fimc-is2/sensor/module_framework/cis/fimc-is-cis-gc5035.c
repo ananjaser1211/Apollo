@@ -660,6 +660,7 @@ int sensor_gc5035_cis_init(struct v4l2_subdev *subdev)
 	struct fimc_is_cis *cis;
 	u32 setfile_index = 0;
 	cis_setting_info setinfo;
+	u8 rev = 0;
 
 #if USE_OTP_AWB_CAL_DATA
 	struct i2c_client *client = NULL;
@@ -696,10 +697,9 @@ int sensor_gc5035_cis_init(struct v4l2_subdev *subdev)
 
 	info("[%s] gc5035 init\n", __func__);
 
-	ret = sensor_gc5035_check_rev(cis);
+	ret = fimc_is_sensor_addr8_read8(cis->client, 0x6c, &rev);
 	if (ret < 0) {
-		warn("sensor_gc5035_check_rev is fail when cis init");
-		cis->rev_flag = true;
+		err("sensor_gc5035_set_registers fail!!");
 		goto p_err;
 	}
 

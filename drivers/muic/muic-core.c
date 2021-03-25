@@ -472,6 +472,17 @@ int muic_afc_set_voltage(int voltage)
 	return -ENODEV;
 }
 
+int muic_afc_get_voltage(void)
+{
+	struct muic_platform_data *pdata = &muic_pdata;
+
+	if (pdata && pdata->muic_afc_get_voltage_cb)
+		return pdata->muic_afc_get_voltage_cb();
+
+	pr_err("%s: cannot supported\n", __func__);
+	return -ENODEV;
+}
+
 int muic_hv_charger_init(void)
 {
 	struct muic_platform_data *pdata = &muic_pdata;

@@ -219,9 +219,28 @@ config CERTIFY_HALL
 
 	  If unsure, say N.
 
+config HALL_NEW_NODE
+	bool "Chang the node location of HALL IC"
+	default y
+	depends on HALL
+	depends on PLATFORM_VERSION >= 11
+	help
+	  Say Y here if you want to change the location of hall ic node.
+	  it was decided with the framework to be changed from R OS
+	  The previous versions of R OS are created before the change.
+	  If unsure, say N.
+
 config SEC_DEBUG_TSP_LOG
 	tristate "Support for tsp_msg"
 	default n
+
+config TOUCHSCREEN_DUMP_MODE
+	bool "touchscreen dump mode"
+	depends on INPUT_TOUCHSCREEN
+	help
+	  Say Y here if you need to get raw data.
+
+	  If unsure, say N.
 
 comment "Input Device Drivers"
 

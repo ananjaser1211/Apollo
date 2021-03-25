@@ -1554,7 +1554,7 @@ dhd_pktid_logging_init(dhd_pub_t *dhd, uint32 num_items)
 	dhd_pktid_log_t *log;
 	uint32 log_size;
 
-	log_size = DHD_PKTID_LOG_SZ(num_items);
+	log_size = (uint32)DHD_PKTID_LOG_SZ(num_items);
 	log = (dhd_pktid_log_t *)MALLOCZ(dhd->osh, log_size);
 	if (log == NULL) {
 		DHD_ERROR(("%s: MALLOC failed for size %d\n",
@@ -1580,7 +1580,7 @@ dhd_pktid_logging_fini(dhd_pub_t *dhd, dhd_pktid_log_handle_t *handle)
 	}
 
 	log = (dhd_pktid_log_t *)handle;
-	log_size = DHD_PKTID_LOG_SZ(log->items);
+	log_size = (uint32)DHD_PKTID_LOG_SZ(log->items);
 	MFREE(dhd->osh, handle, log_size);
 }
 
@@ -10738,8 +10738,9 @@ dhd_prot_debug_info_print(dhd_pub_t *dhd)
 	DHD_ERROR(("%s: cur_ioctlresp_bufs_posted %d cur_event_bufs_posted %d\n",
 		__FUNCTION__, prot->cur_ioctlresp_bufs_posted, prot->cur_event_bufs_posted));
 #ifdef DHD_LIMIT_MULTI_CLIENT_FLOWRINGS
-	DHD_ERROR(("%s: multi_client_flow_rings:%d max_multi_client_flow_rings:%d\n",
-		__FUNCTION__, dhd->multi_client_flow_rings, dhd->max_multi_client_flow_rings));
+	DHD_ERROR(("%s: multi_client_flow_rings:%u max_multi_client_flow_rings:%d\n",
+		__FUNCTION__, OSL_ATOMIC_READ(dhd->osh, &dhd->multi_client_flow_rings),
+		dhd->max_multi_client_flow_rings));
 #endif /* DHD_LIMIT_MULTI_CLIENT_FLOWRINGS */
 
 	DHD_ERROR(("pktid_txq_start_cnt: %d\n", prot->pktid_txq_start_cnt));

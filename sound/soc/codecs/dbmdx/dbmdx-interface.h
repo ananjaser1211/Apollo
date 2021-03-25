@@ -19,6 +19,8 @@
 #include <linux/workqueue.h>
 #include <linux/clk.h>
 #include <linux/kfifo.h>
+#include <linux/rtc.h>
+#include <linux/alarmtimer.h>
 #include "dbmdx-customer-def.h"
 
 #if defined(CONFIG_SND_SOC_DBMDX_COMPAT)
@@ -38,6 +40,8 @@
 #define DBMDX_VA_NS_SUPPORT		1
 #endif
 #endif
+
+#define DBMDX_KEEP_ALIVE_TIMER		1
 
 #include <linux/dbmdx.h>
 #include <sound/dbmdx-export.h>
@@ -335,6 +339,9 @@ struct va_flags {
 	bool	disabling_mics_not_allowed;
 	bool	microphones_enabled;
 	int	cancel_pm_work;
+#ifdef DBMDX_KEEP_ALIVE_TIMER
+	int	cancel_keep_alive_work;
+#endif
 	unsigned int	mode;
 	bool	recovery_requested;
 	int	va_debug_val1;
@@ -532,6 +539,7 @@ struct dbmdx_private {
 
 	u32				boot_mode;
 
+	u32				recovery_times;
 
 	unsigned int			num_dais;
 	struct snd_soc_dai_driver	*dais;
@@ -542,6 +550,14 @@ struct dbmdx_private {
 
 	struct delayed_work		delayed_pm_work;
 	struct workqueue_struct		*dbmdx_workq;
+
+#ifdef DBMDX_KEEP_ALIVE_TIMER
+	struct alarm			keep_alive_timer;
+	int				keep_alive_timer_created;
+	int				keep_alive_timer_started;
+	int				keep_alive_triggers;
+	struct work_struct		keep_alive_work;
+#endif
 
 	/* limit request size of audio data from the firmware */
 	unsigned long				rxsize;

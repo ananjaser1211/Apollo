@@ -1147,44 +1147,49 @@ int fimc_is_sec_set_registers(struct i2c_client *client, const u32 *regs, const 
 #endif
 
 #if defined(SENSOR_OTP_GC5035)
-int fimc_is_i2c_read_otp_gc5035(struct i2c_client *client, char *buf)
+int fimc_is_i2c_read_otp_gc5035(struct i2c_client *client, char *buf, u16 start_addr, size_t size)
 {
-	int index_h = 0;
-	int index_l = 0;
+	u16 curr_addr = start_addr;
+	int index = 0;
+	u8 busy_flag = 0;
+	int retry = 8;
 	u8 start_addr_h = 0;
 	u8 start_addr_l = 0;
 	int ret = 0;
 
 	pr_info("fimc_is_i2c_read_otp_gc5035 E\n");
-	ret = fimc_is_sec_set_registers(client,sensor_Global_gc5035, sensor_Global_gc5035_size);
-	
-	if (unlikely(ret)) {
-		err("failed to fimc_is_sec_set_registers (%d)\n", ret);
-		ret = -EINVAL;
-	}
 
-	fimc_is_sec_set_registers(client, sensor_mode_read_initial_setting,sensor_mode_read_initial_setting_size);
-
-	start_addr_h = 0x10;//otp start address high in bits
-	start_addr_l = 0x00;//otp start address low in bits
-
-	for(index_h = 0; index_h < 8 ; index_h++)
-	{
-		start_addr_l = 0x00;
-		for(index_l = 0; index_l < 32 ; index_l++)
-		{
-			fimc_is_sensor_addr8_write8(client, 0x69, start_addr_h);//addr High Bit
-			fimc_is_sensor_addr8_write8(client, 0x6a, start_addr_l);//addr Low Bit
-			fimc_is_sensor_addr8_write8(client, 0xf3, 0x20);//OTP Read pulse
+	for(index = 0; index < size; index++) {
+		start_addr_h = ((curr_addr>>8) & 0x1F);
+		start_addr_l = (curr_addr & 0xFF);
+		fimc_is_sensor_write8(client, GC5035_OTP_PAGE_ADDR, GC5035_OTP_PAGE);
+		fimc_is_sensor_addr8_write8(client, GC5035_OTP_ACCESS_ADDR_HIGH, start_addr_h);
+		fimc_is_sensor_addr8_write8(client, GC5035_OTP_ACCESS_ADDR_LOW, start_addr_l);
+		fimc_is_sensor_addr8_write8(client, GC5035_OTP_MODE_ADDR, 0x20);
+		fimc_is_sensor_addr8_read8(client, GC5035_OTP_BUSY_ADDR, &busy_flag); 
+		while((busy_flag&0x2) > 0 && retry > 0 ) {
+			fimc_is_sensor_addr8_read8(client, GC5035_OTP_BUSY_ADDR, &busy_flag); 
+			retry--;
 			msleep(1);
-			fimc_is_sensor_addr8_read8(client, 0x6c, buf+ (index_h*32 + index_l));
-			//pr_info("Camera otp data = 0x%x  0x%x %d %c \n", start_addr_h,start_addr_l,(index_h*32 + index_l),buf[index_h*32 + index_l]);
-			start_addr_l = start_addr_l + 8;
 		}
-		start_addr_h++ ;
+
+		if ((busy_flag & 0x1))
+		{
+			err("Sensor OTP_check_flag failed\n");
+			goto exit;
+		}
+
+		ret = fimc_is_sensor_addr8_read8(client, GC5035_OTP_READ_ADDR, &buf[index]);
+		if (unlikely(ret))
+		{
+			err("failed to fimc_is_sensor_addr8_read8 (%d)\n", ret);
+			goto exit;
+		}
+		curr_addr += 8;
 	}
 
 	pr_info("fimc_is_i2c_read_otp_gc5035 X\n");
+exit:
 	return ret;
 }
 #endif
@@ -1208,13 +1213,8 @@ int fimc_is_sec_readcal_otprom_gc5035(struct device *dev, int rom_id)
 	int cal_size = 0;
 #endif
 #ifdef OTP_BANK
-	u8 data8 = 0;
-	int otp_bank = 0;
-#endif
-#ifdef OTP_SINGLE_READ_ADDR
-	int i = 0;
-	u8 start_addr_h = 0;
-	u8 start_addr_l= 0;
+	u8 otp_bank = 0;
+	u8 busy_flag = 0;
 #endif
 	u16 start_addr = 0;
 
@@ -1242,77 +1242,74 @@ int fimc_is_sec_readcal_otprom_gc5035(struct device *dev, int rom_id)
 		return -EINVAL;
 	}
 
-#if defined(OTP_BANK)
-	/* 2. read OTP Bank */
-	fimc_is_sensor_read8(client, OTP_BANK_ADDR, &data8);
+	/* Write Sensor Init(global) */
+	ret = fimc_is_sec_set_registers(client,sensor_Global_gc5035, sensor_Global_gc5035_size);
+	
+	if (unlikely(ret)) {
+		err("failed to fimc_is_sec_set_registers (%d)\n", ret);
+		ret = -EINVAL;
+	}
 
-	otp_bank = data8;
+	fimc_is_sec_set_registers(client, sensor_mode_read_initial_setting,sensor_mode_read_initial_setting_size);
 
-	pr_info("Camera: otp_bank = %d\n", otp_bank);
-	start_addr = OTP_START_ADDR;
+	/* Read OTP page */
+	fimc_is_sensor_addr8_write8(client, GC5035_OTP_PAGE_ADDR, GC5035_OTP_PAGE);
+	fimc_is_sensor_addr8_write8(client, GC5035_OTP_ACCESS_ADDR_HIGH, ((OTP_BANK_ADDR>>8) & 0x1F));
+	fimc_is_sensor_addr8_write8(client, GC5035_OTP_ACCESS_ADDR_LOW, (OTP_BANK_ADDR & 0xFF));
+	fimc_is_sensor_addr8_write8(client, GC5035_OTP_MODE_ADDR, 0x20);
 
-	/* 3. selected page setting */
+	fimc_is_sensor_addr8_read8(client, GC5035_OTP_BUSY_ADDR, &busy_flag); 
+	while((busy_flag&0x2)>0 && retry > 0 ) {
+		fimc_is_sensor_addr8_read8(client, GC5035_OTP_BUSY_ADDR, &busy_flag); 
+		retry--;
+		msleep(1);
+	}
+
+	if ((busy_flag & 0x1))
+	{
+		err("Sensor OTP_check_flag failed\n");
+		goto exit;
+	}
+
+	fimc_is_sensor_addr8_read8(client, GC5035_OTP_READ_ADDR, &otp_bank);
+
+	info("Camera: otp_bank = 0x%02x\n", otp_bank);
+
+	/* Select start address */
 	switch(otp_bank) {
-	case 1 :
-		ret = fimc_is_sec_set_registers(client,
-				OTP_first_page_select_reg, OTP_first_page_select_reg_size);
+	case 0x01 :
+		start_addr = GC5035_OTP_START_ADDR_BANK1;
 		break;
-	case 3 :
-		ret = fimc_is_sec_set_registers(client,
-				OTP_second_page_select_reg, OTP_second_page_select_reg_size);
+	case 0x03 :
+		start_addr = GC5035_OTP_START_ADDR_BANK2;
 		break;
 	default :
-		ret = fimc_is_sec_set_registers(client,
-				OTP_first_page_select_reg, OTP_first_page_select_reg_size);
+		start_addr = GC5035_OTP_START_ADDR_BANK1;
 		break;
 	}
+
+	info("%s: otp_start_addr = %x\n", __func__, start_addr);
 	if (unlikely(ret)) {
 		err("failed to fimc_is_sec_set_registers (%d)\n", ret);
 		ret = -EINVAL;
 		goto exit;
 	}
-#endif
 
 crc_retry:
-
-#if defined(OTP_BANK)
 	/* read cal data */
-	pr_info("Camera: I2C read cal data\n\n");
-	fimc_is_i2c_read(client, buf, start_addr, OTP_USED_CAL_SIZE);
-#endif
+	info("Camera: I2C read cal data\n\n");
 #if defined(CONFIG_CAMERA_CIS_GC5035_OBJ)
-	ret = fimc_is_i2c_read_otp_gc5035(client,buf);
+	ret = fimc_is_i2c_read_otp_gc5035(client,buf,start_addr, GC5035_OTP_USED_CAL_SIZE);
 #endif
 
 	if (rom_id == ROM_ID_FRONT) {
-#if defined(CONFIG_CAMERA_OTPROM_SUPPORT_FRONT)
-#if defined(OTP_HEADER_OEM_START_ADDR_FRONT)
-		finfo->oem_start_addr = *((u32 *)&buf[OTP_HEADER_OEM_START_ADDR_FRONT]) - start_addr;
-		finfo->oem_end_addr = *((u32 *)&buf[OTP_HEADER_OEM_END_ADDR_FRONT]) - start_addr;
-		pr_info("OEM start = 0x%08x, end = 0x%08x\n",
-			(finfo->oem_start_addr), (finfo->oem_end_addr));
-#endif
 #if defined(OTP_HEADER_AWB_START_ADDR_FRONT)
-#ifdef OTP_HEADER_DIRECT_ADDR_FRONT
-		finfo->awb_start_addr = OTP_HEADER_AWB_START_ADDR_FRONT - start_addr;
-		finfo->awb_end_addr = OTP_HEADER_AWB_END_ADDR_FRONT - start_addr;
-#else
-		finfo->awb_start_addr = *((u32 *)&buf[OTP_HEADER_AWB_START_ADDR_FRONT]) - start_addr;
-		finfo->awb_end_addr = *((u32 *)&buf[OTP_HEADER_AWB_END_ADDR_FRONT]) - start_addr;
+		finfo->awb_start_addr = *((u32 *)&buf[OTP_HEADER_AWB_START_ADDR_FRONT]);
+		finfo->awb_end_addr = *((u32 *)&buf[OTP_HEADER_AWB_END_ADDR_FRONT]);
 #endif
 		pr_info("AWB start = 0x%08x, end = 0x%08x\n",
 			(finfo->awb_start_addr), (finfo->awb_end_addr));
-#endif
-#if defined(OTP_HEADER_SHADING_START_ADDR_FRONT)
-		finfo->shading_start_addr = *((u32 *)&buf[OTP_HEADER_AP_SHADING_START_ADDR_FRONT]) - start_addr;
-		finfo->shading_end_addr = *((u32 *)&buf[OTP_HEADER_AP_SHADING_END_ADDR_FRONT]) - start_addr;
-		pr_info("Shading start = 0x%08x, end = 0x%08x\n",
-			(finfo->shading_start_addr), (finfo->shading_end_addr));
-		if (finfo->shading_end_addr > 0x3AFF) {
-			err("Shading end_addr has error!! 0x%08x", finfo->shading_end_addr);
-			finfo->shading_end_addr = 0x3AFF;
-		}
-#endif
+
 		/* HEARDER Data : Module/Manufacturer Information */
 		memcpy(finfo->header_ver, &buf[OTP_HEADER_VERSION_START_ADDR_FRONT], FIMC_IS_HEADER_VER_SIZE);
 		finfo->header_ver[FIMC_IS_HEADER_VER_SIZE] = '\0';
@@ -1352,7 +1349,6 @@ crc_retry:
 		memcpy(finfo->shading_ver, &buf[OTP_AP_SHADING_VER_START_ADDR_FRONT], FIMC_IS_SHADING_VER_SIZE);
 		finfo->shading_ver[FIMC_IS_SHADING_VER_SIZE] = '\0';
 		finfo->shading_section_crc_addr = OTP_CHECKSUM_AP_SHADING_ADDR_FRONT;
-#endif
 #endif
 	}
 

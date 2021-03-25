@@ -7,17 +7,20 @@
  * published by the Free Software Foundation.
  */
 
+#include <linux/blkdev.h>
+#include <linux/ctype.h>
 #include <linux/delay.h>
 #include <linux/kernel.h>
 #include <linux/list.h>
 #include <linux/of.h>
 #include <linux/of_gpio.h>
 #include <linux/of_platform.h>
-#include <linux/slab.h>
-#include <linux/ctype.h>
 #include <linux/regulator/consumer.h>
-#include <linux/blkdev.h>
+#include <linux/regulator/driver.h>
+#include <linux/slab.h>
 #include "../../../../pinctrl/core.h"
+#include "../../../../regulator/dummy.h"
+#include "../../../../regulator/internal.h"
 
 #include "decon_board.h"
 
@@ -80,8 +83,8 @@ node: node {
 	};
 	subnode_3 {
 		type =
-		"timer,check",	"loading";
-		desc = "if duration (start ~ check) < 300ms, wait. else if duration is enough, pass through. and then clear timestamp"
+		"timer,delay",	"loading";
+		desc = "if duration (start ~ delay) < 300ms, wait. else if duration is enough, pass through. and then clear timestamp"
 	};
 	subnode_4 {
 		type =
@@ -115,8 +118,8 @@ run_list(dev, "subnode_4"); pre-configured lcd_pin pinctrl at subnode_1 will be 
 #define dbg_info(fmt, ...)		pr_info(pr_fmt("%s: %3d: %s: " fmt), BOARD_DTS_NAME, __LINE__, __func__, ##__VA_ARGS__)
 #define dbg_warn(fmt, ...)		pr_warn(pr_fmt("%s: %3d: %s: " fmt), BOARD_DTS_NAME, __LINE__, __func__, ##__VA_ARGS__)
 
-#define STREQ(a, b)			(*(a) == *(b) && strcmp((a), (b)) == 0)
-#define STRNEQ(a, b)			(strncmp((a), (b), (strlen(a))) == 0)
+#define STREQ(a, b)			(a && b && (*(a) == *(b)) && (strcmp((a), (b)) == 0))
+#define STRNEQ(a, b)			(a && b && (strncmp((a), (b), (strlen(a))) == 0))
 
 #define MSEC_TO_USEC(ms)		(ms * USEC_PER_MSEC)
 #define USEC_TO_MSEC(us)		(do_div(us, USEC_PER_MSEC))
@@ -144,7 +147,7 @@ struct action_info {
 	unsigned int			idx;
 	int				gpio;
 	unsigned int			param[2];
-	struct regulator_bulk_data	*supply;
+	struct regulator_bulk_data	*bulk;
 	struct pinctrl			*pins;
 	struct pinctrl_state		*state;
 	struct timer_info		*timer;
@@ -220,13 +223,13 @@ static int print_action(struct action_info *action)
 		dbg_none("[%2d] gpio(%d) low\n", action->idx, action->gpio);
 		break;
 	case ACTION_REGULATOR_ENABLE:
-		dbg_none("[%2d] regulator(%s) enable\n", action->idx, action->supply->supply);
+		dbg_none("[%2d] regulator(%s) enable\n", action->idx, action->bulk->supply);
 		break;
 	case ACTION_REGULATOR_DISABLE:
-		dbg_none("[%2d] regulator(%s) disable\n", action->idx, action->supply->supply);
+		dbg_none("[%2d] regulator(%s) disable\n", action->idx, action->bulk->supply);
 		break;
 	case ACTION_REGULATOR_SET_VOLTAGE:
-		dbg_none("[%2d] regulator(%s) set_voltage\n", action->idx, action->supply->supply);
+		dbg_none("[%2d] regulator(%s) set_voltage\n", action->idx, action->bulk->supply);
 		break;
 	case ACTION_DELAY_MDELAY:
 		dbg_none("[%2d] mdelay(%d)\n", action->idx, action->param[0]);
@@ -388,6 +391,18 @@ exit:
 	return ret;
 }
 
+static int is_dummy_regulator(struct regulator_bulk_data *bulk)
+{
+	struct regulator_dev *rdev = NULL;
+	int ret = 0;
+
+	rdev = bulk->consumer->rdev;
+
+	ret = (rdev && rdev != dummy_regulator_rdev) ? 0 : 1;
+
+	return ret;
+}
+
 static int decide_subinfo(struct device_node *np, struct action_info *action)
 {
 	int ret = 0;
@@ -395,7 +410,6 @@ static int decide_subinfo(struct device_node *np, struct action_info *action)
 	struct platform_device *pdev = NULL;
 	char *timer_name = NULL;
 	unsigned int delay = 0;
-	void *rdev_reg_data;
 
 	if (!action) {
 		dbg_warn("invalid action\n");
@@ -422,26 +436,30 @@ static int decide_subinfo(struct device_node *np, struct action_info *action)
 		break;
 	case ACTION_REGULATOR_ENABLE:
 	case ACTION_REGULATOR_DISABLE:
-		action->supply = kzalloc(sizeof(struct regulator_bulk_data), GFP_KERNEL);
-		action->supply->supply = subinfo;
-		ret = regulator_bulk_get(NULL, 1, action->supply);
+		action->bulk = kzalloc(sizeof(struct regulator_bulk_data), GFP_KERNEL);
+		action->bulk->supply = subinfo;
+		ret = regulator_bulk_get(NULL, 1, action->bulk);
 		if (ret < 0)
 			dbg_warn("regulator_bulk_get fail %d %s\n", ret, subinfo);
 
-		rdev_reg_data = regulator_get_drvdata(action->supply->consumer);
-		if (!rdev_reg_data)
-			dbg_warn("regulator_get_drvdata fail %s\n", subinfo);
+		if (is_dummy_regulator(action->bulk)) {
+			dbg_warn("regulator_bulk_get invalid %s maybe dummy regulator\n", subinfo);
+			ret = -EINVAL;
+			goto exit;
+		}
 		break;
 	case ACTION_REGULATOR_SET_VOLTAGE:
-		action->supply = kzalloc(sizeof(struct regulator_bulk_data), GFP_KERNEL);
-		action->supply->supply = subinfo;
-		ret = regulator_bulk_get(NULL, 1, action->supply);
+		action->bulk = kzalloc(sizeof(struct regulator_bulk_data), GFP_KERNEL);
+		action->bulk->supply = subinfo;
+		ret = regulator_bulk_get(NULL, 1, action->bulk);
 		if (ret < 0)
 			dbg_warn("regulator_bulk_get fail %d %s\n", ret, subinfo);
 
-		rdev_reg_data = regulator_get_drvdata(action->supply->consumer);
-		if (!rdev_reg_data)
-			dbg_warn("regulator_get_drvdata fail %s\n", subinfo);
+		if (is_dummy_regulator(action->bulk)) {
+			dbg_warn("regulator_bulk_get invalid %s maybe dummy regulator\n", subinfo);
+			ret = -EINVAL;
+			goto exit;
+		}
 
 		if (!isdigit(subinfo[0])) {
 			dbg_warn("set_voltage need digit parameter %s\n", subinfo);
@@ -695,11 +713,74 @@ static int make_list(struct device *dev, struct list_head *lh, const char *name)
 		list_add_tail(&action->node, lh);
 	}
 
-	if (ret < 0)
+	if (ret < 0) {
 		kfree(action);
-
-	if (ret < 0)
 		BUG();
+	}
+
+	return ret;
+}
+
+static int make_text(struct device *dev, struct list_head *lh, const char *name, const char **type_list)
+{
+	struct device_node *np = NULL;
+	struct action_info *action;
+	int i, count = 0, ret = 0;
+	const char *type = NULL;
+	const char *subinfo = NULL;
+
+	np = of_find_decon_board(dev);
+	if (!np) {
+		dbg_info("%s node does not exist in %s so create dummy\n", name, BOARD_DTS_NAME);
+		action = kzalloc(sizeof(struct action_info), GFP_KERNEL);
+		list_add_tail(&action->node, lh);
+		return 0;
+	}
+
+	if (!type_list) {
+		dbg_info("action_list is invalid\n");
+		return -EINVAL;
+	}
+
+	while (type_list[count])
+		count++;
+
+	if (count % 2) {
+		dbg_warn("%s type count %d invalid so create dummy\n", name, count);
+		action = kzalloc(sizeof(struct action_info), GFP_KERNEL);
+		list_add_tail(&action->node, lh);
+		return -EINVAL;
+	}
+
+	count /= 2;
+
+	for (i = 0; i < count; i++) {
+		type = type_list[i * 2];
+		subinfo = type_list[i * 2 + 1];
+
+		if (!get_boot_lcdconnected() && !STRNEQ("delay", type) && !STRNEQ("timer", type)) {
+			dbg_info("lcdtype(%d) is invalid, so skip to add %s: %2d: %s\n", get_boot_lcdtype(), name, count, type);
+			continue;
+		}
+
+		action = kzalloc(sizeof(struct action_info), GFP_KERNEL);
+		action->type = type;
+		action->subinfo = subinfo;
+
+		ret = decide_type(action);
+		if (ret < 0)
+			break;
+		ret = decide_subinfo(np, action);
+		if (ret < 0)
+			break;
+
+		list_add_tail(&action->node, lh);
+	}
+
+	if (ret < 0) {
+		kfree(action);
+		BUG();
+	}
 
 	return ret;
 }
@@ -725,19 +806,25 @@ static int do_list(struct list_head *lh)
 			gpio_free(action->gpio);
 			break;
 		case ACTION_REGULATOR_ENABLE:
-			ret = regulator_enable(action->supply->consumer);
+			ret = regulator_enable(action->bulk->consumer);
 			if (ret < 0)
-				dbg_warn("regulator_enable fail %d, %s\n", ret, action->supply->supply);
+				dbg_warn("regulator_enable fail %d, %s\n", ret, action->bulk->supply);
+
+			if (get_regulator_use_count(action->bulk, NULL) != 1)
+				dbg_info("regulator_enable use_count(%d), %s\n", get_regulator_use_count(action->bulk, NULL), action->bulk->supply);
 			break;
 		case ACTION_REGULATOR_DISABLE:
-			ret = regulator_disable(action->supply->consumer);
+			ret = regulator_disable(action->bulk->consumer);
 			if (ret < 0)
-				dbg_warn("regulator_disable fail %d, %s\n", ret, action->supply->supply);
+				dbg_warn("regulator_disable fail %d, %s\n", ret, action->bulk->supply);
+
+			if (get_regulator_use_count(action->bulk, NULL) != 0)
+				dbg_info("regulator_disable use_count(%d), %s\n", get_regulator_use_count(action->bulk, NULL), action->bulk->supply);
 			break;
 		case ACTION_REGULATOR_SET_VOLTAGE:
-			ret = regulator_set_voltage(action->supply->consumer, action->param[0], action->param[1]);
+			ret = regulator_set_voltage(action->bulk->consumer, action->param[0], action->param[1]);
 			if (ret < 0)
-				dbg_warn("regulator_set_voltage fail %d, %s\n", ret, action->supply->supply);
+				dbg_warn("regulator_set_voltage fail %d, %s\n", ret, action->bulk->supply);
 			break;
 		case ACTION_DELAY_MDELAY:
 			mdelay(action->param[0]);
@@ -819,7 +906,12 @@ static inline struct list_head *find_list(const char *name)
 
 void run_list(struct device *dev, const char *name)
 {
-	struct list_head *lh = find_list(name);
+	struct list_head *lh = NULL;
+
+	if (!name)
+		return;
+
+	lh = find_list(name);
 
 	if (unlikely(list_empty(lh))) {
 		dbg_info("%s is empty, so make list\n", name);
@@ -828,6 +920,115 @@ void run_list(struct device *dev, const char *name)
 	}
 
 	do_list(lh);
+}
+
+/**
+ * run_action_list - run list not in dts, in the middle of code
+ * @dev: same as run_list. dev can be null but if dev is exist, search dts infomration under given dev
+ * @name: same as run_list. name of list
+ * @type_list: this is array of char string same as run_list in dts
+ *
+ * Example:
+ *
+ * const char *type_list[] = {
+ *	"regulator,enable",	"ldo1",
+ *	"gpio,high",	"gpio_lcd_en",
+ *	"delay,usleep",	"10000 11000",
+ *	"delay,usleep",	"10000",
+ *	"pinctrl",	"pin_on",
+ *	"delay,msleep",	"30",
+ *	"timer,start",	"lcd_reset 100",
+ *	NULL				<- last should be NULL
+ * };
+ * run_action_list(NULL, "lcd_init", type_list);	<- "lcd_init" is keyword for list name like run_list
+ *
+ * const char *type_list[] = {
+ *	"timer,delay",	"lcd_reset",
+ *	NULL
+ * };
+ * run_action_list(NULL, "lcd_done", type_list);
+ *
+ */
+void run_action_list(struct device *dev, const char *name, const char **type_list)
+{
+	struct list_head *lh = NULL;
+
+	if (!name || !type_list)
+		return;
+
+	lh = find_list(name);
+
+	if (unlikely(list_empty(lh))) {
+		dbg_info("%s is empty, so make list\n", name);
+		make_text(dev, lh, name, type_list);
+		dump_list(lh);
+	}
+
+	do_list(lh);
+}
+
+/**
+ * Example:
+ *
+ * run_action(NULL, "lcd_init", "timer,start", "lcd_reset 100");
+ * run_action(NULL, "lcd_done", "timer,delay", "lcd_reset");
+ *
+ */
+void run_action(struct device *dev, const char *name, const char *type, const char *subinfo)
+{
+	struct list_head *lh = NULL;
+	const char *type_list[] = { type, subinfo, NULL };
+
+	if (!name || !type || !subinfo)
+		return;
+
+	lh = find_list(name);
+
+	if (unlikely(list_empty(lh))) {
+		dbg_info("%s is empty, so make list\n", name);
+		make_text(dev, lh, name, type_list);
+		dump_list(lh);
+	}
+
+	do_list(lh);
+}
+
+/**
+ * Example:
+ *
+ * run_timer_from(NULL, "lcd_init", "lcd_reset", 100);
+ * run_timer_to(NULL, "lcd_done", "lcd_reset");
+ */
+void run_timer_from(struct device *dev, const char *name, const char *timer_name, unsigned int ms)
+{
+	struct list_head *lh = NULL;
+	char *subinfo = NULL;
+	unsigned int list_first = 0;
+
+	if (!name || !timer_name || !ms)
+		return;
+
+	lh = find_list(name);
+
+	if (unlikely(list_empty(lh)))
+		list_first = 1;
+
+	subinfo = kasprintf(GFP_KERNEL, "%s %u", timer_name, ms);
+
+	run_action(dev, name, "timer,start", subinfo);
+
+	if (!list_first) {
+		dbg_info("%s is not empty, so kfree\n", name);
+		kfree(subinfo);
+	}
+}
+
+void run_timer_to(struct device *dev, const char *name, const char *timer_name)
+{
+	if (!name || !timer_name)
+		return;
+
+	run_action(dev, name, "timer,delay", timer_name);
 }
 
 int of_gpio_get_active(const char *gpioname)
@@ -952,6 +1153,77 @@ exit:
 	return ret;
 }
 
+struct regulator_bulk_data *get_regulator_with_name(const char *name)
+{
+	int ret = 0;
+	struct regulator_bulk_data *consumers = NULL;
+
+	consumers = kzalloc(sizeof(struct regulator_bulk_data), GFP_KERNEL);
+	consumers->supply = name;
+
+	ret = regulator_bulk_get(NULL, 1, consumers);
+	if (ret < 0) {
+		dbg_warn("regulator_bulk_get fail %d %s\n", ret, name);
+		kfree(consumers);
+		consumers = NULL;
+		goto exit;
+	}
+
+	if (is_dummy_regulator(consumers)) {
+		dbg_warn("regulator_bulk_get invalid %s maybe dummy regulator\n", name);
+		regulator_bulk_free(1, consumers);
+		kfree(consumers);
+		consumers = NULL;
+		goto exit;
+	}
+
+exit:
+	return consumers;
+}
+
+int get_regulator_use_count(struct regulator_bulk_data *bulk, const char *name)
+{
+	int ret = 0;
+	struct regulator_bulk_data *consumers = NULL;
+	struct regulator_dev *rdev = NULL;
+
+	if (!bulk && !name) {
+		dbg_warn("of_get_regulator_use_count invalid bulk(%s) name(%s)\n",
+			(bulk && bulk->supply) ? bulk->supply : "null", name ? name : "null");
+		ret = -EINVAL;
+		goto exit;
+	}
+
+	if (bulk)
+		consumers = bulk;
+	else if (!bulk && name)
+		consumers = get_regulator_with_name(name);
+
+	if (!consumers) {
+		dbg_warn("of_get_regulator_use_count invalid bulk(%s) name(%s)\n",
+			(bulk && bulk->supply) ? bulk->supply : "null", name ? name : "null");
+		ret = -EINVAL;
+		goto exit;
+	}
+
+	rdev = consumers->consumer->rdev;
+	if (!rdev) {
+		dbg_info("rdev invalid\n");
+		ret = -EINVAL;
+		goto exit;
+	}
+
+	ret = rdev->use_count;
+
+	if (!bulk) {
+		regulator_bulk_free(1, consumers);
+		kfree(consumers);
+	}
+
+exit:
+	return ret;
+}
+
 struct platform_device *of_find_device_by_path(const char *name)
 {
 	struct device_node *np = NULL;
@@ -1011,7 +1283,7 @@ struct platform_device *of_find_decon_platform_device(void)
  *	phandle_name = <&phandle2 &phandle3>;
  *
  * you may call this:
- * char **name_list = { "node1", "node2", NULL }; <- last should be NULL
+ * char **name_list[] = { "node1", "node2", NULL }; <- last should be NULL
  * of_update_phandle_property_list(NULL, "phandle_name", name_list);
  */
 int of_update_phandle_property_list(struct device_node *from, const char *phandle_name, const char **node_names)
@@ -1146,7 +1418,7 @@ exit:
  */
 int of_update_phandle_property(struct device_node *from, const char *phandle_name, const char *node_name)
 {
-	const char *node_names[2] = { NULL, NULL };
+	const char *node_names[] = { NULL, NULL };
 
 	if (!phandle_name) {
 		dbg_info("phandle_name is invalid\n");
@@ -1226,25 +1498,25 @@ static int __init find_panel_lut_ddi_index(void)
 
 	parent = of_find_node_with_property(NULL, PANEL_LUT_NAME);
 	if (!parent) {
-		dbg_warn("%s property does not exist so skip\n", PANEL_DTS_NAME);
+		dbg_warn("%s property does not exist so skip\n", PANEL_LUT_NAME);
 		return -EINVAL;
 	}
 
 	lut_count = of_property_count_u32_elems(parent, PANEL_LUT_NAME);
-	if (lut_count < 0 || lut_count % 4 || lut_count >= U8_MAX) {
+	if (lut_count <= 0 || lut_count % 4 || lut_count >= U8_MAX) {
 		dbg_warn("%s property has invalid count(%d)\n", PANEL_LUT_NAME, lut_count);
 		return -EINVAL;
 	}
 
 	lut_table = kcalloc(lut_count, sizeof(u32), GFP_KERNEL);
-	if (!lut_count) {
+	if (!lut_table) {
 		dbg_warn("%s property kcalloc fail\n", PANEL_LUT_NAME);
 		return -EINVAL;
 	}
 
 	ret = of_property_read_u32_array(parent, PANEL_LUT_NAME, lut_table, lut_count);
 	if (ret < 0) {
-		dbg_warn("of_property_read_u32_array fail. ret(%d)\n", ret);
+		dbg_warn("%s of_property_read_u32_array fail. ret(%d)\n", PANEL_LUT_NAME, ret);
 		kfree(lut_table);
 		return -EINVAL;
 	}
@@ -1279,29 +1551,29 @@ static int __init panel_lut_ddi_recommend_init(void)
 
 	parent = of_find_node_with_property(NULL, PANEL_LUT_NAME);
 	if (!parent) {
-		dbg_warn("%s property does not exist so skip\n", PANEL_DTS_NAME);
+		dbg_warn("%s property does not exist so skip\n", PANEL_LUT_NAME);
 		return 0;
 	}
 
 	ddi_index = find_panel_lut_ddi_index();
-	if (ret < 0)
+	if (ddi_index < 0)
 		return 0;
 
 	ddi_count = of_count_phandle_with_args(parent, PANEL_DTS_NAME, NULL);
-	if (ddi_count < 0 || ddi_count < ddi_index) {
+	if (ddi_count <= 0 || ddi_count < ddi_index) {
 		dbg_warn("%s property has invalid count(%d)\n", PANEL_DTS_NAME, ddi_count);
 		return 0;
 	}
 
 	np = of_parse_phandle(parent, PANEL_DTS_NAME, ddi_index);
 	if (!np) {
-		dbg_info("of_parse_phandle fail\n");
+		dbg_info("%s of_parse_phandle fail\n", PANEL_DTS_NAME);
 		return 0;
 	}
 
 	ret = of_update_recommend(np);
 	if (ret < 0) {
-		dbg_info("of_parse_phandle fail(%d)\n", ret);
+		dbg_info("of_update_recommend fail(%d)\n", ret);
 		return 0;
 	}
 

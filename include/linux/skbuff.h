@@ -784,7 +784,9 @@ struct sk_buff {
 	__u32		secmark;
 #endif
 
-	__u32		priomark;
+#if defined(CONFIG_MODEM_IF_LEGACY_QOS) || defined(CONFIG_MODEM_IF_QOS)
+	__u32			priomark;
+#endif
 
 	union {
 		__u32		mark;

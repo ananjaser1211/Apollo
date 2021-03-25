@@ -223,7 +223,7 @@ int usbpd_manager_get_apdo_max_power(unsigned int *pdo_pos,
 		if (!(pd_noti.sink_status.power_list[i].apdo)) {
 			max_voltage = pd_noti.sink_status.power_list[i].max_voltage;
 			max_current = pd_noti.sink_status.power_list[i].max_current;
-			max_power = max_voltage*max_current;	/* uW */
+			max_power = (max_voltage * max_current > max_power) ? (max_voltage * max_current) : max_power;
 			*taMaxPwr = max_power;	/* mW */
 		}
 	}
@@ -1679,8 +1679,7 @@ int usbpd_manager_evaluate_capability(struct usbpd_data *pd_data)
 			pd_current = pd_obj->power_data_obj_pps.max_current;
 #ifdef CONFIG_BATTERY_SAMSUNG
 #ifdef CONFIG_USB_TYPEC_MANAGER_NOTIFIER
-			if (pd_volt * USBPD_PPS_VOLT_UNIT <= MAX_CHARGING_VOLT)
-				available_pdo_num = i + 1;
+			available_pdo_num = i + 1;
 			pdic_sink_status->power_list[i + 1].max_voltage = pd_volt * USBPD_PPS_VOLT_UNIT;
 			pdic_sink_status->power_list[i + 1].max_current = pd_current * USBPD_PPS_CURRENT_UNIT;
 #if defined(CONFIG_PDIC_PD30)

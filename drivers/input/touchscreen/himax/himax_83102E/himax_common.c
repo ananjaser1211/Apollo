@@ -1020,6 +1020,8 @@ update_retry:
 	} else {
 		g_core_fp.fp_read_FW_ver();
 		g_core_fp.fp_touch_information();
+		calculate_point_number();
+		calcDataSize();
 		result = 1;/*upgrade success*/
 		I("%s: TP upgrade OK\n", __func__);
 	}
@@ -3236,7 +3238,6 @@ FW_force_upgrade:
 #endif
 
 	/*touch data init*/
-	ts->glove_enabled = 0;
 	ts->touch_count = 0;
 
 	err = himax_report_data_init();

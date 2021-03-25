@@ -631,7 +631,7 @@ static int dpp_check_limitation(struct dpp_device *dpp, struct dpp_params_info *
 	}
 
 	/* HDR channel limitation */
-	if ((p->hdr != DPP_HDR_OFF) && p->rot) {
+	if ((p->hdr != DPP_HDR_OFF) && (p->rot > DPP_ROT_180)) {
 		dpp_err("Not support [HDR+ROTATION] at the same time in DPP%d\n",
 			dpp->id);
 		return -EINVAL;
@@ -691,10 +691,24 @@ static int dpp_set_config(struct dpp_device *dpp)
 	dpp_dbg("dpp%d configuration\n", dpp->id);
 
 	dpp->state = DPP_STATE_ON;
+	/* to prevent irq storm, irq enable is moved here */
+	dpp_reg_irq_enable(dpp->id);
 err:
 	mutex_unlock(&dpp->lock);
 	return ret;
 }
+
+void dpp_release_rpm_hold(u32 id)
+{
+	struct dpp_device *dpp = get_dpp_drvdata(id);
+
+	if (true == dpp->hold_rpm_on_boot) {
+		pm_runtime_put_sync(dpp->dev);
+		dpp->hold_rpm_on_boot = false;
+		dpp_info("released dpp,hold-rpm-on-boot\n");
+	}
+}
+EXPORT_SYMBOL(dpp_release_rpm_hold);
 
 static int dpp_stop(struct dpp_device *dpp, bool reset)
 {
@@ -714,11 +728,6 @@ static int dpp_stop(struct dpp_device *dpp, bool reset)
 
 	del_timer(&dpp->d.op_timer);
 	dpp_reg_deinit(dpp->id, reset);
-
-	if (dpp->hold_rpm_on_boot == true) {
-		pm_runtime_put_sync(dpp->dev);
-		dpp->hold_rpm_on_boot = false;
-	}
 
 	dpp_dbg("dpp%d is stopped\n", dpp->id);
 
@@ -937,9 +946,12 @@ static void dpp_parse_dt(struct dpp_device *dpp, struct device *dev)
 
 	dpp->dev = dev;
 
-	if (of_property_read_bool(dev->of_node, "dpp,hold-rpm-on-boot")) {
+	if ((dpp->id == IDMA_G0) &&
+		(of_property_read_bool(dev->of_node, "dpp,hold-rpm-on-boot"))) {
 		dpp->hold_rpm_on_boot = true;
 		dpp_info("dpp,hold-rpm-on-boot\n");
+	} else {
+		dpp->hold_rpm_on_boot = false;
 	}
 }
 

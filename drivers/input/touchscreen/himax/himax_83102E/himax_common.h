@@ -91,7 +91,7 @@
 #define HX_AUTO_UPDATE_FW
 #define HX_SMART_WAKEUP
 /*#define HX_GESTURE_TRACK*/
-/*#define HX_HIGH_SENSE*/
+#define HX_HIGH_SENSE
 /*#define HX_PALM_REPORT*/
 #define HX_USB_DETECT_GLOBAL
 /*#define HX_USB_DETECT_CALLBACK*/
@@ -283,7 +283,6 @@ struct sec_rawdata_buffs {
 };
 #endif /* SEC_FACTORY_MODE */
 
-#ifdef HX_FIX_TOUCH_INFO
 enum fix_touch_info {
 	FIX_HX_RX_NUM = 40,
 	FIX_HX_TX_NUM = 28,
@@ -298,7 +297,6 @@ enum fix_touch_info {
 	FIX_HX_TX_NUM_2 = 0,
 #endif
 };
-#endif
 
 #ifdef HX_ZERO_FLASH
 	#define HX_SPI_OPERATION
@@ -461,8 +459,6 @@ struct himax_ts_data {
 	int pre_finger_data[10][6];		/*0: x, 1:y, 2:w, 3:mv_cnt, 4:major, 5:minor */
 	int p_x[10];
 	int p_y[10];
-
-	uint8_t glove_enabled;
 
 	struct device *dev;
 	struct workqueue_struct *himax_wq;

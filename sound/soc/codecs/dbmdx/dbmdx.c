@@ -75,7 +75,7 @@
 #define MAX_RETRIES_TO_WRITE_TOBUF		200
 #define MAX_AMODEL_SIZE				(148 * 1024)
 
-#define DRIVER_VERSION				"4.036.7"
+#define DRIVER_VERSION				"4.036.9"
 
 #define DBMDX_AUDIO_MODE_PCM			0
 #define DBMDX_AUDIO_MODE_MU_LAW			1
@@ -112,7 +112,7 @@
 #endif
 
 #define	DBMDX_ALWAYS_RELOAD_ASRP_PARAMS		1
-
+#define DBMDX_RECOVERY_TEST_ENABLE	1
 
 enum dbmdx_detection_mode {
 	DETECTION_MODE_OFF = 0,
@@ -203,6 +203,11 @@ void (*g_event_callback)(int) = NULL;
 void (*g_set_i2c_freq_callback)(struct i2c_adapter*, enum i2c_freq_t) = NULL;
 
 /* Forward declarations */
+#ifdef DBMDX_KEEP_ALIVE_TIMER
+static void cancel_keep_alive_timer(struct dbmdx_private *p);
+static int arm_keep_alive_timer(struct dbmdx_private *p);
+#endif
+
 static int dbmdx_va_amodel_update(struct dbmdx_private *p, int val);
 static int dbmdx_perform_recovery(struct dbmdx_private *p);
 static int dbmdx_disable_microphones(struct dbmdx_private *p);
@@ -1214,6 +1219,13 @@ static int dbmdx_set_mode(struct dbmdx_private *p, int mode)
 
 	p->va_flags.irq_inuse = 0;
 
+#ifdef DBMDX_KEEP_ALIVE_TIMER
+	dev_dbg(p->dev, "%s: Cancelling Keep Alive timer\n", __func__);
+	p->va_flags.cancel_keep_alive_work = true;
+	cancel_keep_alive_timer(p);
+	dev_dbg(p->dev, "%s: Cancelled Keep Alive timer\n", __func__);
+#endif
+
 	/* wake up if asleep */
 	ret = dbmdx_wake(p);
 	if (ret < 0) {
@@ -1451,13 +1463,14 @@ static int dbmdx_set_mode(struct dbmdx_private *p, int mode)
 		int retry = 10;
 
 #ifdef DBMDX_RECOVERY_TEST_ENABLE
-		if (p->va_flags.va_debug_val1) {
+		if (p->va_flags.va_debug_val1 == 3) {
 
 			dev_err(p->dev,
 				"%s: Emulating Mode verification failed\n",
 				__func__);
 			ret = -EIO;
 			p->va_flags.recovery_requested = true;
+			p->va_flags.mode = cur_opmode;
 			goto out;
 		}
 #endif
@@ -1474,6 +1487,7 @@ static int dbmdx_set_mode(struct dbmdx_private *p, int mode)
 				dev_err(p->dev,
 				"%s: failed to read DBMDX_VA_OPR_MODE\n",
 					__func__);
+				p->va_flags.mode = cur_opmode;
 				goto out;
 			}
 
@@ -1488,6 +1502,7 @@ static int dbmdx_set_mode(struct dbmdx_private *p, int mode)
 			__func__, new_mode, required_mode);
 			ret = -EIO;
 			p->va_flags.recovery_requested = true;
+			p->va_flags.mode = cur_opmode;
 			goto out;
 		}
 	} else
@@ -1559,8 +1574,9 @@ static int dbmdx_trigger_detection(struct dbmdx_private *p)
 		dev_err(p->dev, "%s: a-model not loaded!\n", __func__);
 		return -EINVAL;
 	}
-
+#ifndef DBMDX_VA_NS_SUPPORT
 	p->va_flags.disabling_mics_not_allowed = true;
+#endif
 	p->va_flags.sleep_not_allowed = true;
 
 	/* set chip to idle mode before entering detection mode */
@@ -1587,8 +1603,18 @@ static int dbmdx_trigger_detection(struct dbmdx_private *p)
 	 * saving mode (only if no active pcm streaming in background)
 	 */
 	if (p->va_flags.mode != DBMDX_STREAMING &&
-		p->va_flags.mode != DBMDX_DETECTION_AND_STREAMING)
+		p->va_flags.mode != DBMDX_DETECTION_AND_STREAMING) {
 		p->chip->transport_enable(p, false);
+#ifdef DBMDX_KEEP_ALIVE_TIMER
+		if (p->pdata->retrigger_interval_sec &&
+						p->keep_alive_timer_created) {
+			ret = arm_keep_alive_timer(p);
+			dev_dbg(p->dev,	"%s:Retrigger is scheduled in %u sec\n",
+					__func__,
+					p->pdata->retrigger_interval_sec);
+		}
+#endif
+	}
 
 	return 0;
 }
@@ -1793,6 +1819,212 @@ out:
 		__func__, dbmdx_power_mode_names[p->power_mode]);
 	p->unlock(p);
 }
+
+#ifdef DBMDX_KEEP_ALIVE_TIMER
+
+static void cancel_keep_alive_timer(struct dbmdx_private *p)
+{
+	int ret;
+
+	if (!p->keep_alive_timer_created) {
+		p->va_flags.cancel_keep_alive_work = false;
+		return;
+	}
+
+	if (!p->keep_alive_timer_started) {
+		p->va_flags.cancel_keep_alive_work = false;
+		return;
+	}
+
+	ret = alarm_cancel(&p->keep_alive_timer);
+
+	if (ret)
+		dev_dbg(p->dev, "%s: Keep Alive Timer was canceled\n",
+			__func__);
+	else
+		dev_dbg(p->dev, "%s: Keep Alive Timer was not active\n",
+			__func__);
+
+	p->va_flags.cancel_keep_alive_work = false;
+
+	p->keep_alive_timer_started = false;
+
+}
+
+static int arm_keep_alive_timer(struct dbmdx_private *p)
+{
+	ktime_t interval_time;
+
+	if (!p->keep_alive_timer_created) {
+		dev_dbg(p->dev, "%s: Keep Alive Timer is not supported\n",
+			__func__);
+		return 0;
+	}
+
+	if (!p->pdata->retrigger_interval_sec) {
+		dev_dbg(p->dev, "%s: Keep alive timer is disabled\n", __func__);
+		return 0;
+	}
+
+	if (p->keep_alive_timer_started) {
+		p->va_flags.cancel_keep_alive_work = true;
+		cancel_keep_alive_timer(p);
+	}
+
+	interval_time = ktime_set(p->pdata->retrigger_interval_sec, 0);
+
+	alarm_start_relative(&p->keep_alive_timer, interval_time);
+
+	p->keep_alive_timer_started = true;
+
+	return 0;
+}
+
+static void dbmdx_keep_alive_work(struct work_struct *work)
+{
+	struct dbmdx_private *p = container_of(
+			work, struct dbmdx_private, keep_alive_work);
+
+	int ret = 0;
+	int current_mode;
+
+
+	dev_dbg(p->dev, "%s\n", __func__);
+
+	p->lock(p);
+
+	p->keep_alive_timer_started = false;
+
+	p->keep_alive_triggers++;
+
+	dev_dbg(p->dev, "%s Keep Alive Triggers: %d\n",
+				__func__, p->keep_alive_triggers);
+
+	current_mode = p->va_flags.mode;
+
+	if (p->va_flags.cancel_keep_alive_work) {
+		dev_dbg(p->dev,
+			"%s: the work has been just canceled\n",
+			__func__);
+		p->va_flags.cancel_keep_alive_work = false;
+		goto out_unlock;
+	}
+
+	if (current_mode != DBMDX_DETECTION) {
+		dev_dbg(p->dev,
+			"%s: Current mode is not detection (%d)\n",
+			__func__, current_mode);
+		goto out_unlock;
+	}
+
+#ifdef DBMDX_RECOVERY_TEST_ENABLE
+	if (p->va_flags.va_debug_val1 == 2) {
+		dev_err(p->dev,	"%s: Emulating Dead Chip during keep alive\n",
+				__func__);
+		ret = -EIO;
+		p->va_flags.recovery_requested = true;
+		goto out_unlock;
+	}
+#endif
+
+	ret = dbmdx_trigger_detection(p);
+	if (ret) {
+		dev_err(p->dev,	"%s: failed to trigger detection\n",
+				__func__);
+		goto out_unlock;
+	}
+
+out_unlock:
+	p->unlock(p);
+
+	if (ret < 0 && !p->pdata->va_recovery_disabled) {
+
+		int recovery_res;
+
+		if (!(p->va_flags.recovery_requested) &&
+			(p->device_ready &&
+					(dbmdx_va_alive_with_lock(p) == 0))) {
+			dev_err(p->dev,
+				"%s: DBMDX response has been verified\n",
+				__func__);
+			goto out;
+		}
+
+		dev_err(p->dev, "%s: Performing recovery #1\n", __func__);
+
+		recovery_res = dbmdx_perform_recovery(p);
+
+		if (recovery_res) {
+			dev_err(p->dev, "%s: recovery failed\n", __func__);
+			ret = -EIO;
+			goto out;
+		}
+
+		p->lock(p);
+
+		ret = dbmdx_trigger_detection(p);
+
+		p->unlock(p);
+
+		if (ret == 0) {
+			dev_err(p->dev,
+				"%s: Set detection after succesfull recovery\n",
+				__func__);
+			goto out;
+		}
+
+		if (p->device_ready && (dbmdx_va_alive_with_lock(p) == 0)) {
+			dev_err(p->dev,
+				"%s: DBMDX response has been verified\n",
+				__func__);
+			goto out;
+		}
+
+		dev_err(p->dev, "%s: Performing recovery #2\n", __func__);
+
+		recovery_res = dbmdx_perform_recovery(p);
+
+		if (recovery_res) {
+			dev_err(p->dev, "%s: recovery failed\n", __func__);
+			goto out;
+		}
+	}
+out:
+	return;
+}
+
+
+static enum alarmtimer_restart keep_alive_timer_func(struct alarm *alarm,
+								ktime_t now)
+{
+	struct dbmdx_private *p = (struct dbmdx_private *)alarm->data;
+
+	if (!p) {
+		dev_warn(p->dev, "%s Timer doesn't contain data field\n",
+								__func__);
+		return  ALARMTIMER_NORESTART;
+	}
+
+	dev_dbg(p->dev, "%s\n", __func__);
+
+	if (p->va_flags.cancel_keep_alive_work) {
+		dev_dbg(p->dev,
+			"%s: the work has been just canceled\n",
+			__func__);
+		p->va_flags.cancel_keep_alive_work = false;
+		return  ALARMTIMER_NORESTART;
+	}
+
+#ifdef CONFIG_PM_WAKELOCKS
+		__pm_wakeup_event(&(p->ps_nosuspend_wl),
+					DBMDX_WAKELOCK_IRQ_TIMEOUT_MS);
+#endif
+	dbmdx_schedule_work(p, &p->keep_alive_work);
+
+	return ALARMTIMER_NORESTART;
+}
+
+#endif
 
 #ifndef ALSA_SOC_INTERFACE_NOT_SUPPORTED
 static int dbmdx_vqe_set_use_case(struct dbmdx_private *p, unsigned int uc)
@@ -3194,7 +3426,7 @@ static ssize_t dbmdx_acoustic_model_build_from_svt_multichunk_file(
 		dev_err(p->dev, "%s: File size is too small\n", __func__);
 		ret = -EINVAL;
 		goto out;
-	 }
+	}
 
 	 /* Check if it is special file that contains all zeroes for loading
 	  * dummy model
@@ -3212,11 +3444,11 @@ static ssize_t dbmdx_acoustic_model_build_from_svt_multichunk_file(
 							amodel_size,
 							num_of_amodel_chunks,
 							amodel_chunks_size);
-	 }
+	}
 
 	 /* File format is:
-	 * 4 bytes net_size + net_data + 4 bytes gram_size + gram_data
-	 */
+	  * 4 bytes net_size + net_data + 4 bytes gram_size + gram_data
+	  */
 
 	/* The size is encoded in bytes */
 	net_size = (size_t)(file_data[0] | (file_data[1]<<8) |
@@ -5130,8 +5362,14 @@ static ssize_t dbmdx_va_debug_store(struct device *dev,
 	} else if (!strncmp(buf, "enable_sleep", min_t(int, size, 12))) {
 		p->sleep_disabled = false;
 		ret = 0;
-	} else if (!strncmp(buf, "test_recovery", min_t(int, size, 13))) {
+	} else if (!strncmp(buf, "test_recovery1", min_t(int, size, 14))) {
 		p->va_flags.va_debug_val1 = 1;
+		ret = 0;
+	} else if (!strncmp(buf, "test_recovery2", min_t(int, size, 14))) {
+		p->va_flags.va_debug_val1 = 2;
+		ret = 0;
+	} else if (!strncmp(buf, "test_recovery3", min_t(int, size, 14))) {
+		p->va_flags.va_debug_val1 = 3;
 		ret = 0;
 	} else if (!strncmp(buf, "help", min_t(int, size, 4))) {
 		dev_info(p->dev,
@@ -6682,7 +6920,7 @@ static int dbmdx_configure_ns(struct dbmdx_private *p, int mode, bool enable)
 				goto out;
 			}
 
-			if (DBMDX_IDLE == cur_val)
+			if (cur_val == DBMDX_IDLE)
 				break;
 		}
 
@@ -9053,6 +9291,47 @@ static ssize_t dbmdx_va_max_detection_buffer_size_store(struct device *dev,
 	return size;
 }
 
+static ssize_t dbmdx_va_retrigger_interval_sec_show(struct device *dev,
+				  struct device_attribute *attr, char *buf)
+{
+	struct dbmdx_private *p = dev_get_drvdata(dev);
+	int ret;
+
+	if (!p)
+		return -EAGAIN;
+
+	if (!p->device_ready) {
+		dev_err(p->dev, "%s: device not ready\n", __func__);
+		return -EAGAIN;
+	}
+
+	ret = snprintf(buf, PAGE_SIZE, "%u\n",
+		       p->pdata->retrigger_interval_sec);
+
+	return ret;
+}
+
+static ssize_t dbmdx_va_retrigger_interval_sec_store(struct device *dev,
+				   struct device_attribute *attr,
+				   const char *buf, size_t size)
+{
+	struct dbmdx_private *p = dev_get_drvdata(dev);
+	unsigned long val;
+	int ret;
+
+	ret = kstrtol(buf, 0, &val);
+	if (ret)
+		return -EINVAL;
+
+	dev_dbg(p->dev, "%s: val - %d\n", __func__, (int)val);
+
+	p->pdata->retrigger_interval_sec = (u32)val;
+
+	return size;
+}
+
+
+
 static ssize_t dbmdx_dump_state(struct device *dev,
 				  struct device_attribute *attr, char *buf)
 {
@@ -9199,6 +9478,10 @@ static ssize_t dbmdx_dump_state(struct device *dev,
 		off += snprintf(buf + off, PAGE_SIZE - off,
 					"\tbuffering_timeout %d\n",
 					pdata->buffering_timeout);
+
+		off += snprintf(buf + off, PAGE_SIZE - off,
+					"\tretrigger interval %d sec\n",
+					pdata->retrigger_interval_sec);
 
 		off += snprintf(buf + off, PAGE_SIZE - off,
 						"\tpcm streaming mode %d\n",
@@ -9374,6 +9657,14 @@ static ssize_t dbmdx_dump_current_state(struct device *dev,
 	off += snprintf(buf + off, PAGE_SIZE - off,
 					"\tRecovery Disabled:\t%s\n",
 			p->pdata->va_recovery_disabled ? "ON" : "OFF");
+	off += snprintf(buf + off, PAGE_SIZE - off,
+					"\tRecovery Times:\t%u\n",
+					p->recovery_times);
+#ifdef DBMDX_KEEP_ALIVE_TIMER
+	off += snprintf(buf + off, PAGE_SIZE - off,
+					"\tKeep Alive Triggers: %d\n",
+					p->keep_alive_triggers);
+#endif
 	if (p->pdata->feature_va) {
 		off += snprintf(buf + off, PAGE_SIZE - off,
 					"\t=======VA Dump==========\n");
@@ -10261,6 +10552,9 @@ static DEVICE_ATTR(va_min_samples_chunk_size, 0644,
 static DEVICE_ATTR(va_max_detection_buffer_size, 0644,
 		   dbmdx_va_max_detection_buffer_size_show,
 		   dbmdx_va_max_detection_buffer_size_store);
+static DEVICE_ATTR(va_retrigger_interval_sec, 0644,
+		   dbmdx_va_retrigger_interval_sec_show,
+		   dbmdx_va_retrigger_interval_sec_store);
 static DEVICE_ATTR(vqe_ping, 0444,
 		   dbmdx_vqe_ping_show, NULL);
 static DEVICE_ATTR(vqe_use_case, 0644,
@@ -10324,6 +10618,7 @@ static struct attribute *dbmdx_va_attributes[] = {
 	&dev_attr_va_detection_buffer_channels.attr,
 	&dev_attr_va_min_samples_chunk_size.attr,
 	&dev_attr_va_max_detection_buffer_size.attr,
+	&dev_attr_va_retrigger_interval_sec.attr,
 	&dev_attr_va_amodel_options.attr,
 #ifdef DMBDX_OKG_AMODEL_SUPPORT
 	&dev_attr_va_okg_amodel_enable.attr,
@@ -10421,6 +10716,8 @@ static int dbmdx_perform_recovery(struct dbmdx_private *p)
 
 	p->va_flags.recovery_requested = false;
 
+	p->recovery_times++;
+
 	if (active_fw == DBMDX_FW_VA) {
 		current_mode = p->va_flags.mode;
 		current_audio_channels = p->pdata->va_audio_channels;
@@ -10455,6 +10752,7 @@ static int dbmdx_perform_recovery(struct dbmdx_private *p)
 
 	if (ret != 0) {
 		dev_err(p->dev, "%s: Recovery failure\n", __func__);
+		p->chip->transport_enable(p, false);
 		return -EIO;
 	}
 
@@ -10643,8 +10941,10 @@ static int dbmdx_perform_recovery(struct dbmdx_private *p)
 	p->device_ready = true;
 
 	ret = dbmdx_set_power_mode(p, DBMDX_PM_FALLING_ASLEEP);
-	if (ret)
+	if (ret) {
+		p->chip->transport_enable(p, false);
 		goto out;
+	}
 
 out:
 	p->unlock(p);
@@ -11003,8 +11303,18 @@ int dbmdx_stop_pcm_streaming(struct snd_soc_codec *codec)
 	/* disable transport (if configured) so the FW goes into best power
 	 * saving mode (only if no active pcm streaming in background)
 	 */
-	if (required_mode == DBMDX_DETECTION)
+	if (required_mode == DBMDX_DETECTION) {
 		p->chip->transport_enable(p, false);
+#ifdef DBMDX_KEEP_ALIVE_TIMER
+		if (p->pdata->retrigger_interval_sec &&
+						p->keep_alive_timer_created) {
+			ret = arm_keep_alive_timer(p);
+			dev_dbg(p->dev,	"%s:Retrigger is scheduled in %u sec\n",
+					__func__,
+					p->pdata->retrigger_interval_sec);
+		}
+#endif
+	}
 
 out_unlock:
 	p->unlock(p);
@@ -12647,7 +12957,24 @@ static int dbmdx_process_detection_irq(struct dbmdx_private *p,
 	p->va_flags.buffering = 0;
 	flush_work(&p->sv_work);
 
+#ifdef DBMDX_KEEP_ALIVE_TIMER
+	dev_dbg(p->dev, "%s: Cancelling Keep Alive timer\n", __func__);
+	p->va_flags.cancel_keep_alive_work = true;
+	cancel_keep_alive_timer(p);
+	dev_dbg(p->dev, "%s: Cancelled Keep Alive timer\n", __func__);
+#endif
+
 	p->lock(p);
+
+#ifdef DBMDX_RECOVERY_TEST_ENABLE
+	if (p->va_flags.va_debug_val1 == 1) {
+		dev_err(p->dev,	"%s: Emulating Dead Chip during irq\n",
+				__func__);
+		ret = -EIO;
+		p->va_flags.recovery_requested = true;
+		goto out_unlock;
+	}
+#endif
 
 	if ((p->va_detection_mode == DETECTION_MODE_VOICE_ENERGY) &&
 		(p->va_flags.sv_recognition_mode ==
@@ -12843,6 +13170,30 @@ static int dbmdx_process_detection_irq(struct dbmdx_private *p,
 
 out_unlock:
 	p->unlock(p);
+
+	if (ret < 0 && !p->pdata->va_recovery_disabled) {
+
+		int recovery_res;
+
+		if (!(p->va_flags.recovery_requested) &&
+			(p->device_ready &&
+					(dbmdx_va_alive_with_lock(p) == 0))) {
+			dev_err(p->dev,
+				"%s: DBMDX response has been verified\n",
+				__func__);
+			return ret;
+		}
+
+		dev_err(p->dev, "%s: Performing recovery #1\n", __func__);
+
+		recovery_res = dbmdx_perform_recovery(p);
+
+		if (recovery_res) {
+			dev_err(p->dev, "%s: recovery failed\n", __func__);
+			return ret;
+		}
+	}
+
 	return ret;
 }
 
@@ -12851,9 +13202,6 @@ static void dbmdx_uevent_work(struct work_struct *work)
 	struct dbmdx_private *p = container_of(
 			work, struct dbmdx_private, uevent_work);
 	int ret;
-
-	if (!p)
-		return;
 
 	if (!p->device_ready) {
 		dev_err(p->dev, "%s: device not ready\n", __func__);
@@ -13834,6 +14182,10 @@ static int dbmdx_get_va_resources(struct dbmdx_private *p)
 	INIT_WORK(&p->sv_work, dbmdx_sv_work);
 	INIT_WORK(&p->uevent_work, dbmdx_uevent_work);
 
+#ifdef DBMDX_KEEP_ALIVE_TIMER
+	INIT_WORK(&p->keep_alive_work, dbmdx_keep_alive_work);
+#endif
+
 	ret = kfifo_alloc(&p->pcm_kfifo, MAX_KFIFO_BUFFER_SIZE_MONO,
 		GFP_KERNEL);
 
@@ -14665,6 +15017,17 @@ static int dbmdx_get_va_devtree_pdata(struct device *dev,
 		ret = -EINVAL;
 		goto out_err;
 	}
+
+	ret = of_property_read_u32(np, "retrigger_interval_sec",
+			&p->pdata->retrigger_interval_sec);
+	if ((ret && ret != -EINVAL)) {
+		dev_err(p->dev, "%s: retrigger_interval_sec'\n", __func__);
+		ret = -EINVAL;
+		goto out_err;
+	}
+
+	dev_info(p->dev, "%s: using retrigger_interval_sec of %d\n",
+			 __func__, p->pdata->retrigger_interval_sec);
 
 	ret = of_property_read_u32(np, "buffering_timeout",
 			&p->pdata->buffering_timeout);
@@ -15759,6 +16122,10 @@ static int verify_platform_data(struct device *dev,
 			"%s: using buffering_timeout of %u\n",
 			 __func__, p->pdata->buffering_timeout);
 
+		dev_info(p->dev,
+			"%s: using retrigger interval of %u sec\n",
+			 __func__, p->pdata->retrigger_interval_sec);
+
 		if (pdata->detection_buffer_channels < 0 ||
 		pdata->detection_buffer_channels > MAX_SUPPORTED_CHANNELS)
 			pdata->detection_buffer_channels = 0;
@@ -15859,6 +16226,7 @@ static int verify_platform_data(struct device *dev,
 
 	if (pdata->va_ns_supported) {
 		int j;
+
 		dev_info(dev, "%s: using mic_config_source of %d\n",
 			__func__, pdata->mic_config_source);
 
@@ -16372,6 +16740,21 @@ static int dbmdx_platform_probe(struct platform_device *pdev)
 	/* initialize delayed pm work */
 	INIT_DELAYED_WORK(&p->delayed_pm_work,
 			  dbmdx_delayed_pm_work_hibernate);
+
+#ifdef DBMDX_KEEP_ALIVE_TIMER
+	if (alarmtimer_get_rtcdev()) {
+		alarm_init(&p->keep_alive_timer, ALARM_BOOTTIME,
+							keep_alive_timer_func);
+		p->keep_alive_timer_created = true;
+		p->keep_alive_timer.data = (void *)p;
+		dev_info(p->dev, "%s: Keep Alive Timer was created\n",
+			__func__);
+	} else {
+		p->keep_alive_timer_created = false;
+		dev_info(p->dev, "%s: Keep Alive Timer isn't supported\n",
+			__func__);
+	}
+#endif
 	p->dbmdx_workq = create_workqueue("dbmdx-wq");
 	if (!p->dbmdx_workq) {
 		dev_err(p->dev, "%s: Could not create workqueue\n",

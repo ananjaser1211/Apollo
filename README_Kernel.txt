@@ -7,14 +7,9 @@
                 edit "CROSS_COMPILE" to right toolchain path(You downloaded).
                         EX)  CROSS_COMPILE=<android platform directory you download>/android/prebuilts/gcc-cfp/gcc-cfp-jopp-only/aarch64-linux-android-4.9/bin/aarch64-linux-android-
                         EX)  CROSS_COMPILE=/usr/local/toolchain/gcc-cfp/gcc-cfp-jopp-only/aarch64-linux-android-4.9/bin/aarch64-linux-android- // check the location of toolchain
-                edit "CLANG" to right path(You downloaded).
-                        EX)  CC=<android platform directory you download>/android/prebuilts/clang/host/linux-x86/clang-r353983c-jopp/bin/clang
-                        EX)  CC=/usr/local/toolchain/clang/host/linux-x86/clang-r353983c-jopp/bin/clang // check the location of toolchain
-                edit "CLANG_TRIPLE" to right path(You downloaded).
-                        EX)  CLANG_TRIPLE=<android platform directory you download>/android/prebuilts/clang/host/linux-x86/clang-r353983c-jopp/bin/aarch64-linux-gnu-
-                        EX)  CLANG_TRIPLE=/usr/local/toolchain/clang/host/linux-x86/clang-r353983c-jopp/bin/aarch64-linux-gnu- // check the location of toolchain     
         - to Build
-                $ export ANDROID_MAJOR_VERSION=q
+                $ export PLATFORM_VERSION=11
+                $ export ANDROID_MAJOR_VERSION=r
                 $ export ARCH=arm64
                 $ make exynos9810-r7_defconfig
                 $ make

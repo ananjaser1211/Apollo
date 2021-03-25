@@ -292,6 +292,7 @@ struct muic_interface_t {
 	int (*afc_get_voltage)(void *);
 	int (*afc_set_voltage)(void *, int);
 #endif
+	void (*set_chgtype_usrcmd)(void *);
 	void (*hv_reset)(void *);
 	void (*hv_dcp_charger)(void *);
 	void (*hv_fast_charge_adaptor)(void *);

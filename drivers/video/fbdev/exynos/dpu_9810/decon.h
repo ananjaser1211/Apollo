@@ -1080,6 +1080,7 @@ struct decon_bts {
 	struct pm_qos_request int_qos;
 	struct pm_qos_request disp_qos;
 	u32 scen_updated;
+	u32 used_cnt;
 };
 
 /* cursor async */

@@ -334,6 +334,7 @@ void decon_dpp_stop(struct decon_device *decon, bool do_reset)
 			clear_bit(i, &decon->dpp_err_stat);
 		}
 	}
+	dpp_release_rpm_hold(IDMA_G0);
 }
 
 static void decon_free_unused_buf(struct decon_device *decon,
@@ -1907,6 +1908,12 @@ static int __decon_update_regs(struct decon_device *decon, struct decon_reg_data
 
 	decon_systrace(decon, 'C', "decon_reg_start", 1);
 	if (decon_reg_start(decon->id, &psr) < 0) {
+#if defined(CONFIG_EXYNOS_COMMON_PANEL) || defined(CONFIG_EXYNOS_MASS_PANEL)
+		if (decon_is_bypass(decon)) {
+			decon_systrace(decon, 'C', "decon_reg_start", 0);
+			goto trigger_done;
+		}
+#endif
 		decon_up_list_saved();
 		decon_dump(decon, REQ_DSI_DUMP);
 #ifdef CONFIG_LOGGING_BIGDATA_BUG
@@ -1916,7 +1923,7 @@ static int __decon_update_regs(struct decon_device *decon, struct decon_reg_data
 	}
 	decon_systrace(decon, 'C', "decon_reg_start", 0);
 
-#if defined(CONFIG_SUPPORT_MASK_LAYER)
+#if defined(CONFIG_EXYNOS_COMMON_PANEL) || defined(CONFIG_EXYNOS_MASS_PANEL)
 trigger_done:
 #endif
 	decon_set_cursor_unmask(decon, has_cursor_win);

@@ -4059,11 +4059,11 @@ clr_bitrange(void *array, uint start, uint end, uint maxbit)
 void
 set_bitrange_u32(void *array, uint start, uint end, uint maxbit)
 {
-	uint startword = start/(NBBY * sizeof(uint32));
-	uint endword = end/(NBBY * sizeof(uint32));
-	uint startwordstartbit = start % (NBBY * sizeof(uint32));
-	uint endwordlastbit = end % (NBBY * sizeof(uint32));
-	uint u32msbnum = NBBY * sizeof(uint32) - 1U; /* Used to caluculate bit number from MSB */
+	uint startword = start/(uint)(NBBY * sizeof(uint32));
+	uint endword = end/(uint)(NBBY * sizeof(uint32));
+	uint startwordstartbit = start % (uint)(NBBY * sizeof(uint32));
+	uint endwordlastbit = end % (uint)(NBBY * sizeof(uint32));
+	uint u32msbnum = NBBY * (uint)sizeof(uint32) - 1U; /* Used to caluculate bit number from MSB */
 	uint i;
 	uint32 setbitsword;
 	uint32 u32max = ~0U;
@@ -4106,11 +4106,11 @@ set_bitrange_u32(void *array, uint start, uint end, uint maxbit)
 void
 clr_bitrange_u32(void *array, uint start, uint end, uint maxbit)
 {
-	uint startword = start/(NBBY * sizeof(uint32));
-	uint endword = end/(NBBY * sizeof(uint32));
-	uint startwordstartbit = start % (NBBY * sizeof(uint32));
-	uint endwordlastbit = end % (NBBY * sizeof(uint32));
-	uint u32msbnum = NBBY * sizeof(uint32) - 1U; /* Used to caluculate bit number from MSB */
+	uint startword = start/(uint)(NBBY * sizeof(uint32));
+	uint endword = end/(uint)(NBBY * sizeof(uint32));
+	uint startwordstartbit = start % (uint)(NBBY * sizeof(uint32));
+	uint endwordlastbit = end % (uint)(NBBY * sizeof(uint32));
+	uint u32msbnum = NBBY * (uint)sizeof(uint32) - 1U; /* Used to caluculate bit number from MSB */
 	uint i;
 	uint32 clrbitsword;
 	uint32 u32max = ~0U;

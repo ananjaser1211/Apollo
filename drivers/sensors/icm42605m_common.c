@@ -1024,6 +1024,32 @@ static const u16 SelfTestEquation[256] = {
 #define SELF_TEST_MIN_GYR (SELF_TEST_MIN_GYR_DPS * DPS_TO_LSB * SELF_TEST_PRECISION)
 #define SELF_TEST_MAX_GYR (SELF_TEST_MAX_GYR_DPS * DPS_TO_LSB * SELF_TEST_PRECISION)
 
+/* IDLE */
+#define BIT_PWR_MGMT_0_IDLE_POS        4
+#define BIT_PWR_MGMT_0_IDLE_MASK   (0x01 << BIT_PWR_MGMT_0_IDLE_POS)
+
+typedef enum
+{
+	ICM426XX_PWR_MGMT_0_IDLE_DIS = (0x01 << BIT_PWR_MGMT_0_IDLE_POS),
+	ICM426XX_PWR_MGMT_0_IDLE_EN  = (0x00 << BIT_PWR_MGMT_0_IDLE_POS),
+} ICM426XX_PWR_MGMT_0_IDLE_t;
+
+/*
+ * MPUREG_SCAN0
+ * Register Name: SCAN0
+*/
+#define BIT_DMP_MEM_ACCESS_EN		0x08
+#define BIT_MEM_OTP_ACCESS_EN		0x04
+#define BIT_FIFO_MEM_RD_SYS			0x02
+#define BIT_FIFO_MEM_WR_SER			0x01
+
+/* Custom SRAM image containing Tilt/HighG/LowG */
+uint8_t dmp_image[] = {
+#include "Icm426xx_dmp_sram_img.h"
+};
+
+#define ICM_DMP_DOWNLOAD_RETRY 5
+
 /*
  * Accelerometer FSR.
  */
@@ -1681,8 +1707,15 @@ int inv_icm426xx_start_dmp(struct icm42605m_data *cdata)
 {
 	int status = 0;
 
-	/* On enabling of DMP, reset internal state */
-	status |= inv_icm426xx_reset_dmp(cdata);
+	/* On first enabling of DMP, reset internal state */
+	if (!cdata->dmp_is_on) {
+		if (!cdata->dmp_from_sram) {
+			// Reset SRAM to 0's if execution from ROM
+			// otherwise, it's user responsibility to do it.
+			status |= inv_icm426xx_reset_dmp(cdata);
+		}
+		cdata->dmp_is_on = 1;
+	}
 
 	/* Initialize DMP */
 	status |= inv_icm426xx_resume_dmp(cdata);
@@ -3662,6 +3695,112 @@ int icm42605m_dump_register_data_notify(struct notifier_block *nb,
 	return 0;
 }
 
+int inv_icm426xx_load_dmp_sram_code(struct icm42605m_data *cdata, const uint8_t *dmp_prog, const uint32_t start_offset, const uint32_t size)
+{
+	uint8_t pwr_mgmt;
+	uint32_t i, cur_idx;
+	uint8_t dmp_sram_offset = 0x40, data, data2;
+	int status = 0;
+
+	/* DMP SRAM is updated by DMP DMA every time accel ODR triggers, hence
+	 * first 7B of SRAM are not usable.
+	 * Since start addresses are aligned on 32B binary, there is some loss
+	 * here (minor however).
+	 */
+	if (size + start_offset > 1024U)
+		return INV_ERROR_SIZE;
+
+	status |= cdata->tf->read(cdata, MPUREG_PWR_MGMT_0, 1, &pwr_mgmt, true);
+	/* Writing DMP SRAM not supported when accel is not IDLE */
+	if (pwr_mgmt & BIT_PWR_MGMT_0_ACCEL_MODE_MASK)
+		return INV_ERROR;
+
+	data = (pwr_mgmt | ((uint8_t)ICM426XX_PWR_MGMT_0_IDLE_DIS));
+	status |= cdata->tf->write(cdata, MPUREG_PWR_MGMT_0, 1, &data, true);
+	usleep_range(200,200);
+
+	status |= inv_icm426xx_reset_dmp(cdata);
+
+	data = BIT_DMP_MEM_ACCESS_EN;
+	status |= cdata->tf->write(cdata, MPUREG_SCAN0, 1, &data, true);
+	usleep_range(100,100);
+
+	/* Write new DMP program into SRAM */
+	data = dmp_sram_offset;
+	status |= cdata->tf->write(cdata, MPUREG_MEM_BANK_SEL, 1, &data, true);
+	cur_idx = 0;
+	for (i = start_offset; i < (size + start_offset); i++) {
+		if (0 == (i % 256)) {
+			/* Start filling new DMP SRAM bank */
+			data = dmp_sram_offset + (i / 256);
+			status |= cdata->tf->write(cdata, MPUREG_MEM_BANK_SEL, 1, &data, true);
+		}
+
+		data = i % 256;
+		status |= cdata->tf->write(cdata, MPUREG_MEM_START_ADDR, 1, &data, true);
+		data = dmp_prog[cur_idx];
+		status |= cdata->tf->write(cdata, MPUREG_MEM_R_W, 1, &data, true);
+		cur_idx++;
+	}
+
+	if (cur_idx != size) {
+		status = INV_ERROR_UNEXPECTED;
+		goto end_load_dmp_sram;
+	}
+
+	/* Verify SRAM content is matching loaded DMP program */
+	cur_idx = 0;
+	i = start_offset;
+	data = dmp_sram_offset;
+	status |= cdata->tf->write(cdata, MPUREG_MEM_BANK_SEL, 1, &data, true);
+	/* Program entry MEM_START_ADDR */
+	data2 = i % 256;
+	status |= cdata->tf->write(cdata, MPUREG_MEM_START_ADDR, 1, &data2, true);
+	while (i < (size + start_offset)) {
+		/* Handle MEM_BANK_SEL switch on 256 multiples */
+		if (0 == (i % 256)) {
+			data = dmp_sram_offset + (i / 256);
+			status |= cdata->tf->write(cdata, MPUREG_MEM_BANK_SEL, 1, &data, true);
+		}
+		/* Read bytes [0-255] of each bank which was written */
+		data = i % 256;
+		if (0 == (data % 256)) {
+			status |= cdata->tf->write(cdata, MPUREG_MEM_START_ADDR, 1, &data, true);
+			status |= cdata->tf->read(cdata, MPUREG_MEM_START_ADDR, 1, &data2, true);
+		}
+		status |= cdata->tf->read(cdata, MPUREG_MEM_R_W, 1, &data, true);
+		/* Check SRAM content match byte-to-byte */
+		if (data != dmp_prog[cur_idx]) {
+			status = INV_ERROR_MEM;
+			goto end_load_dmp_sram;
+		}
+
+		i++;
+		cur_idx++;
+	}
+
+	data = 0;
+	status |= cdata->tf->write(cdata, MPUREG_SCAN0, 1, &data, true);
+	usleep_range(100,100);
+	if (!status) {
+		// Succesful SRAM load, execution is possible
+		cdata->dmp_from_sram = 1;
+	}
+
+	/* Update DMP program counter to start from SRAM */
+	data = 3;
+	status |= cdata->tf->write(cdata, MPUREG_REG_BANK_SEL, 1, &data, true);
+	data = 0x8;
+	status |= cdata->tf->write(cdata, 0x71, 1, &data, true);
+	data = 0;
+	status |= cdata->tf->write(cdata, MPUREG_REG_BANK_SEL, 1, &data, true);
+
+end_load_dmp_sram:
+	status |= cdata->tf->write(cdata, MPUREG_PWR_MGMT_0, 1, &pwr_mgmt, true);
+
+	return status;
+}
+
 int icm42605m_common_probe(struct icm42605m_data *cdata, int irq, u16 bustype)
 {
 	int ret = 0;
@@ -3671,6 +3810,7 @@ int icm42605m_common_probe(struct icm42605m_data *cdata, int irq, u16 bustype)
     inv_icm426xx_apex_parameters_t apex_inputs;
 	inv_icm426xx_interrupt_parameter_t config_int = {INV_ICM426XX_DISABLE,};
 	int timeout = 1000; /* 1s */
+	uint8_t retry = ICM_DMP_DOWNLOAD_RETRY;
 
  	SENSOR_INFO("Start!\n");
 
@@ -3738,6 +3878,31 @@ int icm42605m_common_probe(struct icm42605m_data *cdata, int irq, u16 bustype)
 	if (0 == (val & BIT_INT_STATUS_RESET_DONE)) {
         SENSOR_ERR("Reset not Done!");
 		goto exit; /* unexpected error */
+	}
+	do {
+		ret |= inv_icm426xx_load_dmp_sram_code(cdata, dmp_image, 0, sizeof(dmp_image)/sizeof(dmp_image[0]));
+		retry--;
+	} while (retry != 0 && ret != INV_ERROR_SUCCESS);
+	
+	if (ret != INV_ERROR_SUCCESS) {
+		SENSOR_ERR("!!! ERROR : failed to download DMP image. #3, %d, %d\n\r", retry, ICM_DMP_DOWNLOAD_RETRY - retry);
+	}
+	
+	// If dmp firmware download fails, execute soft reset to execute in ROM area
+	// instead of SRAM area
+	if(!cdata->dmp_from_sram) {
+		/* soft reset device */
+		val = ICM426XX_CHIP_CONFIG_RESET_EN;
+		ret |= cdata->tf->write(cdata, MPUREG_CHIP_CONFIG, 1, &val, true);
+		usleep_range(20000, 20000);
+
+		/* Clear the Int Reset Done bit */
+		ret |= cdata->tf->read(cdata, MPUREG_INT_STATUS, 1, &val, true);
+ 
+		if (0 == (val & BIT_INT_STATUS_RESET_DONE)) {
+			SENSOR_ERR("ROM Reset not Done!\n\r");
+			//return -1; /* unexpected error */
+		}
 	}
 
 	/* Enable INT2 */

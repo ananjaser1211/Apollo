@@ -93,15 +93,17 @@ config PROC_CHILDREN
 config PROC_FSLOG
 	bool "Enable FS logs for improving filesystem debug"
 	depends on PROC_FS
-	select PROC_STLOG
-	select PROC_DLOG
 	default y
 
 config PROC_STLOG
 	bool "Enable Storage log"
+	depends on PROC_FSLOG
+	default y
 
 config PROC_DLOG
 	bool "Enable delete logs for improving filesystem debug"
+	depends on PROC_FSLOG
+	default y
 
 config PROC_UID
 	bool "Include /proc/uid/ files"

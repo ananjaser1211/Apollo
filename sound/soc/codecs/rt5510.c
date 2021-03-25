@@ -482,6 +482,61 @@ static int rt5510_codec_get_volsw(struct snd_kcontrol *kcontrol,
 	return ret;
 }
 
+static int rt5510_put_direct_pwr_mode(struct snd_kcontrol *kcontrol,
+				      struct snd_ctl_elem_value *ucontrol)
+{
+	struct snd_soc_codec *codec = snd_soc_kcontrol_codec(kcontrol);
+	int ret;
+
+	ret = rt5510_chip_power_on(codec, 1);
+	if (ret < 0)
+		dev_err(codec->dev, "%s: pwr on fail\n", __func__);
+
+	if (ucontrol->value.integer.value[0])
+		ret = snd_soc_write(codec, RT5510_REG_CCMAX, 0x43);
+	else
+		ret = snd_soc_write(codec, RT5510_REG_CCMAX, 0x67);
+	if (ret) {
+		dev_err(codec->dev, "%s: set CC Max Failed\n", __func__);
+		return ret;
+	}
+
+	dev_info(codec->dev, "%s: set pwr mode %d done\n",
+		__func__, ucontrol->value.integer.value[0]);
+
+	ret = rt5510_chip_power_on(codec, 0);
+	if (ret < 0)
+		dev_err(codec->dev, "%s: pwr off fail\n", __func__);
+
+	return ret;
+}
+
+static int rt5510_get_direct_pwr_mode(struct snd_kcontrol *kcontrol,
+				      struct snd_ctl_elem_value *ucontrol)
+{
+	struct snd_soc_codec *codec = snd_soc_kcontrol_codec(kcontrol);
+	int ret;
+
+	ret = rt5510_chip_power_on(codec, 1);
+	if (ret < 0)
+		dev_err(codec->dev, "%s: pwr on fail\n", __func__);
+
+	ret = snd_soc_read(codec, RT5510_REG_CCMAX);
+	if (ret == 0x67) /* 4A */
+		ucontrol->value.integer.value[0] = 0;
+	else
+		ucontrol->value.integer.value[0] = 1;
+
+	dev_info(codec->dev, "%s: get pwr mode %d\n",
+		__func__, ucontrol->value.integer.value[0]);
+
+	ret = rt5510_chip_power_on(codec, 0);
+	if (ret < 0)
+		dev_err(codec->dev, "%s: pwr off fail\n", __func__);
+
+	return 0;
+}
+
 static const DECLARE_TLV_DB_SCALE(vol_ctl_tlv, -1155, 5, 0);
 
 static const struct snd_kcontrol_new rt5510_codec_snd_controls[] = {
@@ -519,6 +574,8 @@ static const struct snd_kcontrol_new rt5510_codec_snd_controls[] = {
 		       snd_soc_get_volsw, NULL),
 	SOC_SINGLE_EXT("Chip_Rev", SND_SOC_NOPM, 0, 16, 0,
 		       rt5510_codec_get_volsw, NULL),
+	SOC_SINGLE_BOOL_EXT("Direct Power Mode", SND_SOC_NOPM,
+				rt5510_get_direct_pwr_mode, rt5510_put_direct_pwr_mode),
 };
 
 static const struct snd_soc_codec_driver rt5510_codec_driver = {
@@ -782,7 +839,7 @@ int rt5510_i2c_probe(struct i2c_client *client, const struct i2c_device_id *id)
 	}
 	ret = _rt5510_read_chip_revision(chip);
 	if (ret < 0) {
-		dev_err(chip->dev, "read chip revsion fail\n");
+		dev_err(chip->dev, "read chip revision fail\n");
 		goto probe_fail;
 	}
 	ret = _rt5510_chip_power_on(chip, 0);

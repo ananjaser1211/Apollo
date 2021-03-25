@@ -362,6 +362,7 @@ static ssize_t muic_sysfs_show_attached_dev(struct device *dev,
 		return sprintf(buf, "PS CABLE\n");
 	case ATTACHED_DEV_AFC_CHARGER_5V_MUIC:
 	case ATTACHED_DEV_AFC_CHARGER_9V_MUIC:
+	case ATTACHED_DEV_AFC_CHARGER_DISABLED_MUIC:
 	case ATTACHED_DEV_QC_CHARGER_5V_MUIC:
 	case ATTACHED_DEV_QC_CHARGER_9V_MUIC:
 		return sprintf(buf, "AFC Charger\n");
@@ -460,6 +461,7 @@ static ssize_t muic_sysfs_set_afc_disable(struct device *dev,
 	struct device_attribute *attr, const char *buf, size_t count)
 {
 	struct muic_platform_data *pdata = dev_get_drvdata(dev);
+	struct muic_interface_t *muic_if = pdata->muic_if;
 	bool curr_val = pdata->afc_disable;
 	int ret = 0;
 	int param_val = 0;
@@ -493,6 +495,8 @@ static ssize_t muic_sysfs_set_afc_disable(struct device *dev,
 	psy_do_property("battery", set, POWER_SUPPLY_EXT_PROP_HV_DISABLE, psy_val);
 #endif
 	pr_info("%s afc_disable(%d)\n", __func__, pdata->afc_disable);
+	if (curr_val != pdata->afc_disable)
+		MUIC_PDATA_VOID_FUNC(muic_if->set_chgtype_usrcmd, pdata->drv_data);
 
 	return count;
 }

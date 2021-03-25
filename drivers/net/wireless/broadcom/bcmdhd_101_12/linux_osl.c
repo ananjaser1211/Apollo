@@ -206,8 +206,8 @@ osl_dma_map_log_init(uint32 item_len)
 {
 	dhd_map_log_t *map_log;
 	gfp_t flags;
-	uint32 alloc_size = sizeof(dhd_map_log_t) +
-		(item_len * sizeof(dhd_map_item_t));
+	uint32 alloc_size = (uint32)(sizeof(dhd_map_log_t) +
+		(item_len * sizeof(dhd_map_item_t)));
 
 	flags = CAN_SLEEP() ? GFP_KERNEL : GFP_ATOMIC;
 	map_log = (dhd_map_log_t *)kmalloc(alloc_size, flags);

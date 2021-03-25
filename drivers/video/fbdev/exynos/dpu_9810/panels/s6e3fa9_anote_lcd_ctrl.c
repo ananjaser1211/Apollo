@@ -39,7 +39,10 @@
 #endif
 
 #define PANEL_STATE_SUSPENED	0
-#define PANEL_STATE_RESUMED	1
+#define PANEL_STATE_RESUMED		1
+
+#define PANEL_DISPLAY_OFF		0
+#define PANEL_DISPLAY_ON		1
 
 #define LEVEL_IS_HBM(brightness)		(brightness > UI_MAX_BRIGHTNESS)
 
@@ -149,6 +152,7 @@ struct lcd_info {
 
 	struct workqueue_struct		*conn_workqueue;
 	struct work_struct		conn_work;
+	unsigned int disp_on;
 };
 
 static int dsim_write_hl_data(struct lcd_info *lcd, const u8 *cmd, u32 cmdsize)
@@ -443,6 +447,31 @@ static int panel_set_green_circle(struct lcd_info *lcd)
 }
 
 #if defined(CONFIG_SUPPORT_DOZE)
+static int s6e3fa9_black_grid_on(struct lcd_info *lcd)
+{
+	int ret = 0;
+
+	DSI_WRITE(SEQ_TEST_KEY_ON_FC, ARRAY_SIZE(SEQ_TEST_KEY_ON_FC));
+	DSI_WRITE(SEQ_BLACK_GRID_ON, ARRAY_SIZE(SEQ_BLACK_GRID_ON));
+	DSI_WRITE(SEQ_TEST_KEY_OFF_FC, ARRAY_SIZE(SEQ_TEST_KEY_OFF_FC));
+	dev_info(&lcd->ld->dev, "%s\n", __func__);
+
+	return ret;
+}
+
+static int s6e3fa9_black_grid_off(struct lcd_info *lcd)
+{
+	int ret = 0;
+
+	msleep(34);
+	DSI_WRITE(SEQ_TEST_KEY_ON_FC, ARRAY_SIZE(SEQ_TEST_KEY_ON_FC));
+	DSI_WRITE(SEQ_BLACK_GRID_OFF, ARRAY_SIZE(SEQ_BLACK_GRID_OFF));
+	DSI_WRITE(SEQ_TEST_KEY_OFF_FC, ARRAY_SIZE(SEQ_TEST_KEY_OFF_FC));
+	dev_info(&lcd->ld->dev, "%s\n", __func__);
+
+	return ret;
+}
+
 static int s6e3fa9_setalpm(struct lcd_info *lcd)
 {
 	int ret = 0;
@@ -509,7 +538,7 @@ static int s6e3fa9_enteralpm(struct lcd_info *lcd)
 		dev_info(&lcd->ld->dev, "%s: failed to set alpm\n", __func__);
 
 	/* 4. Wait 16.7ms */
-	msleep(20);
+	msleep(17);
 
 	/* 5. Display On(29h) */
 	/* s6e3fa9_displayon(lcd); */
@@ -927,11 +956,12 @@ static int s6e3fa9_exit(struct lcd_info *lcd)
 	/* 5. Wait 120ms */
 	msleep(120);
 
-#if defined(CONFIG_SUPPORT_DOZE)
 	mutex_lock(&lcd->lock);
+	lcd->disp_on = PANEL_DISPLAY_OFF;
+#if defined(CONFIG_SUPPORT_DOZE)
 	lcd->current_alpm.value = 0;
-	mutex_unlock(&lcd->lock);
 #endif
+	mutex_unlock(&lcd->lock);
 
 	return ret;
 }
@@ -940,10 +970,25 @@ static int s6e3fa9_displayon(struct lcd_info *lcd)
 {
 	int ret = 0;
 
-	dev_info(&lcd->ld->dev, "%s\n", __func__);
+	if (lcd->disp_on == PANEL_DISPLAY_ON) {
+		dev_info(&lcd->ld->dev, "%s alreayd disp on\n", __func__);
+		return ret;
+	} else {
+		dev_info(&lcd->ld->dev, "%s\n", __func__);
+	}
+#if !defined(CONFIG_SEC_FACTORY) && defined(CONFIG_SUPPORT_DOZE)
+	if (lcd->dsim->state == DSIM_STATE_DOZE)
+		s6e3fa9_black_grid_on(lcd);
+#endif
 
 	/* 12. Display On(29h) */
 	DSI_WRITE(SEQ_DISPLAY_ON, ARRAY_SIZE(SEQ_DISPLAY_ON));
+
+#if !defined(CONFIG_SEC_FACTORY) && defined(CONFIG_SUPPORT_DOZE)
+	if (lcd->dsim->state == DSIM_STATE_DOZE)
+		s6e3fa9_black_grid_off(lcd);
+#endif
+	lcd->disp_on = PANEL_DISPLAY_ON;
 
 	return ret;
 }
@@ -1141,6 +1186,7 @@ static int s6e3fa9_probe(struct lcd_info *lcd)
 #endif
 
 	lcd->state = PANEL_STATE_RESUMED;
+	lcd->disp_on = PANEL_DISPLAY_OFF;
 
 	lcd->temperature = NORMAL_TEMPERATURE;
 	lcd->adaptive_control = !!ACL_STATUS_15P;
@@ -2303,49 +2349,35 @@ static void panel_conn_register(struct lcd_info *lcd)
 	device_create_file(&lcd->ld->dev, &dev_attr_conn_det);
 }
 
-static int match_dev_name(struct device *dev, void *data)
+static int __init panel_conn_init(void)
 {
-	const char *keyword = data;
-
-	return dev_name(dev) ? !!strstr(dev_name(dev), keyword) : 0;
-}
-
-static struct device *find_lcd_device(void)
-{
+	struct lcd_info *lcd = NULL;
+	struct dsim_device *pdata = NULL;
 	struct platform_device *pdev = NULL;
-	struct device *dev = NULL;
 
 	pdev = of_find_dsim_platform_device();
 	if (!pdev) {
-		dsim_info("%s: of_find_device_by_node fail\n", __func__);
-		return NULL;
-	}
-
-	dev = device_find_child(&pdev->dev, "panel", match_dev_name);
-	if (!dev) {
-		dsim_info("%s: device_find_child fail\n", __func__);
-		return NULL;
-	}
-
-	if (dev)
-		put_device(dev);
-
-	return dev;
-}
-
-static int __init panel_conn_init(void)
-{
-	struct device *dev = find_lcd_device();
-	struct lcd_info *lcd = NULL;
-
-	if (!dev) {
-		decon_info("find_lcd_device fail\n");
+		dsim_info("%s: of_find_dsim_platform_device fail\n", __func__);
 		return 0;
 	}
 
-	lcd = dev_get_drvdata(dev);
+	pdata = platform_get_drvdata(pdev);
+	if (!pdata) {
+		dsim_info("%s: platform_get_drvdata fail\n", __func__);
+		return 0;
+	}
+
+	if (!pdata->panel_ops) {
+		dsim_info("%s: panel_ops invalid\n", __func__);
+		return 0;
+	}
+
+	if (pdata->panel_ops != this_driver)
+		return 0;
+
+	lcd = pdata->priv.par;
 	if (!lcd) {
-		decon_info("lcd_info invalid\n");
+		dsim_info("lcd_info invalid\n");
 		return 0;
 	}
 
@@ -2354,8 +2386,9 @@ static int __init panel_conn_init(void)
 		panel_conn_register(lcd);
 	}
 
+	dev_info(&lcd->ld->dev, "%s: %s: done\n", kbasename(__FILE__), __func__);
+
 	return 0;
 }
-
 late_initcall_sync(panel_conn_init);
 

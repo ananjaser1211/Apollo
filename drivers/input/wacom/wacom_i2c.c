@@ -974,8 +974,8 @@ int wacom_i2c_coord(struct wacom_i2c *wac_i2c)
 	y = ((u16) data[3] << 8) + (u16) data[4];
 	pressure = ((u16) data[5] << 8) + (u16) data[6];
 	height = (u8)data[7];
-	tilt_x = (s8) data[9];
-	tilt_y = (s8) data[8];
+	tilt_x = (s8) data[8];
+	tilt_y = (s8) data[9];
 
 	/* origin */
 	x = x - pdata->origin[0];

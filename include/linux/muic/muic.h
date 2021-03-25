@@ -178,6 +178,7 @@ typedef enum {
 
 	ATTACHED_DEV_AFC_CHARGER_ERR_V_MUIC = 41,
 	ATTACHED_DEV_AFC_CHARGER_ERR_V_DUPLI_MUIC,
+	ATTACHED_DEV_AFC_CHARGER_DISABLED_MUIC,
 	ATTACHED_DEV_QC_CHARGER_PREPARE_MUIC,
 	ATTACHED_DEV_QC_CHARGER_5V_MUIC,
 	ATTACHED_DEV_QC_CHARGER_ERR_V_MUIC,
@@ -185,9 +186,9 @@ typedef enum {
 	ATTACHED_DEV_HV_ID_ERR_UNDEFINED_MUIC,
 	ATTACHED_DEV_HV_ID_ERR_UNSUPPORTED_MUIC,
 	ATTACHED_DEV_HV_ID_ERR_SUPPORTED_MUIC,
-	ATTACHED_DEV_HMT_MUIC,
 
-	ATTACHED_DEV_VZW_ACC_MUIC = 51,
+	ATTACHED_DEV_HMT_MUIC = 51,
+	ATTACHED_DEV_VZW_ACC_MUIC,
 	ATTACHED_DEV_VZW_INCOMPATIBLE_MUIC,
 	ATTACHED_DEV_USB_LANHUB_MUIC,
 	ATTACHED_DEV_TYPE1_CHG_MUIC,
@@ -196,9 +197,9 @@ typedef enum {
 	ATTACHED_DEV_TYPE3_MUIC_TA,
 	ATTACHED_DEV_TYPE3_ADAPTER_MUIC,
 	ATTACHED_DEV_TYPE3_CHARGER_MUIC,
-	ATTACHED_DEV_NONE_TYPE3_MUIC,
 
-	ATTACHED_DEV_UNSUPPORTED_ID_MUIC = 61,
+	ATTACHED_DEV_NONE_TYPE3_MUIC = 61,
+	ATTACHED_DEV_UNSUPPORTED_ID_MUIC,
 	ATTACHED_DEV_UNSUPPORTED_ID_VB_MUIC,
 	ATTACHED_DEV_TIMEOUT_OPEN_MUIC,
 	ATTACHED_DEV_WIRELESS_PAD_MUIC,
@@ -207,9 +208,9 @@ typedef enum {
 	ATTACHED_DEV_UNDEFINED_RANGE_MUIC,
 	ATTACHED_DEV_HICCUP_MUIC,
 	ATTACHED_DEV_CHK_WATER_REQ,
-	ATTACHED_DEV_CHK_WATER_DRY_REQ,
 
-	ATTACHED_DEV_GAMEPAD_MUIC = 71,
+	ATTACHED_DEV_CHK_WATER_DRY_REQ = 71,
+	ATTACHED_DEV_GAMEPAD_MUIC,
 	ATTACHED_DEV_CHECK_OCP,
 	ATTACHED_DEV_RDU_TA_MUIC,
 	ATTACHED_DEV_FACTORY_UART_MUIC,
@@ -283,6 +284,7 @@ struct muic_platform_data {
 	bool afc_disable;
 	bool is_new_factory;
 	bool dcd_timeout;
+	int afc_disabled_updated;
 
 #ifdef CONFIG_MUIC_HV_FORCE_LIMIT
 	int hv_sel;
@@ -340,6 +342,7 @@ struct muic_platform_data {
 
 	/* muic AFC voltage switching function */
 	int (*muic_afc_set_voltage_cb)(int voltage);
+	int (*muic_afc_get_voltage_cb)(void);
 
 	/* muic hv charger disable function */
 	int (*muic_hv_charger_disable_cb)(bool en);
@@ -567,6 +570,7 @@ int muic_hv_charger_init(void);
 int muic_set_pogo_adc(int adc);
 
 extern int muic_afc_set_voltage(int voltage);
+extern int muic_afc_get_voltage(void);
 void muic_set_hmt_status(int status);
 int muic_core_handle_attach(struct muic_platform_data *muic_pdata,
 			muic_attached_dev_t new_dev, int adc, u8 vbvolt);

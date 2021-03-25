@@ -238,6 +238,9 @@ int sec_bat_parse_dt(struct device *dev,
 	pdata->dis_auto_shipmode_temp_ctrl = of_property_read_bool(np,
 						     "battery,dis_auto_shipmode_temp_ctrl");
 
+	pdata->enable_vf_short_chk = of_property_read_bool(np,
+		"battery,enable_vf_short_chk");
+
 	battery->ta_alert_wa = of_property_read_bool(np, "battery,ta_alert_wa");
 
 	p = of_get_property(np, "battery,polling_time", &len);
@@ -818,6 +821,13 @@ int sec_bat_parse_dt(struct device *dev,
 	if (ret) {
 		pr_info("%s : pre_afc_input_current is Empty\n", __func__);
 		pdata->pre_afc_input_current = 1000;
+	}
+
+	ret = of_property_read_u32(np, "battery,select_pd_input_current",
+		&pdata->select_pd_input_current);
+	if (ret) {
+		pr_info("%s : select_pd_input_current is Empty\n", __func__);
+		pdata->select_pd_input_current = 1000;
 	}
 
 	ret = of_property_read_u32(np, "battery,pre_afc_work_delay",

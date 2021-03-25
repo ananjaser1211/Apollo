@@ -291,6 +291,7 @@ extern void max77705_dp_detach(void *data);
 void max77705_usbc_disable_auto_vbus(struct max77705_usbc_platform_data *usbc_data);
 extern void max77705_set_host_turn_on_event(int mode);
 extern void pdic_manual_ccopen_request(int is_on);
+extern void pdic_error_recovery_request(void);
 #if defined(CONFIG_TYPEC)
 int max77705_get_pd_support(struct max77705_usbc_platform_data *usbc_data);
 #endif

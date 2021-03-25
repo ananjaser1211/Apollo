@@ -199,6 +199,8 @@ EXPORT_SYMBOL(boot_complete);
 extern int muic_set_hiccup_mode(int on_off);
 extern void pdic_manual_ccopen_request(int is_on);
 #endif
+extern void pdic_error_recovery_request(void);
+extern int muic_afc_get_voltage(void);
 extern int muic_afc_set_voltage(int vol);
 //extern int muic_hv_charger_disable(bool en);
 
@@ -1410,7 +1412,6 @@ static bool sec_bat_check(struct sec_battery_info *battery)
 {
 #if !defined(CONFIG_SEC_FACTORY)
 	union power_supply_propval value = {0, };
-	int cnum = 0;
 
 	psy_do_property(battery->pdata->charger_name, get,
 		POWER_SUPPLY_PROP_PRESENT, value);
@@ -1419,12 +1420,7 @@ static bool sec_bat_check(struct sec_battery_info *battery)
 		sec_bat_set_misc_event(battery, BATT_MISC_EVENT_DIRECT_POWER_MODE,
 			BATT_MISC_EVENT_DIRECT_POWER_MODE);
 		battery->direct_power_mode = true;
-		if (battery->cable_type == SEC_BATTERY_CABLE_PDIC) {
-			cnum = battery->pdic_info.sink_status.current_pdo_num;
-			value.intval = battery->pdic_info.sink_status.power_list[cnum].max_current;
-		} else {
-			value.intval = battery->max_charge_power / (battery->input_voltage / 10);
-		}
+		value.intval = 1;
 		psy_do_property(battery->pdata->charger_name, set,
 		POWER_SUPPLY_PROP_PARALLEL_MODE, value);
 
@@ -1446,6 +1442,14 @@ static bool sec_bat_check(struct sec_battery_info *battery)
 		battery->dp_to_chg = true;
 		sec_bat_set_charging_current(battery);
 		sec_bat_set_misc_event(battery, 0, BATT_MISC_EVENT_DIRECT_POWER_MODE);
+		/* force cc open for dp acc */
+		if ((battery->cable_type == SEC_BATTERY_CABLE_TA) &&
+			(muic_afc_get_voltage() > 8))
+			pdic_error_recovery_request();
+	} else if (battery->pdata->enable_vf_short_chk &&
+		sec_bat_check_vf_adc(battery)) {
+		dev_info(battery->dev,"vf gnd short\n");
+		return false;
 	}
 
 	return !battery->direct_power_mode;
@@ -2182,6 +2186,12 @@ void sec_bat_aging_check(struct sec_battery_info *battery)
 }
 #endif
 
+#if defined(CONFIG_BATTERY_AGE_FORECAST_DETACHABLE)
+void sec_bat_check_battery_health(struct sec_battery_info *battery)
+{
+	/* no need to check in detachable battery model */
+}
+#else
 void sec_bat_check_battery_health(struct sec_battery_info *battery)
 {
 	union power_supply_propval value;
@@ -2213,6 +2223,7 @@ void sec_bat_check_battery_health(struct sec_battery_info *battery)
 	sec_bat_set_misc_event(battery,
 		(battery_health << BATTERY_HEALTH_SHIFT), BATT_MISC_EVENT_BATTERY_HEALTH);
 }
+#endif
 
 static bool sec_bat_temperature(
 				struct sec_battery_info *battery)
@@ -6149,6 +6160,9 @@ static int sec_bat_get_property(struct power_supply *psy,
 		case POWER_SUPPLY_EXT_PROP_DIRECT_SEND_UVDM:
 			break;
 #endif
+		case POWER_SUPPLY_EXT_PROP_DIRECT_POWER_MODE:
+			val->intval = battery->direct_power_mode;
+			break;
 		default:
 			return -EINVAL;
 		}
@@ -8543,6 +8557,12 @@ static int sec_battery_probe(struct platform_device *pdev)
 
 	if (battery->pdata->check_battery_callback)
 		battery->present = battery->pdata->check_battery_callback();
+
+	/* manual cc open in normal mode */
+	if (sec_bat_check(battery) && (muic_afc_get_voltage() > 8) &&
+		(battery->pdic_info.sink_status.rp_currentlvl == RP_CURRENT_LEVEL2) &&
+		(battery->cable_type == SEC_BATTERY_CABLE_TA))
+		pdic_error_recovery_request();
 
 	dev_info(battery->dev,
 		"%s: SEC Battery Driver Loaded\n", __func__);

@@ -2721,7 +2721,7 @@ static unsigned char SCREEN_CURTAIN_3[] = {
 	0x00, /* roi_ex */
 	0x00, /* roi_ey */
 	0x00, /* roi_ey */
-	0xff, /* trans_on trans_block 0000 0000 */
+	0x7f, /* trans_on trans_block 0000 0000 */
 	0x04, /* trans_slope */
 	0x01, /* trans_interval */
 	/* end */

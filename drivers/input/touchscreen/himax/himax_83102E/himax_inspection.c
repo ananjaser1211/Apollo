@@ -4620,8 +4620,6 @@ static void glove_mode(void *dev_data)
 	I("%s %s,%d\n", HIMAX_LOG_TAG,
 			__func__, sec->cmd_param[0]);
 
-	data->glove_enabled = sec->cmd_param[0];
-
 	if (data->power_status == HX_TS_STATE_POWER_OFF) {
 		E("%s %s: now IC status is not STATE_POWER_ON\n", HIMAX_LOG_TAG, __func__);
 		snprintf(buf, sizeof(buf), "%s", "TSP_turned_off");
@@ -4634,13 +4632,15 @@ static void glove_mode(void *dev_data)
 		sec->cmd_state = SEC_CMD_STATUS_OK;
 		I("%s %s(), Unset Glove Mode\n", HIMAX_LOG_TAG,
 				__func__);
-		g_core_fp.fp_set_HSEN_enable(0);
+		data->HSEN_enable = 0;
+		g_core_fp.fp_set_HSEN_enable(data->HSEN_enable);
 		break;
 	case 1:
 		sec->cmd_state = SEC_CMD_STATUS_OK;
 		I("%s %s(), Set Glove Mode\n", HIMAX_LOG_TAG,
 				__func__);
-		g_core_fp.fp_set_HSEN_enable(1);
+		data->HSEN_enable = 1;
+		g_core_fp.fp_set_HSEN_enable(data->HSEN_enable);
 		break;
 	default:
 		sec->cmd_state = SEC_CMD_STATUS_FAIL;

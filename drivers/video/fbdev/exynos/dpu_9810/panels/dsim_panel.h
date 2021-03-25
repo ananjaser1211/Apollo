@@ -19,7 +19,8 @@ extern struct dsim_lcd_driver *__start___lcd_driver;
 extern struct dsim_lcd_driver *__stop___lcd_driver;
 
 #define __XX_ADD_LCD_DRIVER(name)		\
-struct dsim_lcd_driver *p_##name __attribute__((used, section("__lcd_driver"))) = &name
+struct dsim_lcd_driver *p_##name __attribute__((used, section("__lcd_driver"))) = &name;	\
+static struct dsim_lcd_driver __maybe_unused *this_driver = &name	\
 
 #endif
 

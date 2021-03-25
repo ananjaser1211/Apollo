@@ -13,7 +13,7 @@
  *
  */
 #include "../ssp.h"
-
+ 
 /*************************************************************************/
 /* factory Sysfs							 */
 /*************************************************************************/
@@ -24,10 +24,10 @@
 #define CALIBRATION_FILE_PATH	"/efs/FactoryApp/calibration_data"
 #define CALIBRATION_DATA_AMOUNT	20
 
-#define MAX_ACCEL_1G		8192
-#define MAX_ACCEL_2G		16384
-#define MIN_ACCEL_2G		-16383
-#define MAX_ACCEL_4G		32768
+#define MAX_ACCEL_1G		(8192/2)
+#define MAX_ACCEL_2G		(16384/2)
+#define MIN_ACCEL_2G		(-16383/2)
+#define MAX_ACCEL_4G		(32768/2)
 
 #define CALDATATOTALMAX		20
 #define CALDATAFIELDLENGTH  17
@@ -119,7 +119,6 @@ int set_accel_cal(struct ssp_data *data)
 	return iRet;
 }
 
-#if 0
 static int enable_accel_for_cal(struct ssp_data *data)
 {
 	u8 uBuf[4] = { 0, };
@@ -157,11 +156,9 @@ static void disable_accel_for_cal(struct ssp_data *data, int iDelayChanged)
 			ACCELEROMETER_SENSOR, uBuf, 4);
 	}
 }
-#endif
 
 static int accel_do_calibrate(struct ssp_data *data, int iEnable)
 {
-#if 0
 	int iSum[3] = { 0, };
 	int iRet = 0, iCount;
 	struct file *cal_filp = NULL;
@@ -223,8 +220,6 @@ static int accel_do_calibrate(struct ssp_data *data, int iEnable)
 	set_fs(old_fs);
 	set_accel_cal(data);
 	return iRet;
-#endif
-	return 0;
 }
 
 static ssize_t accel_calibration_show(struct device *dev,
@@ -275,7 +270,7 @@ static ssize_t raw_data_read(struct device *dev,
 		data->buf[ACCELEROMETER_SENSOR].z);
 }
 
-#ifndef CONFIG_SENSORS_SSP_GTACTIVE3
+#if defined(CONFIG_SEC_FACTORY) || !defined(CONFIG_SENSORS_SSP_GTACTIVE3)
 static ssize_t accel_reactive_alert_store(struct device *dev,
 	struct device_attribute *attr, const char *buf, size_t size)
 {
@@ -491,7 +486,7 @@ static DEVICE_ATTR(vendor, 0440, accel_vendor_show, NULL);
 static DEVICE_ATTR(calibration, 0660,
 	accel_calibration_show, accel_calibration_store);
 static DEVICE_ATTR(raw_data, 0440, raw_data_read, NULL);
-#ifndef CONFIG_SENSORS_SSP_GTACTIVE3
+#if defined(CONFIG_SEC_FACTORY) || !defined(CONFIG_SENSORS_SSP_GTACTIVE3)
 static DEVICE_ATTR(reactive_alert, 0660,
 	accel_reactive_alert_show, accel_reactive_alert_store);
 #endif
@@ -506,7 +501,7 @@ static struct device_attribute *acc_attrs[] = {
 	&dev_attr_vendor,
 	&dev_attr_calibration,
 	&dev_attr_raw_data,
-#ifndef CONFIG_SENSORS_SSP_GTACTIVE3
+#if defined(CONFIG_SEC_FACTORY) || !defined(CONFIG_SENSORS_SSP_GTACTIVE3)
 	&dev_attr_reactive_alert,
 #endif
 	&dev_attr_selftest,

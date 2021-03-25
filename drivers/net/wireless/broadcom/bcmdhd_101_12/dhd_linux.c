@@ -3676,7 +3676,58 @@ BCMFASTPATH(dhd_start_xmit)(struct sk_buff *skb, struct net_device *net)
 		}
 		bcm_object_trace_opr(skb, BCM_OBJDBG_ADD_PKT, __FUNCTION__, __LINE__);
 	}
+#if defined(ENABLE_DHD_SW_TSO)
+	if (skb_is_gso(skb)) {
+		struct sk_buff *segs, *copy_segs;
+		DHD_INFO(("%s: skb is gso skb->len:%d \n", __FUNCTION__, skb->len));
 
+		segs = skb_gso_segment(skb, net->features & ~(NETIF_F_TSO | NETIF_F_TSO6));
+		if (IS_ERR(segs)) {
+			DHD_ERROR(("%s: skb_gso_segment err\n", __FUNCTION__));
+			ret = -ENOMEM;
+			goto done;
+		}
+		if (segs == NULL) {
+			DHD_ERROR(("%s: segs is null\n", __FUNCTION__));
+			ret = -ENOMEM;
+			goto done;
+		}
+
+		do {
+			copy_segs = segs;
+			segs = segs->next;
+			copy_segs->next = NULL;
+
+			DHD_INFO(("%s: skb is gso segs skb->len:%d \n", __FUNCTION__, copy_segs->len));
+			bcm_object_trace_opr(copy_segs, BCM_OBJDBG_ADD_PKT, __FUNCTION__, __LINE__);
+			if (!(pktbuf = PKTFRMNATIVE(dhd->pub.osh, copy_segs))) {
+				DHD_ERROR(("%s: PKTFRMNATIVE failed\n",
+							dhd_ifname(&dhd->pub, ifidx)));
+				bcm_object_trace_opr(skb, BCM_OBJDBG_REMOVE, __FUNCTION__, __LINE__);
+				dev_kfree_skb_any(skb);
+				bcm_object_trace_opr(copy_segs, BCM_OBJDBG_REMOVE, __FUNCTION__, __LINE__);
+				dev_kfree_skb_any(copy_segs);
+				ret = -ENOMEM;
+				goto done;
+			}
+#if defined(DHD_LB_TXP)
+			ret = dhd_lb_sendpkt(dhd, net, ifidx, pktbuf);
+#else
+			ret = __dhd_sendpkt(&dhd->pub, ifidx, pktbuf);
+#endif /* DHD_LB_TXP */
+		} while (segs);
+		dev_consume_skb_any(skb);
+		goto done;
+	}
+
+	if (skb->ip_summed == CHECKSUM_PARTIAL) {
+		DHD_INFO(("%s: skb->ip_summed is CHECKSUM_PARTIAL\n", __FUNCTION__));
+		ret = skb_checksum_help(skb);
+		if (ret) {
+			DHD_ERROR(("%s: skb_checksum_help error: %d\n", __FUNCTION__, ret));
+		}
+	}
+#endif /* ENABLE_DHD_SW_TSO */
 	/* Convert to packet */
 	if (!(pktbuf = PKTFRMNATIVE(dhd->pub.osh, skb))) {
 		DHD_ERROR(("%s: PKTFRMNATIVE failed\n",
@@ -3713,14 +3764,17 @@ BCMFASTPATH(dhd_start_xmit)(struct sk_buff *skb, struct net_device *net)
 	}
 #endif /* DHD_PSTA */
 
-#if LINUX_VERSION_CODE >= KERNEL_VERSION(4, 19, 0) && defined(DHD_TCP_PACING_SHIFT)
+#if (LINUX_VERSION_CODE >= KERNEL_VERSION(4, 19, 0) || defined(CONFIG_BCM_PACING_SHIFT)) && \
+ defined(DHD_TCP_PACING_SHIFT)
 #ifndef DHD_DEFAULT_TCP_PACING_SHIFT
 #define DHD_DEFAULT_TCP_PACING_SHIFT 7
 #endif /* DHD_DEFAULT_TCP_PACING_SHIFT */
 	if (skb->sk) {
 		sk_pacing_shift_update(skb->sk, DHD_DEFAULT_TCP_PACING_SHIFT);
 	}
-#endif /* LINUX_VERSION_CODE >= 4.19.0 && DHD_TCP_PACING_SHIFT */
+#endif /* (LINUX_VERSION_CODE >= KERNEL_VERSION(4, 19, 0) || CONFIG_BCM_PACING_SHIFT) &&
+		* (DHD_TCP_PACING_SHIFT)
+		*/
 
 #ifdef DHDTCPSYNC_FLOOD_BLK
 	if (dhd_tcpdata_get_flag(&dhd->pub, pktbuf) == FLAG_SYNCACK) {
@@ -7520,7 +7574,10 @@ dhd_open(struct net_device *net)
 			dhd->iflist[ifidx]->net->features &= ~NETIF_F_IP_CSUM;
 		}
 #endif /* TOE */
-
+#if defined(ENABLE_DHD_SW_TSO)
+		dhd->iflist[ifidx]->net->features |= NETIF_F_TSO;
+		dhd->iflist[ifidx]->net->features |= NETIF_F_IP_CSUM;
+#endif /* ENABLE_DHD_SW_TSO */
 #ifdef ENABLE_DHD_GRO
 		dhd->iflist[ifidx]->net->features |= NETIF_F_GRO;
 #endif /* ENABLE_DHD_GRO */

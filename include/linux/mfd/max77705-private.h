@@ -397,6 +397,7 @@ extern int max77705_read_reg(struct i2c_client *i2c, u8 reg, u8 *dest);
 extern int max77705_bulk_read(struct i2c_client *i2c, u8 reg, int count,
 				u8 *buf);
 extern int max77705_write_reg(struct i2c_client *i2c, u8 reg, u8 value);
+extern int max77705_write_reg_nolock(struct i2c_client *i2c, u8 reg, u8 value);
 extern int max77705_bulk_write(struct i2c_client *i2c, u8 reg, int count,
 				u8 *buf);
 extern int max77705_write_word(struct i2c_client *i2c, u8 reg, u16 value);

@@ -1981,6 +1981,20 @@ static int max77705_muic_afc_set_voltage(int voltage)
 	return 0;
 }
 
+static int max77705_muic_afc_get_voltage(void)
+{
+	struct max77705_muic_data *muic_data = g_muic_data;
+	u8 vbadc = 0;
+	int ret = 0;
+
+	vbadc = max77705_muic_get_vbadc_value(muic_data);
+
+	if (vbadc > 0)
+		ret = vbadc + 3;
+
+	return ret;
+}
+
 static int max77705_muic_hv_charger_init(void)
 {
 	struct max77705_muic_data *muic_data = g_muic_data;
@@ -2484,6 +2498,7 @@ int max77705_muic_probe(struct max77705_usbc_platform_data *usbc_data)
 
 	/* set MUIC afc voltage switching function */
 	muic_data->pdata->muic_afc_set_voltage_cb = max77705_muic_afc_set_voltage;
+	muic_data->pdata->muic_afc_get_voltage_cb = max77705_muic_afc_get_voltage;
 
 	/* set MUIC check charger init function */
 	muic_data->pdata->muic_hv_charger_init_cb = max77705_muic_hv_charger_init;

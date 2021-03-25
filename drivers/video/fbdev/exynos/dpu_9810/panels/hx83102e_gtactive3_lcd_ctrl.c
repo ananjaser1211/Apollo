@@ -783,49 +783,35 @@ static void panel_conn_register(struct lcd_info *lcd)
 	device_create_file(&lcd->ld->dev, &dev_attr_conn_det);
 }
 
-static int match_dev_name(struct device *dev, void *data)
+static int __init panel_conn_init(void)
 {
-	const char *keyword = data;
-
-	return dev_name(dev) ? !!strstr(dev_name(dev), keyword) : 0;
-}
-
-static struct device *find_lcd_device(void)
-{
+	struct lcd_info *lcd = NULL;
+	struct dsim_device *pdata = NULL;
 	struct platform_device *pdev = NULL;
-	struct device *dev = NULL;
 
 	pdev = of_find_dsim_platform_device();
 	if (!pdev) {
-		dsim_info("%s: of_find_device_by_node fail\n", __func__);
-		return NULL;
-	}
-
-	dev = device_find_child(&pdev->dev, "panel", match_dev_name);
-	if (!dev) {
-		dsim_info("%s: device_find_child fail\n", __func__);
-		return NULL;
-	}
-
-	if (dev)
-		put_device(dev);
-
-	return dev;
-}
-
-static int __init panel_conn_init(void)
-{
-	struct device *dev = find_lcd_device();
-	struct lcd_info *lcd = NULL;
-
-	if (!dev) {
-		decon_info("find_lcd_device fail\n");
+		dsim_info("%s: of_find_dsim_platform_device fail\n", __func__);
 		return 0;
 	}
 
-	lcd = dev_get_drvdata(dev);
+	pdata = platform_get_drvdata(pdev);
+	if (!pdata) {
+		dsim_info("%s: platform_get_drvdata fail\n", __func__);
+		return 0;
+	}
+
+	if (!pdata->panel_ops) {
+		dsim_info("%s: panel_ops invalid\n", __func__);
+		return 0;
+	}
+
+	if (pdata->panel_ops != this_driver)
+		return 0;
+
+	lcd = pdata->priv.par;
 	if (!lcd) {
-		decon_info("lcd_info invalid\n");
+		dsim_info("lcd_info invalid\n");
 		return 0;
 	}
 
@@ -833,6 +819,8 @@ static int __init panel_conn_init(void)
 		lcd->conn_init_done = 1;
 		panel_conn_register(lcd);
 	}
+
+	dev_info(&lcd->ld->dev, "%s: %s: done\n", kbasename(__FILE__), __func__);
 
 	return 0;
 }

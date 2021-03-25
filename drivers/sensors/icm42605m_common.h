@@ -238,6 +238,7 @@ struct icm42605m_data {
 	int icm42605m_ldo_pin;
 
 	int dmp_is_on;
+	u8 dmp_from_sram;                                        /**< DMP executes from SRAM */
 
 };
 

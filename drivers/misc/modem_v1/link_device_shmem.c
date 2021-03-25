@@ -2302,7 +2302,7 @@ exit:
 }
 
 #ifdef CONFIG_MODEM_IF_NET_GRO
-long gro_flush_time = 0;
+long gro_flush_time = 10000;
 module_param(gro_flush_time, long, 0644);
 
 static void gro_flush_timer(struct link_device *ld)

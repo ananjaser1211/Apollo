@@ -143,7 +143,9 @@ int flash_s2mu106_g_ctrl(struct v4l2_subdev *subdev, struct v4l2_control *ctrl)
 {
 	int ret = 0;
 	struct fimc_is_flash *flash = NULL;
+#if 0 /* no need */
 	int volage;
+#endif
 
 	FIMC_BUG(!subdev);
 
@@ -152,10 +154,13 @@ int flash_s2mu106_g_ctrl(struct v4l2_subdev *subdev, struct v4l2_control *ctrl)
 
 	switch (ctrl->id) {
 	case V4L2_CID_FLASH_GET_DELAYED_PREFLASH_TIME:
+#if 0 /* no need */
 		volage = muic_afc_get_voltage();
 		if (volage == 9) {
 			ctrl->value = 200; /* ms */
-		} else {
+		} else
+#endif
+		{
 			ctrl->value = 0;
 		}
 

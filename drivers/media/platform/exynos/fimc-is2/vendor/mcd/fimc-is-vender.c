@@ -1872,6 +1872,9 @@ extern int sky81296_torch_ctrl(int state);
 #if defined(CONFIG_TORCH_CURRENT_CHANGE_SUPPORT) && defined(CONFIG_LEDS_S2MPB02)
 extern int s2mpb02_set_torch_current(bool torch_mode, bool change_current, int intensity);
 #endif
+#if defined(CONFIG_TORCH_CURRENT_CHANGE_SUPPORT) && defined(CONFIG_LEDS_RT8547)
+extern int rt8547_set_movie_mode(bool on);
+#endif
 
 int fimc_is_vender_set_torch(struct camera2_shot *shot)
 {
@@ -1893,6 +1896,9 @@ int fimc_is_vender_set_torch(struct camera2_shot *shot)
 		else
 #endif
 			s2mpb02_set_torch_current(true, false, 0);
+#endif
+#if defined(CONFIG_TORCH_CURRENT_CHANGE_SUPPORT) && defined(CONFIG_LEDS_RT8547)
+		rt8547_set_movie_mode(true);
 #endif
 		break;
 	case AA_FLASHMODE_START: /*Pre flash mode*/

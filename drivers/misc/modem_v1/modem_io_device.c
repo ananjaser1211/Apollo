@@ -31,6 +31,7 @@
 
 #include "modem_prj.h"
 #include "modem_utils.h"
+#include "modem_klat.h"
 
 static u8 sipc5_build_config(struct io_device *iod, struct link_device *ld,
 			     unsigned int count);
@@ -370,6 +371,9 @@ static int rx_multi_pdp(struct sk_buff *skb)
 	skb_reset_transport_header(skb);
 	skb_reset_network_header(skb);
 	skb_reset_mac_header(skb);
+
+	/* klat */
+	klat_rx(skb, skbpriv(skb)->sipc_ch - SIPC_CH_ID_PDP_0);
 
 	if (check_gro_support(skb)) {
 		ret = napi_gro_receive(napi_get_current(), skb);
@@ -1301,8 +1305,9 @@ static int vnet_xmit(struct sk_buff *skb, struct net_device *ndev)
 					"(tx_bytes:%d len:%d)\n",
 					iod->name, mc->name, ld->name, ret,
 					tx_bytes, count);
+			goto drop;
 		}
-		goto drop;
+		goto retry;
 	}
 
 	if (ret != tx_bytes) {

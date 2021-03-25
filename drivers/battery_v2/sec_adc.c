@@ -437,7 +437,7 @@ bool sec_bat_check_vf_adc(struct sec_battery_info *battery)
 		battery->check_adc_value = adc;
 
 	if ((battery->check_adc_value <= battery->pdata->check_adc_max) &&
-		(battery->check_adc_value >= battery->pdata->check_adc_min)) {
+		(battery->check_adc_value > battery->pdata->check_adc_min)) {
 		return true;
 	} else {
 		dev_info(battery->dev, "%s: adc (%d)\n", __func__, battery->check_adc_value);

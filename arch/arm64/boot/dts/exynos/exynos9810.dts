@@ -3554,7 +3554,7 @@
 	};
 
 	chosen {
-		bootargs = "console=ram rootwait ro root=/dev/ram0 init=/init androidboot.boot_devices=11120000.ufs clk_ignore_unused bcm_setup=0xffffff80f8e00000 androidboot.hardware=samsungexynos9810 androidboot.selinux=enforce androidboot.debug_level=0x4948 ecd_setup=disable pmic_info=0x3 ccic_info=0x1 firmware_class.path=/vendor/firmware reserve-fimc=0xffffff80fa000000 sec_debug.cp=0 nohugeiomap";
+		bootargs = [00];
 		linux,initrd-start = <0x82000000>;
 		linux,initrd-end = <0x821fffff>;
 		linux,phandle = <0x191>;

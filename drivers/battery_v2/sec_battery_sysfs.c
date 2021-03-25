@@ -511,6 +511,8 @@ ssize_t sec_bat_show_attrs(struct device *dev,
 		}
 		break;
 	case BATT_VF_ADC:
+		i += scnprintf(buf + i, PAGE_SIZE - i, "%d\n",
+			battery->check_adc_value);
 		break;
 	case BATT_SLATE_MODE:
 		i += scnprintf(buf + i, PAGE_SIZE - i, "%d\n",

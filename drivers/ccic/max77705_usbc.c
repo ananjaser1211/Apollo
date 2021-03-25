@@ -606,9 +606,6 @@ static int max77705_dr_set(const struct typec_capability *cap, enum typec_data_r
 {
 	struct max77705_usbc_platform_data *usbpd_data = container_of(cap, struct max77705_usbc_platform_data, typec_cap);
 
-	if (!usbpd_data)
-		return -EINVAL;
-
 	msg_maxim("typec_power_role=%d, typec_data_role=%d, role=%d",
 		usbpd_data->typec_power_role, usbpd_data->typec_data_role, role);
 	
@@ -643,9 +640,6 @@ static int max77705_dr_set(const struct typec_capability *cap, enum typec_data_r
 static int max77705_pr_set(const struct typec_capability *cap, enum typec_role role)
 {
 	struct max77705_usbc_platform_data *usbpd_data = container_of(cap, struct max77705_usbc_platform_data, typec_cap);
-
-	if (!usbpd_data)
-		return -EINVAL;
 
 	msg_maxim("typec_power_role=%d, typec_data_role=%d, role=%d",
 		usbpd_data->typec_power_role, usbpd_data->typec_data_role, role);
@@ -682,9 +676,6 @@ static int max77705_pr_set(const struct typec_capability *cap, enum typec_role r
 static int max77705_port_type_set(const struct typec_capability *cap, enum typec_port_type port_type)
 {
 	struct max77705_usbc_platform_data *usbpd_data = container_of(cap, struct max77705_usbc_platform_data, typec_cap);
-
-	if (!usbpd_data)
-		return -EINVAL;
 
 	msg_maxim("typec_power_role=%d, typec_data_role=%d, port_type=%d",
 		usbpd_data->typec_power_role, usbpd_data->typec_data_role, port_type);
@@ -824,6 +815,7 @@ static int max77705_firmware_update_sys(struct max77705_usbc_platform_data *data
 					usbc_data->FW_Revision, usbc_data->FW_Minor_Revision,
 					fw_header->major, fw_header->minor);
 			switch (pmic_rev) {
+			case MAX77705_PASS3:
 			case MAX77705_PASS4:
 			case MAX77705_PASS5:
 				fw_enable = 1;
@@ -1003,6 +995,13 @@ void pdic_manual_ccopen_request(int is_on)
 		usbpd_data->cc_open_req = is_on;
 		schedule_work(&usbpd_data->cc_open_req_work);
 	}
+}
+
+void pdic_error_recovery_request(void)
+{
+	struct max77705_usbc_platform_data *usbpd_data = g_usbc_data;
+
+	max77705_set_CCForceError(usbpd_data);
 }
 
 static void max77705_cc_open_work_func(
@@ -2276,8 +2275,13 @@ static void max77705_uic_op_send_work_func(
 
 static void max77705_reset_ic(struct max77705_usbc_platform_data *usbc_data)
 {
-	max77705_write_reg(usbc_data->muic, 0x80, 0x0F);
+	struct max77705_dev *max77705 = usbc_data->max77705;
+
+	/* guarantee to block i2c trasaction during ccic reset */
+	mutex_lock(&max77705->i2c_lock);
+	max77705_write_reg_nolock(usbc_data->muic, 0x80, 0x0F);
 	msleep(100); /* need 100ms delay */
+	mutex_unlock(&max77705->i2c_lock);
 }
 
 void max77705_usbc_check_sysmsg(struct max77705_usbc_platform_data *usbc_data, u8 sysmsg)

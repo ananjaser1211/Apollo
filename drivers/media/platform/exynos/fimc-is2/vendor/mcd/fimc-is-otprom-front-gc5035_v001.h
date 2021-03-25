@@ -35,8 +35,19 @@
 
 #define OTP_BANK
 #ifdef OTP_BANK
-#define OTP_BANK_ADDR                                0x200
-#define OTP_START_ADDR                               0x200
+#define OTP_BANK_ADDR                                0x200*8
+#define GC5035_OTP_START_ADDR_BANK1                  0x200*8
+#define GC5035_OTP_START_ADDR_BANK2                  0x300*8
+
+#define GC5035_OTP_PAGE_ADDR                         0xfe
+#define GC5035_OTP_MODE_ADDR                         0xf3
+#define GC5035_OTP_BUSY_ADDR                         0x6f
+#define GC5035_OTP_PAGE                              0x02
+#define GC5035_OTP_ACCESS_ADDR_HIGH                  0x69
+#define GC5035_OTP_ACCESS_ADDR_LOW                   0x6a
+#define GC5035_OTP_READ_ADDR                         0x6c
+#define GC5035_OTP_USED_CAL_SIZE                     (0x02AF - 0210)
+
 static const u32 OTP_first_page_select_reg[] = {
 	0x0A00, 0x04, 0x1,
 	0x0A02, 0x02, 0x1,
