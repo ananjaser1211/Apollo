@@ -1,0 +1,1 @@
+obj-$(CONFIG_EXYNOS_DECON_9810)	+= dpu_9810/

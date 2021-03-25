@@ -1,0 +1,56 @@
+#
+# (C) COPYRIGHT 2012 ARM Limited. All rights reserved.
+#
+# This program is free software and is provided to you under the terms of the GNU General Public License version 2
+# as published by the Free Software Foundation, and any use by you of this program is subject to the terms of such GNU licence.
+#
+# A copy of the licence is included with the program, and can also be obtained from Free Software
+# Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
+#
+#
+
+
+menu "ARM GPU Configuration"
+if (SOC_EXYNOS8895)
+source "drivers/gpu/arm/tMIx/Kconfig"
+endif
+
+menuconfig MALI_DDK_VERSION
+	tristate "Mali support"
+	default y
+	help
+	Enable this option to build support for the ARM Mali-T7xx GPU.
+
+	To compile this driver as a module, choose M here:
+	this will generate a single module, called mali_kbase.
+
+choice
+	prompt "version Configuration"
+	depends on MALI_DDK_VERSION
+	default MALI_BIFROST_R19P0_Q
+	help
+	Select the gpu support version.
+
+config MALI_BIFROST_R16P0
+	depends on MALI_DDK_VERSION
+	bool "Bifrost r16p0 driver"
+
+config MALI_BIFROST_R19P0_Q
+	depends on MALI_DDK_VERSION
+	bool "Bifrost r19p0 driver for Android Q"
+
+config MALI_BIFROST_OLD
+	depends on MALI_DDK_VERSION
+	bool "Bifrost old driver"
+endchoice
+
+if MALI_BIFROST_R16P0
+source "drivers/gpu/arm/b_r16p0/Kconfig"
+endif
+if MALI_BIFROST_R19P0_Q
+source "drivers/gpu/arm/b_r19p0/Kconfig"
+endif
+if MALI_BIFROST_OLD
+source "drivers/gpu/arm/tHEx/Kconfig"
+endif
+endmenu

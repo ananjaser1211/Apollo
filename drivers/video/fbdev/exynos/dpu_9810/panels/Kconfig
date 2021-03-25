@@ -1,0 +1,70 @@
+config EXYNOS_DECON_LCD
+	depends on EXYNOS_DECON_9810
+	bool "Select LCD panel driver"
+
+config EXYNOS_COMMON_PANEL
+	depends on EXYNOS_DECON_LCD && EXYNOS_MIPI_DSIM
+	tristate "S6E3HA2K AMOLED WQHD LCD driver(1440 x 2560)"
+	default y
+
+config EXYNOS_DECON_LCD_S6E3HA2K
+	depends on EXYNOS_DECON_LCD && EXYNOS_MIPI_DSIM
+	tristate "S6E3HA2K AMOLED WQHD LCD driver(1440 x 2560)"
+
+config EXYNOS_DECON_LCD_S6E3HF4
+	depends on EXYNOS_DECON_LCD && EXYNOS_MIPI_DSIM
+	tristate "S6E3HF4 AMOLED WQHD LCD driver(1440 x 2560)"
+	default n
+
+config EXYNOS_DECON_LCD_S6E3HA6
+	depends on EXYNOS_DECON_LCD && EXYNOS_MIPI_DSIM
+	depends on SOC_EXYNOS9810_EVT0
+	tristate "S6E3HA6 AMOLED WQHD+ LCD driver(1440 x 2960)"
+	default n
+
+config EXYNOS_DECON_LCD_S6E3HA8
+	depends on EXYNOS_DECON_LCD && EXYNOS_MIPI_DSIM
+	depends on SOC_EXYNOS9810_EVT1
+	tristate "S6E3HA8 AMOLED WQHD+ LCD driver(1440 x 2960)"
+	default n
+
+config EXYNOS_DECON_LCD_EMUL_DISP
+	depends on EXYNOS_DECON_LCD && EXYNOS_MIPI_DSIM
+	depends on EXYNOS_ZEBU_EMUL_DISP
+	tristate "EMUL_DISP COMMAND/VIDEO MODE AMOLED FHD LCD driver(800 x 1280)"
+
+config EXYNOS_MASS_PANEL
+	depends on EXYNOS_DECON_LCD && EXYNOS_MIPI_DSIM
+	tristate "mass panel driver"
+	default n
+
+config DISPLAY_USE_INFO
+	depends on EXYNOS_DECON_LCD
+	tristate "Support display use info logging"
+	default n
+
+config EXYNOS_DECON_MDNIE
+	depends on EXYNOS_DECON_LCD
+	tristate "Support MDNIE"
+	default n
+
+config EXYNOS_DECON_LCD_ANA6705_A51
+	depends on EXYNOS_DECON_LCD && EXYNOS_MIPI_DSIM
+	tristate "ANA6705_A51 LCD driver"
+
+config EXYNOS_DECON_LCD_S6E3FA9_ANOTE
+	depends on EXYNOS_DECON_LCD && EXYNOS_MIPI_DSIM
+	tristate "S6E3FA9_ANOTE LCD driver"
+
+config EXYNOS_DECON_LCD_HX83102E_GTACTIVE3
+	depends on EXYNOS_DECON_LCD && EXYNOS_MIPI_DSIM
+	tristate "HX83102E_GTACTIVE3 LCD driver"
+
+config EXYNOS_LCD_ENG
+	depends on EXYNOS_DECON_LCD
+	tristate "Support LCD featue on ENG binary"
+	default n
+
+config SUPPORT_MASK_LAYER
+	bool "Support mask layer"
+	default n

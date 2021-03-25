@@ -1,0 +1,67 @@
+/*
+ * Samsung Exynos5 SoC series Sensor driver
+ *
+ *
+ * Copyright (c) 2011 Samsung Electronics Co., Ltd
+ *
+ * This program is free software; you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License version 2 as
+ * published by the Free Software Foundation.
+ */
+
+#ifndef FIMC_IS_CIS_IMX333_H
+#define FIMC_IS_CIS_IMX333_H
+
+#include "fimc-is-cis.h"
+
+#define EXT_CLK_Mhz (26)
+#define SENSOR_IMX333_240FPS_FRAME_DURATION_US    (4166)
+
+#define SENSOR_IMX333_MAX_WIDTH         (4032 + 0)
+#define SENSOR_IMX333_MAX_HEIGHT        (3024 + 0)
+
+#define SENSOR_IMX333_FINE_INTEGRATION_TIME_MIN                0x510
+#define SENSOR_IMX333_FINE_INTEGRATION_TIME_MAX                0x510
+#define SENSOR_IMX333_COARSE_INTEGRATION_TIME_MIN              0x2
+#define SENSOR_IMX333_COARSE_INTEGRATION_TIME_MAX_MARGIN       0x0A
+#define SENSOR_IMX333_COARSE_STEP_2N 2
+#define SENSOR_IMX333_COARSE_STEP_4N 4
+#define SENSOR_IMX333_BRIGHT_ILLUMINATION_COMPENSATE_THR 100
+#define SENSOR_IMX333_DUMMY_MULTIPLIER 1000
+
+#define USE_GROUP_PARAM_HOLD	(0)
+
+enum sensor_imx333_mode_enum {
+	/* MODE 3 */
+	SENSOR_IMX333_4032X3024_30FPS = 0,	/* HDR M3-11 */
+	SENSOR_IMX333_4032X2268_60FPS,		/* HDR M4-12 */
+	SENSOR_IMX333_4032X2268_30FPS,		/* HDR M3-12 */
+	SENSOR_IMX333_2016X1512_30FPS,		/* NORMAL M3-7 */
+	SENSOR_IMX333_2016X1136_30FPS,		/* NORMAL M3-3 */
+	/* MODE 3 - 24fps LIVE FOCUS */
+	SENSOR_IMX333_4032X3024_24FPS,		/* HDR M3-11 modified */
+	SENSOR_IMX333_4032X2268_24FPS,		/* HDR M3-12 modified */
+	/* MODE 2 */
+	SENSOR_IMX333_2016X1134_240FPS_MODE2,	/* NORMAL M2-4 */
+	SENSOR_IMX333_1008X756_120FPS_MODE2,	/* NORMAL M2-6 */
+	SENSOR_IMX333_MODE_MAX,
+};
+
+static bool sensor_imx333_support_wdr[] = {
+	/* MODE 3 */
+	true, //SENSOR_IMX333_4032X3024_30FPS
+	true, //SENSOR_IMX333_4032X2268_60FPS
+	true, //SENSOR_IMX333_4032X2268_30FPS
+	false, //SENSOR_IMX333_2016X1512_30FPS
+	false, //SENSOR_IMX333_2016X1136_30FPS
+	/* MODE 3 - 24fps LIVE FOCUS */
+	true, //SENSOR_IMX333_4032X3024_24FPS = 4,
+	true, //SENSOR_IMX333_4032X2268_24FPS = 5,
+	/* MODE 2 */
+	false, //SENSOR_IMX333_2016X1134_240FPS_MODE2 = 6,
+	false, //SENSOR_IMX333_1008X756_120FPS_MODE2 = 7,
+};
+
+#endif
+
+
