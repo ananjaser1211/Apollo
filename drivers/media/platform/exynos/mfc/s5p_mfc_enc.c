@@ -313,7 +313,7 @@ static int vidioc_s_fmt_vid_cap_mplane(struct file *file, void *priv,
 	struct s5p_mfc_dev *dev = video_drvdata(file);
 	struct s5p_mfc_ctx *ctx = fh_to_mfc_ctx(file->private_data);
 	struct s5p_mfc_enc *enc = ctx->enc_priv;
-	struct s5p_mfc_fmt *fmt = NULL;
+	struct s5p_mfc_fmt *fmt;
 	struct v4l2_pix_format_mplane *pix_fmt_mp = &f->fmt.pix_mp;
 	int ret = 0;
 
@@ -605,25 +605,13 @@ static int vidioc_qbuf(struct file *file, void *priv, struct v4l2_buffer *buf)
 		return -EIO;
 	}
 
-	if (!V4L2_TYPE_IS_MULTIPLANAR(buf->type)) {
-		mfc_err_ctx("Invalid V4L2 Buffer for driver: type(%d)\n", buf->type);
-		return -EINVAL;
-	}
-
-	if (!buf->length) {
+	if (V4L2_TYPE_IS_MULTIPLANAR(buf->type) && !buf->length) {
 		mfc_err_ctx("multiplanar but length is zero\n");
 		return -EIO;
 	}
 
 	if (buf->type == V4L2_BUF_TYPE_VIDEO_OUTPUT_MPLANE) {
-		if (ctx->src_fmt->mem_planes != buf->length) {
-			mfc_err_ctx("number of memory container miss-match "
-					"between Src planes(%d) and buffer length(%d)\n",
-					ctx->src_fmt->mem_planes, buf->length);
-			return -EINVAL;
-		}
-
-		for (i = 0; i < ctx->src_fmt->mem_planes; i++) {
+		for (i = 0; i < ctx->src_fmt->num_planes; i++) {
 			if (!buf->m.planes[i].bytesused) {
 				mfc_debug(2, "Src input[%d] size zero, "
 						"changed to buf size %d\n",
@@ -662,12 +650,6 @@ static int vidioc_dqbuf(struct file *file, void *priv, struct v4l2_buffer *buf)
 		mfc_err_ctx("Call on DQBUF after unrecoverable error.\n");
 		return -EIO;
 	}
-
-	if (!V4L2_TYPE_IS_MULTIPLANAR(buf->type)) {
-		mfc_err_ctx("Invalid V4L2 Buffer for driver: type(%d)\n", buf->type);
-		return -EINVAL;
-	}
-	
 	if (buf->type == V4L2_BUF_TYPE_VIDEO_OUTPUT_MPLANE)
 		ret = vb2_dqbuf(&ctx->vq_src, buf, file->f_flags & O_NONBLOCK);
 	else
@@ -688,11 +670,6 @@ static int vidioc_streamon(struct file *file, void *priv,
 	if (ctx->otf_handle) {
 		mfc_info_ctx("OTF: skip streamon\n");
 		return 0;
-	}
-
-	if (!V4L2_TYPE_IS_MULTIPLANAR(type)) {
-		mfc_err_ctx("Invalid V4L2 Buffer for driver: type(%d)\n", type);
-		return -EINVAL;		
 	}
 
 	if (type == V4L2_BUF_TYPE_VIDEO_OUTPUT_MPLANE) {
@@ -717,7 +694,7 @@ static int vidioc_streamoff(struct file *file, void *priv,
 			    enum v4l2_buf_type type)
 {
 	struct s5p_mfc_ctx *ctx = fh_to_mfc_ctx(file->private_data);
-	int ret = -EINVAL;
+	int ret;
 
 	mfc_debug_enter();
 
@@ -726,11 +703,7 @@ static int vidioc_streamoff(struct file *file, void *priv,
 		return 0;
 	}
 
-	if (!V4L2_TYPE_IS_MULTIPLANAR(type)) {
-		mfc_err_ctx("Invalid V4L2 Buffer for driver: type(%d)\n", type);
-		return -EINVAL;
-	}
-
+	ret = -EINVAL;
 	if (type == V4L2_BUF_TYPE_VIDEO_OUTPUT_MPLANE) {
 		s5p_mfc_qos_reset_last_framerate(ctx);
 
