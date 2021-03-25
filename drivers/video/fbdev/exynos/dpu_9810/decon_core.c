@@ -2442,9 +2442,9 @@ static void decon_update_regs_handler(struct kthread_work *work)
 		decon_hiber_unblock(decon);
 		if (!decon->up_list_saved) {
 			list_del(&data->list);
-			decon_systrace(decon, 'C',
-							"update_regs_list", 0);
+			decon_systrace(decon, 'C', "update_regs_list", 0);
 			kfree(data);
+			atomic_dec(&decon->up.remaining_frame);
 		}
 	}
 }
@@ -2724,7 +2724,6 @@ static int decon_set_win_config(struct decon_device *decon,
 			sizeof(struct decon_rect));
 
 	if (num_of_window) {
-		fd_install(win_data->retire_fence, sync_file->file);
 #if defined(CONFIG_DPU_2_0_RELEASE_FENCES)
 		decon_create_release_fences(decon, win_data, sync_file);
 #endif
@@ -2737,9 +2736,23 @@ static int decon_set_win_config(struct decon_device *decon,
 		decon2_event_count++;
 	list_add_tail(&regs->list, &decon->up.list);
 	decon->update_regs_list_cnt++;
+	atomic_inc(&decon->up.remaining_frame);
+	win_data->extra.remained_frames =
+		atomic_read(&decon->up.remaining_frame);
 	mutex_unlock(&decon->up.lock);
 	kthread_queue_work(&decon->up.worker, &decon->up.work);
 
+	/*
+	 * The code is moved here because the DPU driver may get a wrong fd
+	 * through the released file pointer,
+	 * if the user(HWC) closes the fd and releases the file pointer.
+	 *
+	 * Since the user land can use fd from this point/time,
+	 * it can be guaranteed to use an unreleased file pointer
+	 * when creating a rel_fence in decon_create_release_fences(...)
+	 */
+	if (num_of_window)
+			fd_install(win_data->retire_fence, sync_file->file);
 	mutex_unlock(&decon->lock);
 #if defined(CONFIG_SUPPORT_MASK_LAYER)
 	if (decon->wait_mask_layer_trigger) {
@@ -2774,6 +2787,7 @@ err_prepare:
 		put_unused_fd(win_data->retire_fence);
 	}
 	win_data->retire_fence = -1;
+	win_data->extra.remained_frames = -1;
 
 	for (i = 0; i < decon->dt.max_win; i++)
 		for (j = 0; j < regs->plane_cnt[i]; ++j)
@@ -2851,7 +2865,6 @@ static int decon_ioctl(struct fb_info *info, unsigned int cmd,
 	struct decon_hdr_capabilities hdr_capa;
 	struct decon_hdr_capabilities_info hdr_capa_info;
 	struct decon_user_window user_window;	/* cursor async */
-	struct decon_win_config_data __user *argp;
 	struct decon_disp_info __user *argp_info;
 	int ret = 0;
 	u32 crtc;
@@ -2886,17 +2899,12 @@ static int decon_ioctl(struct fb_info *info, unsigned int cmd,
 		ret = decon_set_vsync_int(info, active);
 		break;
 
-#ifdef CONFIG_SUPPORT_DSU
 	case S3CFB_WIN_CONFIG_OLD:
 		memset(&win_data, 0, sizeof(struct decon_win_config_data));
-#endif
 	case S3CFB_WIN_CONFIG:
-		argp = (struct decon_win_config_data __user *)arg;
 		DPU_EVENT_LOG(DPU_EVT_WIN_CONFIG, &decon->sd, ktime_set(0, 0));
 		decon_systrace(decon, 'C', "decon_win_config", 1);
-		if (copy_from_user(&win_data,
-				   (struct decon_win_config_data __user *)arg,
-				   _IOC_SIZE(cmd))) {
+		if (copy_from_user(&win_data, (void __user *)arg, _IOC_SIZE(cmd))) {
 			decon_err("DECON:ERR:%s:failed to copy win config data\n", __func__);
 			ret = -EFAULT;
 			break;
@@ -3852,6 +3860,7 @@ static int decon_create_update_thread(struct decon_device *decon, char *name)
 	INIT_LIST_HEAD(&decon->up.list);
 	INIT_LIST_HEAD(&decon->up.saved_list);
 	decon->up_list_saved = false;
+	atomic_set(&decon->up.remaining_frame, 0);
 	kthread_init_worker(&decon->up.worker);
 	decon->up.thread = kthread_run(kthread_worker_fn,
 			&decon->up.worker, name);

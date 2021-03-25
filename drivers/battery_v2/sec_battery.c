@@ -5248,7 +5248,7 @@ static void sec_bat_cable_work(struct work_struct *work)
 
 	if (is_pd_wire_type(current_cable_type) &&
 		is_pd_wire_type(battery->cable_type) &&
-		!is_slate_mode(battery)) {
+		!is_slate_mode(battery) && battery->cable_work_skip_en) {
 		cancel_delayed_work(&battery->afc_work);
 		wake_unlock(&battery->afc_wake_lock);
 		sec_bat_set_current_event(battery, 0,
@@ -5265,7 +5265,8 @@ static void sec_bat_cable_work(struct work_struct *work)
 		|| (battery->muic_cable_type == ATTACHED_DEV_AFC_CHARGER_DISABLED_MUIC))
 		battery->max_charge_power = 0;
 
-	if ((current_cable_type == battery->cable_type) && !is_slate_mode(battery)) {
+	if ((current_cable_type == battery->cable_type) && !is_slate_mode(battery)
+		&& battery->cable_work_skip_en) {
 		dev_dbg(battery->dev,
 				"%s: Cable is NOT Changed(%d)\n",
 				__func__, battery->cable_type);
@@ -5534,6 +5535,7 @@ static void sec_bat_cable_work(struct work_struct *work)
 	wake_lock(&battery->monitor_wake_lock);
 	queue_delayed_work(battery->monitor_wqueue, &battery->monitor_work, 0);
 end_of_cable_work:
+	battery->cable_work_skip_en = true;
 	wake_unlock(&battery->cable_wake_lock);
 	dev_info(battery->dev, "%s: End\n", __func__);
 }
@@ -7395,7 +7397,7 @@ static int usb_typec_handle_notification(struct notifier_block *nb,
 			battery->pdic_attach = false;
 			battery->update_pd_list = false;
 #if defined(CONFIG_CHARGER_S2MU106)
-			battery->cable_type = SEC_BATTERY_CABLE_TA;
+			battery->cable_work_skip_en = false;
 #endif
 		}
 		if (!battery->pdic_attach) {
@@ -8340,6 +8342,7 @@ static int sec_battery_probe(struct platform_device *pdev)
 	battery->charging_mode = SEC_BATTERY_CHARGING_NONE;
 	battery->is_recharging = false;
 	battery->cable_type = SEC_BATTERY_CABLE_NONE;
+	battery->cable_work_skip_en = true;
 	battery->test_mode = 0;
 	battery->factory_mode = false;
 	battery->store_mode = false;

@@ -473,6 +473,7 @@ struct sec_battery_info {
 #endif
 
 	bool auto_mode;
+	bool cable_work_skip_en;
 
 	bool pd_disable_by_afc_option;
 #if defined(CONFIG_BATTERY_SAMSUNG_MHS)

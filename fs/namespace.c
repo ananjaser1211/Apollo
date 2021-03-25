@@ -59,6 +59,7 @@
 /* Maximum number of mounts in a mount namespace */
 unsigned int sysctl_mount_max __read_mostly = 100000;
 
+/* @fs.sec -- c4d165e8cb5ea1cc14cdedb9eab23efd642d4d5f -- */
 static unsigned int sys_umount_trace_status;
 
 static unsigned int m_hash_mask __read_mostly;
@@ -144,6 +145,7 @@ static inline struct hlist_head *m_hash(struct vfsmount *mnt, struct dentry *den
 	tmp = tmp + (tmp >> m_hash_shift);
 	return &mount_hashtable[tmp & m_hash_mask];
 }
+
 enum {
 	UMOUNT_STATUS_ADD_TASK = 0,
 	UMOUNT_STATUS_REMAIN_NS,

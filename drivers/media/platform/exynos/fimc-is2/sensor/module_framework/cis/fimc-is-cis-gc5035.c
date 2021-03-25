@@ -234,31 +234,31 @@ int sensor_gc5035_check_rev(struct fimc_is_cis *cis)
 		goto p_err;
 	}
 
-	/* read chip id */	
+	/* page select */	
 	ret = fimc_is_sensor_addr8_write8(client, 0xfe, 0x02);
 	if (ret < 0) {
-		err("sensor_gc5035_set_registers fail!!");
+		err("sensor_gc5035_set_registers fail to write page select");
 		goto p_err;
 	}
 	ret = fimc_is_sensor_addr8_write8(client, 0x69, 0x00);
 	if (ret < 0) {
-		err("sensor_gc5035_set_registers fail!!");
+		err("sensor_gc5035_set_registers fail to write access address high");
 		goto p_err;
 	}
 	ret = fimc_is_sensor_addr8_write8(client, 0x6a, 0x08);
 	if (ret < 0) {
-		err("sensor_gc5035_set_registers fail!!");
+		err("sensor_gc5035_set_registers fail to write access address low");
 		goto p_err;
 	}
 	ret = fimc_is_sensor_addr8_write8(client, 0xf3, 0x20);
 	if (ret < 0) {
-		err("sensor_gc5035_set_registers fail!!");
+		err("sensor_gc5035_set_registers fail to write pulse");
 		goto p_err;
 	}
 
 	ret = fimc_is_sensor_addr8_read8(client, 0x6c, &rev);
 	if (ret < 0) {
-		err("sensor_gc5035_set_registers fail!!");
+		err("sensor_gc5035_set_registers fail to read rev value");
 		goto p_err;
 	}
 
@@ -657,10 +657,12 @@ p_err:
 int sensor_gc5035_cis_init(struct v4l2_subdev *subdev)
 {
 	int ret = 0;
-	struct fimc_is_cis *cis;
+	struct fimc_is_cis *cis = NULL;
+	struct fimc_is_core *core = NULL;
+	struct fimc_is_device_sensor *device = NULL;
+	struct fimc_is_module_enum *module = NULL;
 	u32 setfile_index = 0;
 	cis_setting_info setinfo;
-	u8 rev = 0;
 
 #if USE_OTP_AWB_CAL_DATA
 	struct i2c_client *client = NULL;
@@ -670,10 +672,13 @@ int sensor_gc5035_cis_init(struct v4l2_subdev *subdev)
 	bool skip_cal_write = false;
 #endif
 
+	int retryCount = 3;
+
 	setinfo.param = NULL;
 	setinfo.return_value = 0;
 
 	FIMC_BUG(!subdev);
+	FIMC_BUG(!fimc_is_dev);
 
 	cis = (struct fimc_is_cis *)v4l2_get_subdevdata(subdev);
 	if (!cis) {
@@ -681,6 +686,17 @@ int sensor_gc5035_cis_init(struct v4l2_subdev *subdev)
 		ret = -EINVAL;
 		goto p_err;
 	}
+
+	core = (struct fimc_is_core *)dev_get_drvdata(fimc_is_dev);
+	if (!core) {
+		err("The core device is null");
+		ret = -EINVAL;
+		goto p_err;
+	}
+
+	info("%s sensor_id %d\n", __func__, cis->device);
+
+	device = &core->sensor[cis->device];
 
 #if USE_OTP_AWB_CAL_DATA
 	client = cis->client;
@@ -697,10 +713,35 @@ int sensor_gc5035_cis_init(struct v4l2_subdev *subdev)
 
 	info("[%s] gc5035 init\n", __func__);
 
-	ret = fimc_is_sensor_addr8_read8(cis->client, 0x6c, &rev);
+retryCheck:
+	ret = sensor_gc5035_check_rev(cis);
+	info("%s sensor_cis_check_rev: %d\n", __func__, ret);
 	if (ret < 0) {
-		err("sensor_gc5035_set_registers fail!!");
-		goto p_err;
+		if (retryCount > 0) {
+			retryCount--;
+			info("%s sensor rev check fail!!! Sensor Power reset\n", __func__);
+			ret = fimc_is_sensor_g_module(device, &module);
+			if (ret) {
+				merr("fimc_is_sensor_g_module is fail(%d)", device, ret);
+				goto p_err;
+			}
+
+			clear_bit(FIMC_IS_SENSOR_GPIO_ON, &device->state);
+			clear_bit(FIMC_IS_MODULE_GPIO_ON, &module->state);
+
+			ret = fimc_is_sensor_gpio_on(device);
+			if (ret) {
+				warn("fimc_is_sensor_gpio_on is fail(%d)", ret);
+				goto p_err;
+			} else {
+				ret = 0;
+				msleep(1);
+				goto retryCheck;
+			}
+		} else {
+			err("%s sensor rev check fail after trying with i2c reset", __func__);
+			goto p_err;
+		}
 	}
 
 	cis->cis_data->cur_width = SENSOR_GC5035_MAX_WIDTH;
@@ -2306,7 +2347,7 @@ int cis_gc5035_probe(struct i2c_client *client,
 
 	cis->id = SENSOR_NAME_GC5035;
 	cis->subdev = subdev_cis;
-	cis->device = 0;
+	cis->device = sensor_id;
 	cis->client = client;
 	sensor_peri->module->client = cis->client;
 
