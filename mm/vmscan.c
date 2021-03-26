@@ -1774,8 +1774,6 @@ static bool inactive_reclaimable_pages(struct lruvec *lruvec,
 	return false;
 }
 
-static inline bool need_memory_boosting(struct pglist_data *pgdat, bool skip);
-
 /*
  * shrink_inactive_list() is a helper for shrink_node().  It returns the number
  * of reclaimed pages
@@ -1797,8 +1795,6 @@ shrink_inactive_list(unsigned long nr_to_scan, struct lruvec *lruvec,
 	int file = is_file_lru(lru);
 	struct pglist_data *pgdat = lruvec_pgdat(lruvec);
 	struct zone_reclaim_stat *reclaim_stat = &lruvec->reclaim_stat;
-	bool force_reclaim = false;
-	enum ttu_flags ttu = TTU_UNMAP;
 
 	if (!inactive_reclaimable_pages(lruvec, sc, lru))
 		return 0;
@@ -1838,15 +1834,10 @@ shrink_inactive_list(unsigned long nr_to_scan, struct lruvec *lruvec,
 	if (nr_taken == 0)
 		return 0;
 
-	if (need_memory_boosting(pgdat, false)) {
-		force_reclaim = true;
-		ttu |= TTU_IGNORE_ACCESS;
-	}
-
-	nr_reclaimed = shrink_page_list(&page_list, pgdat, sc, ttu,
+	nr_reclaimed = shrink_page_list(&page_list, pgdat, sc, TTU_UNMAP,
 				&nr_dirty, &nr_unqueued_dirty, &nr_congested,
 				&nr_writeback, &nr_immediate,
-				force_reclaim);
+				false);
 
 	spin_lock_irq(&pgdat->lru_lock);
 
@@ -2134,14 +2125,11 @@ static bool inactive_list_is_low(struct lruvec *lruvec, bool file,
 	active = lruvec_lru_size(lruvec, active_lru, sc->reclaim_idx);
 
 	gb = (inactive + active) >> (30 - PAGE_SHIFT);
-#ifdef CONFIG_FIX_INACTIVE_RATIO
-	inactive_ratio = 1;
-#else
 	if (gb)
 		inactive_ratio = int_sqrt(10 * gb);
 	else
 		inactive_ratio = 1;
-#endif
+
 	return inactive * inactive_ratio < active;
 }
 
@@ -2172,12 +2160,7 @@ enum mem_boost {
 };
 static int mem_boost_mode = NO_BOOST;
 static unsigned long last_mode_change;
-static bool memory_boosting_disabled = false;
-
-bool is_mem_boost_high(void)
-{
-	return mem_boost_mode == BOOST_HIGH;
-}
+static bool am_app_launch = false;
 
 #define MEM_BOOST_MAX_TIME (5 * HZ) /* 5 sec */
 
@@ -2244,27 +2227,63 @@ static ssize_t mem_boost_mode_store(struct kobject *kobj,
 	return count;
 }
 
-static ssize_t disable_mem_boost_show(struct kobject *kobj,
-				    struct kobj_attribute *attr, char *buf)
+ATOMIC_NOTIFIER_HEAD(am_app_launch_notifier);
+
+int am_app_launch_notifier_register(struct notifier_block *nb)
+{
+	return atomic_notifier_chain_register(&am_app_launch_notifier, nb);
+}
+
+int am_app_launch_notifier_unregister(struct notifier_block *nb)
+{
+	return  atomic_notifier_chain_unregister(&am_app_launch_notifier, nb);
+}
+
+static ssize_t am_app_launch_show(struct kobject *kobj,
+				  struct kobj_attribute *attr, char *buf)
 {
 	int ret;
 
-	ret = memory_boosting_disabled ? 1 : 0;
+	ret = am_app_launch ? 1 : 0;
 	return sprintf(buf, "%d\n", ret);
 }
 
-static ssize_t disable_mem_boost_store(struct kobject *kobj,
-				     struct kobj_attribute *attr,
-				     const char *buf, size_t count)
+static int notify_app_launch_started(void)
+{
+	trace_printk("am_app_launch started\n");
+	atomic_notifier_call_chain(&am_app_launch_notifier, 1, NULL);
+	return 0;
+}
+
+static int notify_app_launch_finished(void)
+{
+	trace_printk("am_app_launch finished\n");
+	atomic_notifier_call_chain(&am_app_launch_notifier, 0, NULL);
+	return 0;
+}
+
+static ssize_t am_app_launch_store(struct kobject *kobj,
+				   struct kobj_attribute *attr,
+				   const char *buf, size_t count)
 {
 	int mode;
 	int err;
+	bool am_app_launch_new;
 
 	err = kstrtoint(buf, 10, &mode);
 	if (err || (mode != 0 && mode != 1))
 		return -EINVAL;
 
-	memory_boosting_disabled = mode ? true : false;
+	am_app_launch_new = mode ? true : false;
+	trace_printk("am_app_launch %d -> %d\n", am_app_launch,
+		     am_app_launch_new);
+	if (am_app_launch != am_app_launch_new) {
+		if (am_app_launch_new)
+			notify_app_launch_started();
+		else
+			notify_app_launch_finished();
+	}
+	am_app_launch = am_app_launch_new;
 
 	return count;
 }
@@ -2273,16 +2292,16 @@ static ssize_t disable_mem_boost_store(struct kobject *kobj,
 	static struct kobj_attribute _name##_attr = \
 		__ATTR(_name, 0644, _name##_show, _name##_store)
 MEM_BOOST_ATTR(mem_boost_mode);
-MEM_BOOST_ATTR(disable_mem_boost);
+MEM_BOOST_ATTR(am_app_launch);
 
-static struct attribute *mem_boost_attrs[] = {
+static struct attribute *vmscan_attrs[] = {
 	&mem_boost_mode_attr.attr,
-	&disable_mem_boost_attr.attr,
+	&am_app_launch_attr.attr,
 	NULL,
 };
 
-static struct attribute_group mem_boost_attr_group = {
-	.attrs = mem_boost_attrs,
+static struct attribute_group vmscan_attr_group = {
+	.attrs = vmscan_attrs,
 	.name = "vmscan",
 };
 #endif
@@ -2304,14 +2323,11 @@ static inline bool mem_boost_pgdat_wmark(struct pglist_data *pgdat)
 	return false;
 }
 
-static inline bool need_memory_boosting(struct pglist_data *pgdat, bool skip)
+static inline bool need_memory_boosting(struct pglist_data *pgdat)
 {
 	bool ret;
 
 	test_and_set_mem_boost_timeout();
-
-	if (!skip && memory_boosting_disabled)
-		return false;
 
 	switch (mem_boost_mode) {
 	case BOOST_HIGH:
@@ -2435,7 +2451,7 @@ static void get_scan_count(struct lruvec *lruvec, struct mem_cgroup *memcg,
 		}
 	}
 
-	if (current_is_kswapd() && need_memory_boosting(pgdat, true)) {
+	if (current_is_kswapd() && need_memory_boosting(pgdat)) {
 		scan_balance = SCAN_FILE;
 		goto out;
 	}
@@ -3350,7 +3366,7 @@ static bool zone_balanced(struct zone *zone, int order, int classzone_idx)
 {
 	unsigned long mark = high_wmark_pages(zone);
 
-	if (current_is_kswapd() && need_memory_boosting(zone->zone_pgdat, false))
+	if (current_is_kswapd() && need_memory_boosting(zone->zone_pgdat))
 		mark *= MEM_BOOST_WMARK_SCALE_FACTOR;
 
 	if (!zone_watermark_ok_safe(zone, order, mark, classzone_idx))
@@ -3362,6 +3378,7 @@ static bool zone_balanced(struct zone *zone, int order, int classzone_idx)
 	 */
 	clear_bit(PGDAT_CONGESTED, &zone->zone_pgdat->flags);
 	clear_bit(PGDAT_DIRTY, &zone->zone_pgdat->flags);
+	clear_bit(PGDAT_WRITEBACK, &zone->zone_pgdat->flags);
 
 	return true;
 }
@@ -3539,7 +3556,7 @@ static int balance_pgdat(pg_data_t *pgdat, int order, int classzone_idx)
 		 * If we're getting trouble reclaiming, start doing writepage
 		 * even in laptop mode.
 		 */
-		if (sc.priority < DEF_PRIORITY - 2 || !pgdat_reclaimable(pgdat))
+		if (sc.priority < DEF_PRIORITY - 2)
 			sc.may_writepage = 1;
 
 		/* Call soft limit reclaim before calling shrink_node. */
@@ -3785,7 +3802,7 @@ void wakeup_kswapd(struct zone *zone, int order, enum zone_type classzone_idx)
 	if (pgdat->kswapd_failures >= MAX_RECLAIM_RETRIES)
 		return;
 
-	if (need_memory_boosting(pgdat, false))
+	if (need_memory_boosting(pgdat))
 		goto wakeup;
 
 	/* Only wake kswapd if all zones are unbalanced */
@@ -3913,8 +3930,8 @@ static int __init kswapd_init(void)
  		kswapd_run(nid);
 	hotcpu_notifier(cpu_callback, 0);
 #ifdef CONFIG_SYSFS
-	if (sysfs_create_group(mm_kobj, &mem_boost_attr_group))
-		pr_err("vmscan: register mem boost sysfs failed\n");
+	if (sysfs_create_group(mm_kobj, &vmscan_attr_group))
+		pr_err("vmscan: register sysfs failed\n");
 #endif
 	return 0;
 }

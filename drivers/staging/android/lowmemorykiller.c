@@ -213,31 +213,15 @@ static unsigned long lowmem_scan(struct shrinker *s, struct shrink_control *sc)
 		other_file -= nr_rbin_file;
 	}
 
-	if (!current_is_kswapd() && is_mem_boost_high() &&
-			lowmem_direct_minfree_size && lowmem_direct_adj_size) {
-		array_size = ARRAY_SIZE(lowmem_direct_adj);
-		if (lowmem_direct_adj_size < array_size)
-			array_size = lowmem_direct_adj_size;
-		if (lowmem_direct_minfree_size < array_size)
-			array_size = lowmem_direct_minfree_size;
-		for (i = 0; i < array_size; i++) {
-			minfree = lowmem_direct_minfree[i];
-			if (other_free < minfree && other_file < minfree) {
-				min_score_adj = lowmem_direct_adj[i];
-				break;
-			}
-		}
-	} else {
-		if (lowmem_adj_size < array_size)
-			array_size = lowmem_adj_size;
-		if (lowmem_minfree_size < array_size)
-			array_size = lowmem_minfree_size;
-		for (i = 0; i < array_size; i++) {
-			minfree = lowmem_minfree[i];
-			if (other_free < minfree && other_file < minfree) {
-				min_score_adj = lowmem_adj[i];
-				break;
-			}
+	if (lowmem_adj_size < array_size)
+		array_size = lowmem_adj_size;
+	if (lowmem_minfree_size < array_size)
+		array_size = lowmem_minfree_size;
+	for (i = 0; i < array_size; i++) {
+		minfree = lowmem_minfree[i];
+		if (other_free < minfree && other_file < minfree) {
+			min_score_adj = lowmem_adj[i];
+			break;
 		}
 	}
 
