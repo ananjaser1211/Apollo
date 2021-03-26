@@ -17,4 +17,33 @@ endif
 if (SOC_EXYNOS9810)
 source "drivers/gpu/arm/tHEx/Kconfig"
 endif
+menuconfig MALI_DDK_VERSION
+	tristate "Mali support"
+	default y
+	help
+	Enable this option to build support for the ARM Mali-T7xx GPU.
+
+	To compile this driver as a module, choose M here:
+	this will generate a single module, called mali_kbase.
+choice
+	prompt "version Configuration"
+	depends on MALI_DDK_VERSION
+	help
+	Select the gpu support version.
+
+config MALI_BIFROST_R26P0
+	depends on MALI_DDK_VERSION
+	bool "Bifrost r26p0 driver for Android R"
+
+config MALI_BIFROST_OLD
+	depends on MALI_DDK_VERSION
+	bool "Bifrost old driver"
+endchoice
+
+if MALI_BIFROST_R26P0
+source "drivers/gpu/arm/bv_r26p0/Kconfig"
+endif
+if MALI_BIFROST_OLD
+source "drivers/gpu/arm/tHEx/Kconfig"
+endif
 endmenu

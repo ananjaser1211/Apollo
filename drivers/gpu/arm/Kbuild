@@ -14,7 +14,7 @@ ifeq ($(CONFIG_MALI_TMIX),y)
 		obj-y += tMIx/r5p0/
 	endif
 endif
-ifeq ($(CONFIG_MALI_THEX),y)
+ifeq ($(CONFIG_MALI_DDK_VERSION),y)
 	ifeq ($(CONFIG_MALI_THEX_R5P0),y)
 		obj-y += tHEx/r5p0/
 	endif
@@ -41,5 +41,8 @@ ifeq ($(CONFIG_MALI_THEX),y)
 	endif
 	ifeq ($(CONFIG_MALI_BIFROST_R19P0_Q),y)
 		obj-y += b_r19p0/
+	endif
+	ifeq ($(CONFIG_MALI_BIFROST_R26P0),y)
+		obj-y += bv_r26p0/
 	endif
 endif
