@@ -14,9 +14,7 @@ menu "ARM GPU Configuration"
 if (SOC_EXYNOS8895)
 source "drivers/gpu/arm/tMIx/Kconfig"
 endif
-if (SOC_EXYNOS9810)
-source "drivers/gpu/arm/tHEx/Kconfig"
-endif
+
 menuconfig MALI_DDK_VERSION
 	tristate "Mali support"
 	default y
