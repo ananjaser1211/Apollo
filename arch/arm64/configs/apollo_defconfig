@@ -3,3 +3,4 @@
 # Apollo Defconfig
 #
 #
+CONFIG_BOEFFLA_WL_BLOCKER=y
