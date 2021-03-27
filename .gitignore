@@ -135,6 +135,7 @@ arch/arm64/boot/dts/exynos/*.reverse.dts
 arch/arm64/boot/dtb.img
 scripts/dtbtool_exynos/dtbtool
 Apollo/Out/*.img
+Apollo/Product/*.img
 arch/arm64/configs/tmp_defconfig
 drivers/gator_5.27/generated_gator_src_md5.h
 scripts/crypto/__pycache__/
