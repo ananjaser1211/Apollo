@@ -1145,6 +1145,7 @@ void displayport_hpd_changed(int state)
 		cancel_delayed_work_sync(&displayport->hdcp13_integrity_check_work);
 		displayport->hpd_state = HPD_UNPLUG;
 		displayport->cur_video = V640X480P60;
+		displayport_reg_set_interrupt_mask(VIDEO_FIFO_UNDER_FLOW_MASK, 0); /*prevent intr storm*/
 /* not set to DEX_OFF state in this function
  * if ccic call this, then dex_state is already off.
  *		if (displayport->dex_state != DEX_RECONNECTING)
@@ -2078,6 +2079,9 @@ int displayport_audio_config(struct displayport_audio_config_data *audio_config_
 	displayport_info("audio config(%d ==> %d)\n", displayport->audio_state,
 				audio_config_data->audio_enable);
 
+	if (displayport->state == DISPLAYPORT_STATE_OFF)
+		return 0;
+
 	if (audio_config_data->audio_enable == displayport->audio_state)
 		return 0;
 
@@ -2383,7 +2387,6 @@ static int displayport_enable(struct displayport_device *displayport)
 #else
 	displayport_runtime_resume(displayport->dev);
 #endif
-	enable_irq(displayport->res.irq);
 
 	displayport_info("%s video: %s\n", __func__, supported_videos[displayport->cur_video].name);
 
@@ -2407,7 +2410,7 @@ static int displayport_enable(struct displayport_device *displayport)
 	displayport_reg_video_mute(0);
 #endif
 	displayport_reg_start();
-
+	enable_irq(displayport->res.irq);
 	displayport->state = DISPLAYPORT_STATE_ON;
 	wake_up_interruptible(&displayport->dp_wait);
 	hdcp_start(displayport);
@@ -2428,9 +2431,10 @@ static int displayport_disable(struct displayport_device *displayport)
 
 	hdcp13_info.auth_state = HDCP13_STATE_NOT_AUTHENTICATED;
 
-	displayport_reg_set_video_bist_mode(0);
-	displayport_reg_deinit();
+	displayport_reg_set_interrupt_mask(ALL_INT_MASK, 0);
 	disable_irq(displayport->res.irq);
+	displayport_reg_deinit();
+	displayport_reg_set_video_bist_mode(0);
 
 	if (displayport_reg_get_link_bw() == LINK_RATE_5_4Gbps) {
 		if (pm_qos_request_active(&displayport->fsys0_qos)) {
