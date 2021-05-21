@@ -406,6 +406,7 @@ static struct file_system_type bpf_fs_type = {
 	.name		= "bpf",
 	.mount		= bpf_mount,
 	.kill_sb	= kill_litter_super,
+	.fs_flags	= FS_USERNS_MOUNT,
 };
 
 static int __init bpf_init(void)
