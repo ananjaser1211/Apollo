@@ -842,7 +842,7 @@ int fimc_is_mutex_finish(void *mutex_lib)
 
 	_mutex = (struct mutex *)mutex_lib;
 
-	if (atomic_read(&_mutex->count) == 0)
+	if (mutex_is_locked(_mutex) == 1)
 		mutex_unlock(_mutex);
 
 #ifdef LIB_MEM_TRACK
