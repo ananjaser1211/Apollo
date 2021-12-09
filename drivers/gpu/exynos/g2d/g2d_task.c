@@ -303,7 +303,7 @@ void g2d_start_task(struct g2d_task *task)
 {
 	reinit_completion(&task->completion);
 
-	if (atomic_read(&task->starter.refcount) > 1) {
+	if (kref_read(&task->starter) > 1) {
 		task->fence_timer.expires =
 			jiffies + msecs_to_jiffies(G2D_FENCE_TIMEOUT_MSEC);
 		add_timer(&task->fence_timer);

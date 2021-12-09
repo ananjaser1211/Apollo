@@ -220,7 +220,7 @@ static int32_t iva_ctrl_init(struct iva_proc *proc, bool en_hwa)
 	if (ret < 0) {
 		dev_err(dev, "%s() fail to enable iva clk/pwr. ret(%d)\n",
 				__func__, ret);
-		atomic_set(&proc->init_ref.refcount, 0);
+		refcount_set(&proc->init_ref.refcount, 0);
 		return ret;
 	}
 
@@ -300,7 +300,6 @@ static int32_t iva_ctrl_deinit(struct iva_proc *proc, bool forced)
 {
 	struct iva_dev_data	*iva = proc->iva_data;
 	struct device		*dev = iva->dev;
-	int		ret = 0;
 	unsigned int	put_cnt;
 
 	put_cnt = atomic_read(&proc->init_ref.refcount);
@@ -315,8 +314,10 @@ static int32_t iva_ctrl_deinit(struct iva_proc *proc, bool forced)
 	} else
 		put_cnt = 1;
 
-	ret = kref_sub(&proc->init_ref, put_cnt, iva_ctrl_release_proc_init_ref);
-	if (!ret) {
+	/* instead of kref_sub */
+	if (refcount_sub_and_test(put_cnt, &proc->init_ref.refcount)) {
+		iva_ctrl_release_proc_init_ref(&proc->init_ref);
+	} else {
 		dev_info(dev, "%s() still init requesters in the process. ",
 			__func__);
 		dev_warn(dev, "glob_init_ref(%d) <- init_ref(%d)\n",
@@ -425,7 +426,7 @@ static int32_t iva_ctrl_mcu_boot_file(struct iva_proc *proc,
 	if (ret) {	/* error */
 		iva_ctrl_mcu_boot_unprepare_system(iva);
 
-		atomic_set(&proc->boot_ref.refcount, 0);
+		refcount_set(&proc->boot_ref.refcount, 0);
 		return ret;
 	}
 
@@ -479,7 +480,6 @@ static int32_t iva_ctrl_mcu_exit(struct iva_proc *proc, bool forced)
 {
 	struct iva_dev_data	*iva = proc->iva_data;
 	struct device		*dev = iva->dev;
-	int		ret = 0;
 	unsigned int	put_cnt;
 
 	put_cnt = atomic_read(&proc->boot_ref.refcount);
@@ -495,8 +495,10 @@ static int32_t iva_ctrl_mcu_exit(struct iva_proc *proc, bool forced)
 	} else
 		put_cnt = 1;
 
-	ret = kref_sub(&proc->boot_ref, put_cnt, iva_ctrl_release_proc_boot_ref);
-	if (!ret) {
+	/* instead of kref_sub */
+	if (refcount_sub_and_test(put_cnt, &proc->boot_ref.refcount)) {
+		iva_ctrl_release_proc_boot_ref(&proc->boot_ref);
+	} else {
 		dev_info(dev, "%s() still mcu boot requesters in the process.",
 			__func__);
 		dev_info(dev, "glob_boot_ref(%d) <- boot_ref(%d)\n",
@@ -785,8 +787,8 @@ static int iva_ctrl_open(struct inode *inode, struct file *filp)
 
 	iva_mem_init_proc_mem(proc);
 
-	atomic_set(&proc->init_ref.refcount, 0);
-	atomic_set(&proc->boot_ref.refcount, 0);
+	refcount_set(&proc->init_ref.refcount, 0);
+	refcount_set(&proc->boot_ref.refcount, 0);
 
 	mutex_lock(&iva->proc_mutex);
 	list_add(&proc->proc_node, &iva->proc_head);
