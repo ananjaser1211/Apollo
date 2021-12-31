@@ -653,7 +653,6 @@ static int ion_handle_add(struct ion_client *client, struct ion_handle *handle)
 }
 
 unsigned int ion_parse_heap_id(unsigned int heap_id_mask, unsigned int flags);
-unsigned int ion_buffer_flag_sanity_check(unsigned int heap_id_mask, unsigned int flags);
 
 static size_t ion_buffer_get_total_size_by_pid(struct ion_client *client)
 {
@@ -704,9 +703,10 @@ struct ion_handle *__ion_alloc(struct ion_client *client, size_t len,
 		return ERR_PTR(-EINVAL);
 	}
 
-	heap_id_mask = ion_parse_heap_id(heap_id_mask, flags);
-	flags = ion_buffer_flag_sanity_check(heap_id_mask, flags);
+	if (heap_id_mask == 0xFFFFFFFF)
+		heap_id_mask = EXYNOS_ION_HEAP_SYSTEM_MASK;
 
+	heap_id_mask = ion_parse_heap_id(heap_id_mask, flags);
 	if (heap_id_mask == 0)
 		return ERR_PTR(-EINVAL);
 
@@ -1787,6 +1787,7 @@ int ion_query_heaps(struct ion_client *client, struct ion_heap_query *query)
 	}
 
 	query->cnt = cnt;
+	ret = 0;
 out:
 	up_read(&dev->lock);
 	return ret;

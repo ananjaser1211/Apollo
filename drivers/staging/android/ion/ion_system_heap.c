@@ -35,7 +35,6 @@ static gfp_t high_order_gfp_flags = (GFP_HIGHUSER | __GFP_ZERO | __GFP_NOWARN |
 				     __GFP_NORETRY) & ~__GFP_RECLAIM;
 static gfp_t low_order_gfp_flags  = (GFP_HIGHUSER | __GFP_ZERO);
 static const unsigned int orders[] = {8, 4, 0};
-static struct ion_system_heap *system_heap;
 
 static int order_to_index(unsigned int order)
 {
@@ -95,6 +94,12 @@ static void free_buffer_page(struct ion_system_heap *heap,
 	if (buffer->private_flags & ION_PRIV_FLAG_SHRINKER_FREE) {
 		__free_pages(page, order);
 		return;
+	}
+
+	if (cached && (buffer->flags & ION_FLAG_SYNC_FORCE)) {
+		cached = !cached;
+		__flush_dcache_area(page_to_virt(page),
+				    1 << (PAGE_SHIFT + order));
 	}
 
 	if (!cached)
@@ -317,6 +322,41 @@ static int ion_system_heap_debug_show(struct ion_heap *heap, struct seq_file *s,
 	return 0;
 }
 
+static void ion_system_heap_destroy_pools(struct ion_page_pool **pools)
+{
+	int i;
+
+	for (i = 0; i < NUM_ORDERS; i++)
+		if (pools[i])
+			ion_page_pool_destroy(pools[i]);
+}
+
+static int ion_system_heap_create_pools(struct ion_page_pool **pools,
+					bool cached)
+{
+	int i;
+	gfp_t gfp_flags = high_order_gfp_flags;
+
+	for (i = 0; i < NUM_ORDERS; i++) {
+		struct ion_page_pool *pool;
+
+		if (orders[i] < 4)
+			gfp_flags = low_order_gfp_flags;
+
+		pool = ion_page_pool_create(gfp_flags, orders[i], cached);
+		if (!pool)
+			goto err_create_pool;
+		pools[i] = pool;
+	}
+	return 0;
+
+err_create_pool:
+	ion_system_heap_destroy_pools(pools);
+	return -ENOMEM;
+}
+
+static struct ion_system_heap *system_heap;
+
 void show_ion_system_heap_pool_size(struct seq_file *s)
 {
 	unsigned long uncached = 0;
@@ -349,38 +389,6 @@ void show_ion_system_heap_pool_size(struct seq_file *s)
 			(uncached + cached) << (PAGE_SHIFT - 10));
 }
 
-static void ion_system_heap_destroy_pools(struct ion_page_pool **pools)
-{
-	int i;
-
-	for (i = 0; i < NUM_ORDERS; i++)
-		if (pools[i])
-			ion_page_pool_destroy(pools[i]);
-}
-
-static int ion_system_heap_create_pools(struct ion_page_pool **pools,
-					bool cached)
-{
-	int i;
-
-	for (i = 0; i < NUM_ORDERS; i++) {
-		struct ion_page_pool *pool;
-		gfp_t gfp_flags = low_order_gfp_flags;
-
-		if (orders[i] > 4)
-			gfp_flags = high_order_gfp_flags;
-		pool = ion_page_pool_create(gfp_flags, orders[i], cached);
-		if (!pool)
-			goto err_create_pool;
-		pools[i] = pool;
-	}
-	return 0;
-
-err_create_pool:
-	ion_system_heap_destroy_pools(pools);
-	return -ENOMEM;
-}
-
 void show_ion_system_heap_size(struct seq_file *s)
 {
 	struct ion_heap *heap;
@@ -398,6 +406,29 @@ void show_ion_system_heap_size(struct seq_file *s)
 	else
 		pr_cont("SystemHeap:%lukB ", system_byte >> 10);
 }
+
+
+static int ion_system_heap_size_notifier(struct notifier_block *nb,
+					 unsigned long action, void *data)
+{
+	show_ion_system_heap_size((struct seq_file *)data);
+	return 0;
+}
+
+static struct notifier_block ion_system_heap_nb = {
+	.notifier_call = ion_system_heap_size_notifier,
+};
+
+static int ion_system_heap_pool_size_notifier(struct notifier_block *nb,
+					      unsigned long action, void *data)
+{
+	show_ion_system_heap_pool_size((struct seq_file *)data);
+	return 0;
+}
+
+static struct notifier_block ion_system_heap_pool_nb = {
+	.notifier_call = ion_system_heap_pool_size_notifier,
+};
 
 struct ion_heap *ion_system_heap_create(struct ion_platform_heap *unused)
 {
@@ -417,10 +448,15 @@ struct ion_heap *ion_system_heap_create(struct ion_platform_heap *unused)
 		goto destroy_uncached_pools;
 
 	heap->heap.debug_show = ion_system_heap_debug_show;
-	if (!system_heap)
+
+	if (!system_heap) {
 		system_heap = heap;
+		show_mem_extra_notifier_register(&ion_system_heap_nb);
+		show_mem_extra_notifier_register(&ion_system_heap_pool_nb);
+	}
 	else
 		pr_err("system_heap had been already created\n");
+
 	return &heap->heap;
 
 destroy_uncached_pools:

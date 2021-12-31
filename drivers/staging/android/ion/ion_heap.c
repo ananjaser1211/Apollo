@@ -26,6 +26,14 @@
 #include "ion.h"
 #include "ion_priv.h"
 
+#define MAX_DUMP_TASKS		8
+#define MAX_DUMP_NAME_LEN	32
+#define MAX_DUMP_BUFF_LEN	512
+
+char master_name[MAX_DUMP_BUFF_LEN];
+extern spinlock_t vmap_area_lock;
+extern struct rb_root vmap_area_root;
+
 void *ion_heap_map_kernel(struct ion_heap *heap,
 			  struct ion_buffer *buffer)
 {
@@ -106,12 +114,12 @@ int ion_heap_map_user(struct ion_heap *heap, struct ion_buffer *buffer,
 
 static int ion_heap_clear_pages(struct page **pages, int num, pgprot_t pgprot)
 {
-	void *addr = vmap(pages, num, VM_MAP, pgprot);
+	void *addr = vm_map_ram(pages, num, -1, pgprot);
 
 	if (!addr)
 		return -ENOMEM;
 	memset(addr, 0, PAGE_SIZE * num);
-	vunmap(addr);
+	vm_unmap_ram(addr, num);
 
 	return 0;
 }
