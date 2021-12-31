@@ -958,18 +958,17 @@ static ssize_t night_mode_store(struct device *dev,
 		struct device_attribute *attr, const char *buf, size_t count)
 {
 	struct mdnie_info *mdnie = dev_get_drvdata(dev);
-	int enable = 0, level = 0, ret;
+	int enable, level, ret;
 
 	ret = sscanf(buf, "%d %d", &enable, &level);
+	if (ret != 2)
+		return -EINVAL;
+
+	if (level < 0 || level >= mdnie->props.num_night_level)
+		return -EINVAL;
 
 	dev_info(dev, "%s: night_mode %s level %d\n",
 			__func__, enable ? "on" : "off", level);
-
-	if (ret < 0)
-		return ret;
-
-	if (level < 0 || level >= MAX_NIGHT_LEVEL)
-		return -EINVAL;
 
 	mutex_lock(&mdnie->lock);
 	mdnie->props.night = !!enable;
