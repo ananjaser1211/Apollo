@@ -983,9 +983,6 @@ static struct attribute *led_class_attrs[] = {
 	&dev_attr_delay_on.attr,
 	&dev_attr_delay_off.attr,
 	&dev_attr_blink.attr,
-	&dev_attr_led_fade.attr,
-	&dev_attr_led_fade_time_up.attr,
-	&dev_attr_led_fade_time_down.attr,
 	NULL,
 };
 
@@ -1002,6 +999,9 @@ static struct attribute *sec_led_attributes[] = {
 	&dev_attr_led_blink.attr,
 	&dev_attr_led_brightness.attr,
 	&dev_attr_led_lowpower.attr,
+	&dev_attr_led_fade.attr,
+	&dev_attr_led_fade_time_up.attr,
+	&dev_attr_led_fade_time_down.attr,
 	NULL,
 };
 
