@@ -1,7 +1,7 @@
 /*
  * Linux cfg80211 Vendor Extension Code
  *
- * Copyright (C) 2020, Broadcom.
+ * Copyright (C) 2021, Broadcom.
  *
  *      Unless you and Broadcom execute a separate written software license
  * agreement governing use of this software, this software is licensed to you
@@ -7324,7 +7324,8 @@ static int wl_cfgvendor_lstats_get_info(struct wiphy *wiphy,
 		COMPAT_ASSIGN_VALUE(iface, ac[WIFI_AC_BE].tx_mpdu, (uint32)if_stats->txframe);
 		COMPAT_ASSIGN_VALUE(iface, ac[WIFI_AC_BE].rx_mpdu,
 			(uint32)(if_stats->rxframe - if_stats->rxmulti));
-		COMPAT_ASSIGN_VALUE(iface, ac[WIFI_AC_BE].mpdu_lost, (uint32)if_stats->txfail);
+		COMPAT_ASSIGN_VALUE(iface, ac[WIFI_AC_BE].mpdu_lost,
+				(uint32)if_stats->txfail + wlc_cnt->tx_toss_cnt);
 		COMPAT_ASSIGN_VALUE(iface, ac[WIFI_AC_BE].retries, (uint32)if_stats->txretrans);
 	} else
 #endif /* !DISABLE_IF_COUNTERS */
@@ -7332,7 +7333,8 @@ static int wl_cfgvendor_lstats_get_info(struct wiphy *wiphy,
 		COMPAT_ASSIGN_VALUE(iface, ac[WIFI_AC_BE].tx_mpdu,
 			(wlc_cnt->txfrmsnt - wlc_cnt->txmulti));
 		COMPAT_ASSIGN_VALUE(iface, ac[WIFI_AC_BE].rx_mpdu, wlc_cnt->rxframe);
-		COMPAT_ASSIGN_VALUE(iface, ac[WIFI_AC_BE].mpdu_lost, wlc_cnt->txfail);
+		COMPAT_ASSIGN_VALUE(iface, ac[WIFI_AC_BE].mpdu_lost,
+				wlc_cnt->txfail + wlc_cnt->tx_toss_cnt);
 		COMPAT_ASSIGN_VALUE(iface, ac[WIFI_AC_BE].retries, wlc_cnt->txretrans);
 	}
 
@@ -7417,20 +7419,48 @@ exit:
 
 #ifdef DHD_LOG_DUMP
 static int
-wl_cfgvendor_get_buf_data(const struct nlattr *iter, struct buf_data **buf)
+wl_cfgvendor_get_buf_data(const struct nlattr *iter, struct buf_data *buf)
 {
 	int ret = BCME_OK;
+#ifdef CONFIG_COMPAT
+#if (LINUX_VERSION_CODE >= KERNEL_VERSION(4, 6, 0))
+	if (in_compat_syscall()) {
+#else
+	if (is_compat_task()) {
+#endif /* LINUX_VER >= 4.6 */
+		struct compat_buf_data *compat_buf = (struct compat_buf_data *)nla_data(iter);
 
-	if (nla_len(iter) != sizeof(struct buf_data)) {
-		WL_ERR(("Invalid len : %d\n", nla_len(iter)));
-		ret = BCME_BADLEN;
+		if (nla_len(iter) != sizeof(struct compat_buf_data)) {
+			WL_ERR(("Invalid len : %d\n", nla_len(iter)));
+			ret = BCME_BADLEN;
+		}
+
+		buf->ver = compat_buf->ver;
+		buf->len = compat_buf->len;
+		buf->buf_threshold = compat_buf->buf_threshold;
+		buf->data_buf[0] = (const void *)compat_ptr(compat_buf->data_buf);
 	}
-	(*buf) = (struct buf_data *)nla_data(iter);
-	if (!(*buf) || (((*buf)->len) <= 0) || !((*buf)->data_buf[0])) {
+	else
+#endif /* CONFIG_COMPAT */
+	{
+		if (nla_len(iter) != sizeof(struct buf_data)) {
+			WL_ERR(("Invalid len : %d\n", nla_len(iter)));
+			ret = BCME_BADLEN;
+		}
+		ret = memcpy_s(buf, sizeof(struct buf_data), (void *)nla_data(iter), nla_len(iter));
+		if (ret) {
+			WL_ERR(("Can't get buf data\n"));
+			goto exit;
+		}
+	}
+
+	if ((buf->len <= 0) || !buf->data_buf[0]) {
 		WL_ERR(("Invalid buffer\n"));
 		ret = BCME_ERROR;
 	}
+exit:
 	return ret;
+
 }
 
 static int
@@ -7443,6 +7473,7 @@ wl_cfgvendor_dbg_file_dump(struct wiphy *wiphy,
 	struct sk_buff *skb = NULL;
 	struct bcm_cfg80211 *cfg = wiphy_priv(wiphy);
 	struct buf_data *buf;
+	struct buf_data data_from_hal;
 	int pos = 0;
 
 	/* Alloc the SKB for vendor_event */
@@ -7453,9 +7484,12 @@ wl_cfgvendor_dbg_file_dump(struct wiphy *wiphy,
 		goto exit;
 	}
 	WL_ERR(("%s\n", __FUNCTION__));
+
+	memset_s(&data_from_hal, sizeof(data_from_hal),  0, sizeof(data_from_hal));
+	buf = &data_from_hal;
 	nla_for_each_attr(iter, data, len, rem) {
 		type = nla_type(iter);
-		ret = wl_cfgvendor_get_buf_data(iter, &buf);
+		ret = wl_cfgvendor_get_buf_data(iter, buf);
 		if (ret)
 			goto exit;
 		switch (type) {
@@ -7535,6 +7569,18 @@ wl_cfgvendor_dbg_file_dump(struct wiphy *wiphy,
 					buf->data_buf[0], NULL, (uint32)buf->len,
 					DLD_BUF_TYPE_SPECIAL, &pos);
 				break;
+#ifdef DHD_MAP_PKTID_LOGGING
+			case DUMP_BUF_ATTR_PKTID_MAP_LOG:
+				ret = dhd_print_pktid_map_log_data(bcmcfg_to_prmry_ndev(cfg), NULL,
+					buf->data_buf[0], NULL, (uint32)buf->len, &pos, TRUE);
+				break;
+
+			case DUMP_BUF_ATTR_PKTID_UNMAP_LOG:
+				ret = dhd_print_pktid_map_log_data(bcmcfg_to_prmry_ndev(cfg), NULL,
+					buf->data_buf[0], NULL, (uint32)buf->len, &pos, FALSE);
+				break;
+#endif /* DHD_MAP_PKTID_LOGGIN */
+
 #ifdef DHD_SSSR_DUMP
 #ifdef DHD_SSSR_DUMP_BEFORE_SR
 			case DUMP_BUF_ATTR_SSSR_C0_D11_BEFORE :
@@ -8264,6 +8310,25 @@ static int wl_cfgvendor_nla_put_debug_dump_data(struct sk_buff *skb,
 		}
 	}
 #endif /* EWP_RTT_LOGGING */
+#ifdef  DHD_MAP_PKTID_LOGGING
+	len = dhd_get_pktid_map_logging_len(ndev, NULL, TRUE);
+	if (len) {
+		ret = nla_put_u32(skb, DUMP_LEN_ATTR_PKTID_MAP_LOG, len);
+		if (unlikely(ret)) {
+			WL_ERR(("Failed to nla put pktid log lenght, ret=%d", ret));
+			goto exit;
+		}
+	}
+
+	len = dhd_get_pktid_map_logging_len(ndev, NULL, FALSE);
+	if (len) {
+		ret = nla_put_u32(skb, DUMP_LEN_ATTR_PKTID_UNMAP_LOG, len);
+		if (unlikely(ret)) {
+			WL_ERR(("Failed to nla put pktid log lenght, ret=%d", ret));
+			goto exit;
+		}
+	}
+#endif /* DHD_MAP_PKTID_LOGGING */
 exit:
 	return ret;
 }
@@ -8695,6 +8760,11 @@ static int wl_cfgvendor_start_mkeep_alive(struct wiphy *wiphy, struct wireless_d
 	if (ret < 0) {
 		WL_ERR(("start_mkeep_alive is failed ret: %d\n", ret));
 	}
+#ifdef DHD_CLEANUP_KEEP_ALIVE
+	else if (ret == BCME_OK) {
+		setbit(&cfg->mkeep_alive_avail, mkeep_alive_id);
+	}
+#endif /* DHD_CLEANUP_KEEP_ALIVE */
 
 exit:
 	if (ip_pkt) {
@@ -8729,6 +8799,11 @@ static int wl_cfgvendor_stop_mkeep_alive(struct wiphy *wiphy, struct wireless_de
 	if (ret < 0) {
 		WL_ERR(("stop_mkeep_alive is failed ret: %d\n", ret));
 	}
+#ifdef DHD_CLEANUP_KEEP_ALIVE
+	else if (ret == BCME_OK) {
+		clrbit(&cfg->mkeep_alive_avail, mkeep_alive_id);
+	}
+#endif /* DHD_CLEANUP_KEEP_ALIVE */
 
 	return ret;
 }
@@ -9399,6 +9474,8 @@ const struct nla_policy dump_buf_policy[DUMP_BUF_ATTR_MAX] = {
 	[DUMP_BUF_ATTR_STATUS_LOG] = { .type = NLA_BINARY },
 	[DUMP_BUF_ATTR_AXI_ERROR] = { .type = NLA_BINARY },
 	[DUMP_BUF_ATTR_RTT_LOG] = { .type = NLA_BINARY },
+	[DUMP_BUF_ATTR_PKTID_MAP_LOG] = { .type = NLA_BINARY },
+	[DUMP_BUF_ATTR_PKTID_UNMAP_LOG] = { .type = NLA_BINARY },
 };
 
 const struct nla_policy andr_dbg_policy[DEBUG_ATTRIBUTE_MAX] = {

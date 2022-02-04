@@ -822,7 +822,7 @@ static long misc_ioctl(struct file *filp, unsigned int cmd, unsigned long arg)
 			if (copy_from_user(buff, user_buff, CP_CRASH_INFO_SIZE))
 				return -EFAULT;
 		}
-		panic(iod->msd->cp_crash_info);
+		panic("%s", iod->msd->cp_crash_info);
 		return 0;
 	}
 
@@ -1300,6 +1300,8 @@ static int vnet_xmit(struct sk_buff *skb, struct net_device *ndev)
 
 	ret = ld->send(ld, iod, skb_new);
 	if (unlikely(ret < 0)) {
+		static DEFINE_RATELIMIT_STATE(_rs, HZ, 100);
+
 		if (ret != -EBUSY) {
 			mif_err_limited("%s->%s: ERR! %s->send fail:%d "
 					"(tx_bytes:%d len:%d)\n",
@@ -1307,7 +1309,11 @@ static int vnet_xmit(struct sk_buff *skb, struct net_device *ndev)
 					tx_bytes, count);
 			goto drop;
 		}
-		goto retry;
+
+		/* do 100-retry for every 1sec */
+		if (__ratelimit(&_rs))
+			goto retry;
+		goto drop;
 	}
 
 	if (ret != tx_bytes) {
@@ -1376,7 +1382,7 @@ static struct net_device_ops vnet_ops = {
 static void vnet_setup(struct net_device *ndev)
 {
 	ndev->netdev_ops = &vnet_ops;
-	ndev->type = ARPHRD_PPP;
+	ndev->type = ARPHRD_RAWIP;
 	ndev->flags = IFF_POINTOPOINT | IFF_NOARP | IFF_MULTICAST;
 	ndev->addr_len = 0;
 	ndev->hard_header_len = 0;

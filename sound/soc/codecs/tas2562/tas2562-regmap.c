@@ -525,20 +525,23 @@ void tas2562_enable_irq(struct tas2562_priv *p_tas2562, bool enable)
 			}
 			irq1_enabled = 1;
 		}
-		if (gpio_is_valid(p_tas2562->mn_irq_gpio2) && irq2_enabled == 0) {
-			enable_irq(p_tas2562->mn_irq2);
-			irq2_enabled = 1;
+		if (p_tas2562->mn_channels == 2) {
+			if (gpio_is_valid(p_tas2562->mn_irq_gpio2) && irq2_enabled == 0) {
+				enable_irq(p_tas2562->mn_irq2);
+				irq2_enabled = 1;
+			}
 		}
-
 		p_tas2562->mb_irq_eable = true;
 	} else {
 		if (gpio_is_valid(p_tas2562->mn_irq_gpio) && irq1_enabled == 1) {
 			disable_irq_nosync(p_tas2562->mn_irq);
 			irq1_enabled = 0;
 		}
-		if (gpio_is_valid(p_tas2562->mn_irq_gpio2) && irq2_enabled == 1) {
-			disable_irq_nosync(p_tas2562->mn_irq2);
-			irq2_enabled = 0;
+		if (p_tas2562->mn_channels == 2) {
+			if (gpio_is_valid(p_tas2562->mn_irq_gpio2) && irq2_enabled == 1) {
+				disable_irq_nosync(p_tas2562->mn_irq2);
+				irq2_enabled = 0;
+			}
 		}
 		p_tas2562->mb_irq_eable = false;
 	}
@@ -723,13 +726,21 @@ static void irq_work_routine(struct work_struct *work)
 				TAS2562_LATCHEDINTERRUPTREG0, &irqreg);
 			dev_info(p_tas2562->dev, "IRQ reg is: %s %d, %d\n",
 				__func__, irqreg, __LINE__);
-
-			n_result = p_tas2562->update_bits(p_tas2562,
-				chn, TAS2562_POWERCONTROL,
-				TAS2562_POWERCONTROL_OPERATIONALMODE10_MASK,
-				TAS2562_POWERCONTROL_OPERATIONALMODE10_ACTIVE);
-			if (n_result < 0)
-				goto reload;
+			if (p_tas2562->dac_mute == 0) {
+				n_result = p_tas2562->update_bits(p_tas2562,
+					chn, TAS2562_POWERCONTROL,
+					TAS2562_POWERCONTROL_OPERATIONALMODE10_MASK,
+					TAS2562_POWERCONTROL_OPERATIONALMODE10_ACTIVE);
+				if (n_result < 0)
+					goto reload;
+			} else {
+				n_result = p_tas2562->update_bits(p_tas2562,
+					chn, TAS2562_POWERCONTROL,
+					TAS2562_POWERCONTROL_OPERATIONALMODE10_MASK,
+					TAS2562_POWERCONTROL_OPERATIONALMODE10_MUTE);
+				if (n_result < 0)
+					goto reload;
+			}
 
 			dev_info(p_tas2562->dev, "set ICN to -80dB\n");
 			n_result = p_tas2562->bulk_write(p_tas2562, chn,
@@ -795,6 +806,15 @@ reload:
 
 end:
 	tas2562_enable_irq(p_tas2562, true);
+
+	if (p_tas2562->mn_status_check) {
+		if (!hrtimer_active(&p_tas2562->mtimer)) {
+			u64 check_period = p_tas2562->mn_status_period * 1000;
+			dev_dbg(p_tas2562->dev, "%s, start timer\n", __func__);
+			hrtimer_start(&p_tas2562->mtimer,
+				ns_to_ktime((u64)check_period * NSEC_PER_MSEC), HRTIMER_MODE_REL);
+		}
+	}
 #ifdef CONFIG_TAS2562_CODEC
 	mutex_unlock(&p_tas2562->codec_lock);
 #endif
@@ -848,6 +868,18 @@ static int tas2562_runtime_suspend(struct tas2562_priv *p_tas2562)
 
 	p_tas2562->mb_runtime_suspend = true;
 
+	if (p_tas2562->mn_status_check) {
+		if (hrtimer_active(&p_tas2562->mtimer)) {
+			dev_dbg(p_tas2562->dev, "cancel timer\n");
+			hrtimer_cancel(&p_tas2562->mtimer);
+		}
+
+		if (delayed_work_pending(&p_tas2562->status_work)) {
+			dev_dbg(p_tas2562->dev, "cancel status work\n");
+			cancel_delayed_work_sync(&p_tas2562->status_work);
+		}
+	}
+
 	if (delayed_work_pending(&p_tas2562->irq_work)) {
 		dev_dbg(p_tas2562->dev, "cancel IRQ work\n");
 		cancel_delayed_work_sync(&p_tas2562->irq_work);
@@ -859,6 +891,18 @@ static int tas2562_runtime_suspend(struct tas2562_priv *p_tas2562)
 static int tas2562_runtime_resume(struct tas2562_priv *p_tas2562)
 {
 	dev_dbg(p_tas2562->dev, "%s\n", __func__);
+
+	if (p_tas2562->mn_status_check) {
+		if (p_tas2562->mb_power_up) {
+			u64 check_period = p_tas2562->mn_status_period * 1000;
+			if (!hrtimer_active(&p_tas2562->mtimer)) {
+				dev_dbg(p_tas2562->dev, "%s, start check timer\n", __func__);
+				hrtimer_start(&p_tas2562->mtimer,
+					ns_to_ktime((u64)check_period * NSEC_PER_MSEC),
+					HRTIMER_MODE_REL);
+			}
+		}
+	}
 
 	p_tas2562->mb_runtime_suspend = false;
 
@@ -893,6 +937,160 @@ static int tas2562_pm_resume(struct device *dev)
 	tas2562_runtime_resume(p_tas2562);
 	mutex_unlock(&p_tas2562->codec_lock);
 	return 0;
+}
+
+/* Added for Mute Issue */
+static void status_work_routine(struct work_struct *work)
+{
+	struct tas2562_priv *p_tas2562 =
+		container_of(work, struct tas2562_priv, status_work.work);
+	unsigned int nDevInt0Status = 0, nDevInt1Status = 0, nDevInt2Status = 0,
+			nDevInt3Status = 0, nDevInt4Status = 0, nDevInt5Status = 0;
+	int n_result = 0;
+	enum channel chn;
+
+#ifdef CONFIG_TAS2562_CODEC
+	mutex_lock(&p_tas2562->codec_lock);
+#endif
+
+	if (p_tas2562->mb_runtime_suspend) {
+		dev_info(p_tas2562->dev, "%s, Runtime Suspended\n", __func__);
+		goto end;
+	}
+
+	if (p_tas2562->mn_power_state == TAS2562_POWER_SHUTDOWN) {
+		dev_info(p_tas2562->dev, "%s, device not powered\n", __func__);
+		goto end;
+	}
+
+	/* Read latched interrupt status registers */
+	if ((p_tas2562->spk_l_control == 1)
+			&& (p_tas2562->spk_r_control == 1)
+			&& (p_tas2562->mn_channels == 2))
+		chn = channel_both;
+	else if (p_tas2562->spk_l_control == 1)
+		chn = channel_left;
+	else if ((p_tas2562->spk_r_control == 1)
+			&& (p_tas2562->mn_channels == 2))
+		chn = channel_right;
+	else
+		chn = channel_left;
+
+	if (chn & channel_left) {
+		n_result = p_tas2562->read(p_tas2562, channel_left,
+		TAS2562_LATCHEDINTERRUPTREG0, &nDevInt0Status);
+
+		n_result = p_tas2562->read(p_tas2562, channel_left,
+		TAS2562_LATCHEDINTERRUPTREG1, &nDevInt1Status);
+
+		n_result = p_tas2562->read(p_tas2562, channel_left,
+		TAS2562_LATCHEDINTERRUPTREG2, &nDevInt2Status);
+
+		n_result = p_tas2562->read(p_tas2562, channel_left,
+		TAS2562_LATCHEDINTERRUPTREG3, &nDevInt3Status);
+
+		n_result = p_tas2562->read(p_tas2562, channel_left,
+		TAS2562_LATCHEDINTERRUPTREG4, &nDevInt4Status);
+
+		n_result = p_tas2562->read(p_tas2562, channel_left,
+		TAS2562_LATCHEDINTERRUPTREG5, &nDevInt5Status);
+
+		dev_info(p_tas2562->dev, "%s: channel_left : 0x%x, 0x%x, 0x%x, 0x%x 0x%x 0x%x\n",
+			__func__,
+			nDevInt0Status, nDevInt1Status, nDevInt2Status,
+			nDevInt3Status, nDevInt4Status, nDevInt5Status);
+	}
+
+	if (chn & channel_right) {
+		/* Clear all values */
+		nDevInt0Status = 0;
+		nDevInt1Status = 0;
+		nDevInt2Status = 0;
+		nDevInt3Status = 0;
+		nDevInt4Status = 0;
+		nDevInt5Status = 0;
+
+		n_result = p_tas2562->read(p_tas2562, channel_right,
+		TAS2562_LATCHEDINTERRUPTREG0, &nDevInt0Status);
+
+		n_result = p_tas2562->read(p_tas2562, channel_right,
+		TAS2562_LATCHEDINTERRUPTREG1, &nDevInt1Status);
+
+		n_result = p_tas2562->read(p_tas2562, channel_right,
+		TAS2562_LATCHEDINTERRUPTREG2, &nDevInt2Status);
+
+		n_result = p_tas2562->read(p_tas2562, channel_right,
+		TAS2562_LATCHEDINTERRUPTREG3, &nDevInt3Status);
+
+		n_result = p_tas2562->read(p_tas2562, channel_right,
+		TAS2562_LATCHEDINTERRUPTREG4, &nDevInt4Status);
+
+		n_result = p_tas2562->read(p_tas2562, channel_right,
+		TAS2562_LATCHEDINTERRUPTREG5, &nDevInt5Status);
+
+		dev_info(p_tas2562->dev, "%s: channel_right : 0x%x, 0x%x, 0x%x, 0x%x 0x%x 0x%x\n",
+			__func__,
+			nDevInt0Status, nDevInt1Status, nDevInt2Status,
+			nDevInt3Status, nDevInt4Status, nDevInt5Status);
+	}
+
+	/* Read Status register */
+	/* Clear register */
+	nDevInt0Status = 0;
+	if (chn & channel_left) {
+		n_result = p_tas2562->read(p_tas2562, channel_left,
+			TAS2562_INTSTATUS, &nDevInt0Status);
+		if (n_result < 0)
+			goto reload;
+		if (((nDevInt0Status & TAS2562_INTSTATUS_CLASSD) == 0) ||
+			((nDevInt0Status & TAS2562_INTSTATUS_DAC) == 0)) {
+			dev_err(p_tas2562->dev, "%s: Device ERROR!", __func__);
+			dev_err(p_tas2562->dev, "%s: channel_left : Status : 0x%x\n",
+				__func__, nDevInt0Status);
+			goto reload;
+		}
+	}
+	nDevInt0Status = 0;
+	if (chn & channel_right) {
+		n_result = p_tas2562->read(p_tas2562, channel_right,
+			TAS2562_INTSTATUS, &nDevInt0Status);
+		if (n_result < 0)
+			goto reload;
+		if (((nDevInt0Status & TAS2562_INTSTATUS_CLASSD) == 0) ||
+			((nDevInt0Status & TAS2562_INTSTATUS_DAC) == 0)) {
+			dev_info(p_tas2562->dev, "%s: channel_right : Status : 0x%x\n",
+				__func__, nDevInt0Status);
+			goto reload;
+		}
+	}
+	if (!hrtimer_active(&p_tas2562->mtimer)) {
+		u64 check_period = p_tas2562->mn_status_period * 1000;
+		dev_dbg(p_tas2562->dev, "%s, start timer\n", __func__);
+		hrtimer_start(&p_tas2562->mtimer,
+			ns_to_ktime((u64)check_period * NSEC_PER_MSEC), HRTIMER_MODE_REL);
+	}
+	goto end;
+reload:
+	/* hardware reset and reload */
+	tas2562_reset_reload(p_tas2562);
+end:
+#ifdef CONFIG_TAS2562_CODEC
+	mutex_unlock(&p_tas2562->codec_lock);
+#endif
+}
+
+static enum hrtimer_restart timer_func(struct hrtimer *timer)
+{
+	struct tas2562_priv *p_tas2562 = container_of(timer,
+		struct tas2562_priv, mtimer);
+
+	if (p_tas2562->mb_power_up) {
+		if (!delayed_work_pending(&p_tas2562->status_work))
+			schedule_delayed_work(&p_tas2562->status_work,
+				msecs_to_jiffies(20));
+	}
+
+	return HRTIMER_NORESTART;
 }
 
 static int tas2562_parse_dt(struct device *dev, struct tas2562_priv *p_tas2562)
@@ -971,6 +1169,51 @@ static int tas2562_parse_dt(struct device *dev, struct tas2562_priv *p_tas2562)
 				p_tas2562->mn_irq_gpio2);
 		}
 	}
+
+	/* Added for Boost Clock Source Change - Mute Issue */
+	rc = of_property_read_u32(np, "ti,bst-clk-src", &p_tas2562->mn_bst_clk_src);
+	if (rc) {
+		p_tas2562->mn_bst_clk_src = 0;
+		dev_err(p_tas2562->dev, "Looking up %s property in node %s failed %d\n",
+			"ti,bst-clk-src", np->full_name, rc);
+	} else {
+		dev_dbg(p_tas2562->dev, "ti,bst-clk-src=0x%x",
+			p_tas2562->mn_bst_clk_src);
+	}
+
+	/* Added for Mute Issue */
+	rc = of_property_read_u32(np, "ti,status-check", &p_tas2562->mn_status_check);
+	if (rc) {
+		p_tas2562->mn_status_check = 0;
+		dev_err(p_tas2562->dev, "Looking up %s property in node %s failed %d\n",
+			"ti,status-check", np->full_name, rc);
+	} else {
+		dev_dbg(p_tas2562->dev, "ti,status-check=0x%x",
+			p_tas2562->mn_status_check);
+	}
+
+	/* Added for Mute Issue */
+	rc = of_property_read_u32(np, "ti,status-period", &p_tas2562->mn_status_period);
+	if (rc) {
+		p_tas2562->mn_status_period = 1;
+		dev_err(p_tas2562->dev, "Looking up %s property in node %s failed %d\n",
+			"ti,status-period", np->full_name, rc);
+	} else {
+		dev_dbg(p_tas2562->dev, "ti,status-period=0x%x",
+			p_tas2562->mn_status_period);
+	}
+
+	/* Added for direct power mode support */
+	rc = of_property_read_u32(np, "ti,ilimit", &p_tas2562->ilimit);
+	if (rc) {
+		p_tas2562->ilimit = 27;
+		dev_err(p_tas2562->dev, "Looking up %s property in node %s failed %d\n",
+			"ti,ilimit", np->full_name, rc);
+	} else {
+		dev_dbg(p_tas2562->dev, "ti,ilimit=0x%x",
+			p_tas2562->ilimit);
+	}
+
 #ifdef CONFIG_TAS25XX_ALGO
 	tas25xx_parse_algo_dt(np);
 #endif /*CONFIG_TAS25XX_ALGO*/
@@ -1062,6 +1305,11 @@ static int tas2562_i2c_probe(struct i2c_client *p_client,
 	}
 	dev_info(&p_client->dev, "After SW reset\n");
 
+	/*Initialize IRQ-Work Routin irrespective or IRQ GPIO
+	 *as it is used for PowerUp function also
+	 */
+	INIT_DELAYED_WORK(&p_tas2562->irq_work, irq_work_routine);
+
 	if (gpio_is_valid(p_tas2562->mn_irq_gpio)) {
 		n_result = gpio_request(p_tas2562->mn_irq_gpio, "TAS2562-IRQ");
 		if (n_result < 0) {
@@ -1075,7 +1323,6 @@ static int tas2562_i2c_probe(struct i2c_client *p_client,
 
 		p_tas2562->mn_irq = gpio_to_irq(p_tas2562->mn_irq_gpio);
 		dev_info(p_tas2562->dev, "irq = %d\n", p_tas2562->mn_irq);
-		INIT_DELAYED_WORK(&p_tas2562->irq_work, irq_work_routine);
 		n_result = request_threaded_irq(p_tas2562->mn_irq,
 				tas2562_irq_handler,
 				NULL, IRQF_TRIGGER_FALLING|IRQF_ONESHOT,
@@ -1102,7 +1349,6 @@ static int tas2562_i2c_probe(struct i2c_client *p_client,
 
 		p_tas2562->mn_irq2 = gpio_to_irq(p_tas2562->mn_irq_gpio2);
 		dev_info(p_tas2562->dev, "irq = %d\n", p_tas2562->mn_irq2);
-		INIT_DELAYED_WORK(&p_tas2562->irq_work, irq_work_routine);
 		n_result = request_threaded_irq(p_tas2562->mn_irq2,
 				tas2562_irq_handler,
 				NULL, IRQF_TRIGGER_FALLING|IRQF_ONESHOT,
@@ -1136,6 +1382,11 @@ static int tas2562_i2c_probe(struct i2c_client *p_client,
 		goto err;
 	}
 #endif
+	if (p_tas2562->mn_status_check) {
+		INIT_DELAYED_WORK(&p_tas2562->status_work, status_work_routine);
+		hrtimer_init(&p_tas2562->mtimer, CLOCK_MONOTONIC, HRTIMER_MODE_REL);
+		p_tas2562->mtimer.function = timer_func;
+	}
 
 err:
 	return n_result;
@@ -1146,6 +1397,23 @@ static int tas2562_i2c_remove(struct i2c_client *p_client)
 	struct tas2562_priv *p_tas2562 = i2c_get_clientdata(p_client);
 
 	dev_info(p_tas2562->dev, "%s\n", __func__);
+
+	if (p_tas2562->mn_status_check) {
+		if (hrtimer_active(&p_tas2562->mtimer)) {
+			dev_dbg(p_tas2562->dev, "cancel timer\n");
+			hrtimer_cancel(&p_tas2562->mtimer);
+		}
+
+		if (delayed_work_pending(&p_tas2562->status_work)) {
+			dev_dbg(p_tas2562->dev, "cancel status work\n");
+			cancel_delayed_work_sync(&p_tas2562->status_work);
+		}
+	}
+
+	if (delayed_work_pending(&p_tas2562->irq_work)) {
+		dev_dbg(p_tas2562->dev, "cancel IRQ work\n");
+		cancel_delayed_work_sync(&p_tas2562->irq_work);
+	}
 
 #ifdef CONFIG_TAS2562_CODEC
 	tas2562_deregister_codec(p_tas2562);

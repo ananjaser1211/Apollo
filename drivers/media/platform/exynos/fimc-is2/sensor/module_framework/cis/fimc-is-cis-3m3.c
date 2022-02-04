@@ -260,6 +260,7 @@ int sensor_3m3_cis_init(struct v4l2_subdev *subdev)
 	cis->cis_data->cur_height = SENSOR_3M3_MAX_HEIGHT;
 	cis->cis_data->low_expo_start = 33000;
 	cis->need_mode_change = false;
+	cis->cis_data->cur_pattern_mode = SENSOR_TEST_PATTERN_MODE_OFF;
 #ifdef USE_CAMERA_MIPI_CLOCK_VARIATION
 	cis->mipi_clock_index_cur = CAM_MIPI_NOT_INITIALIZED;
 	cis->mipi_clock_index_new = CAM_MIPI_NOT_INITIALIZED;
@@ -899,6 +900,56 @@ int sensor_3m3_cis_stream_on(struct v4l2_subdev *subdev)
 p_err:
 	I2C_MUTEX_UNLOCK(cis->i2c_lock);
 
+	return ret;
+}
+
+int sensor_3m3_cis_set_test_pattern(struct v4l2_subdev *subdev, camera2_sensor_ctl_t *sensor_ctl)
+{
+	int ret = 0;
+	struct fimc_is_cis *cis;
+	struct i2c_client *client;
+
+	cis = (struct fimc_is_cis *)v4l2_get_subdevdata(subdev);
+
+	WARN_ON(!cis);
+	WARN_ON(!cis->cis_data);
+
+	client = cis->client;
+	if (unlikely(!client)) {
+		err("client is NULL");
+		ret = -EINVAL;
+		goto p_err;
+	}
+
+	dbg_sensor(1, "[MOD:D:%d] %s, cur_pattern_mode(%d), testPatternMode(%d)\n", cis->id, __func__,
+			cis->cis_data->cur_pattern_mode, sensor_ctl->testPatternMode);
+
+	if (cis->cis_data->cur_pattern_mode != sensor_ctl->testPatternMode) {
+		info("%s REG : 0xB000 write to 0x00", __func__);
+		fimc_is_sensor_write8(client, 0xB000, 0x00);
+
+		cis->cis_data->cur_pattern_mode = sensor_ctl->testPatternMode;
+		if (sensor_ctl->testPatternMode == SENSOR_TEST_PATTERN_MODE_OFF) {
+			info("%s: set DEFAULT pattern! (testpatternmode : %d)\n", __func__, sensor_ctl->testPatternMode);
+
+			I2C_MUTEX_LOCK(cis->i2c_lock);
+			fimc_is_sensor_write16(client, 0x0600, 0x0000);
+			I2C_MUTEX_UNLOCK(cis->i2c_lock);
+		} else if (sensor_ctl->testPatternMode == SENSOR_TEST_PATTERN_MODE_BLACK) {
+			info("%s: set BLACK pattern! (testpatternmode :%d), Data : 0x(%x, %x, %x, %x)\n",
+				__func__, sensor_ctl->testPatternMode,
+				(unsigned short)sensor_ctl->testPatternData[0],
+				(unsigned short)sensor_ctl->testPatternData[1],
+				(unsigned short)sensor_ctl->testPatternData[2],
+				(unsigned short)sensor_ctl->testPatternData[3]);
+
+			I2C_MUTEX_LOCK(cis->i2c_lock);
+			fimc_is_sensor_write16(client, 0x0600, 0x0001);
+			I2C_MUTEX_UNLOCK(cis->i2c_lock);
+		}
+	}
+
+p_err:
 	return ret;
 }
 
@@ -2073,6 +2124,7 @@ static struct fimc_is_cis_ops cis_ops = {
 	.cis_wait_streamon = sensor_cis_wait_streamon,
 	.cis_data_calculation = sensor_3m3_cis_data_calc,
 	.cis_set_adjust_sync = sensor_3m3_cis_set_adjust_sync,
+	.cis_set_test_pattern = sensor_3m3_cis_set_test_pattern,
 #ifdef USE_CAMERA_MIPI_CLOCK_VARIATION
 	.cis_update_mipi_info = sensor_3m3_cis_update_mipi_info,
 #endif

@@ -463,6 +463,7 @@ static int mfc_force_close_inst(struct s5p_mfc_dev *dev, struct s5p_mfc_ctx *ctx
 	}
 
 	/* Free resources */
+	ctx->inst_no = MFC_NO_INSTANCE_SET;
 	s5p_mfc_release_instance_context(ctx);
 	s5p_mfc_change_state(ctx, MFCINST_INIT);
 
@@ -902,6 +903,9 @@ static int mfc_dec_ext_info(struct s5p_mfc_ctx *ctx)
 	int val = 0;
 
 	val |= DEC_SET_DYNAMIC_DPB;
+	val |= DEC_SET_OPERATING_FPS;
+	val |= DEC_SET_PRIORITY;
+	
 	if (FW_SUPPORT_SKYPE(dev))
 		val |= DEC_SET_SKYPE_FLAG;
 
@@ -1148,6 +1152,16 @@ static int vidioc_s_ctrl(struct file *file, void *priv,
 		break;
 	case V4L2_CID_MPEG_VIDEO_BLACK_BAR_DETECT:
 		dec->detect_black_bar = ctrl->value;
+		break;
+	case V4L2_CID_MPEG_MFC51_VIDEO_FRAME_RATE:
+		ctx->operating_framerate = ctrl->value;
+		mfc_update_real_time(ctx);
+		mfc_debug(2, "[QoS] user set the operating frame rate: %d\n", ctrl->value);
+		break;
+	case V4L2_CID_MPEG_VIDEO_PRIORITY:
+		ctx->prio = ctrl->value;
+		mfc_update_real_time(ctx);
+		mfc_debug(2, "[PRIO] user set priority: %d\n", ctrl->value);
 		break;
 	default:
 		list_for_each_entry(ctx_ctrl, &ctx->ctrls, list) {

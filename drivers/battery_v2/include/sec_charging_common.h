@@ -149,6 +149,7 @@ enum power_supply_ext_property {
 #if defined(CONFIG_BATTERY_SAMSUNG_DP)
 	POWER_SUPPLY_EXT_PROP_DIRECT_POWER_MODE,
 #endif
+	POWER_SUPPLY_EXT_PROP_TTF_FULL_CAPACITY,
 };
 
 enum rx_device_type {
@@ -1195,11 +1196,14 @@ struct sec_battery_platform_data {
 	battery_health_condition* health_condition;
 
 	int siop_input_limit_current;
+	int siop_input_limit_current_siop20;
 	int siop_charging_limit_current;
 	int siop_hv_input_limit_current;
+	int siop_hv_input_limit_current_siop20;
 	int siop_hv_input_limit_current_2nd;
 	int siop_hv_charging_limit_current;
 	int siop_hv_12v_input_limit_current;
+	int siop_hv_12v_input_limit_current_siop20;
 	int siop_hv_12v_charging_limit_current;
 #if defined(CONFIG_DIRECT_CHARGING)
 	int siop_apdo_input_limit_current;
@@ -1299,6 +1303,7 @@ struct sec_charger_platform_data {
 	unsigned long chg_irq_attr;
 	unsigned int chg_ocp_current;
 	unsigned int chg_ocp_dtc;
+	unsigned int chg_otg_current;
 	unsigned int topoff_time;
 
 	/* otg_en setting */

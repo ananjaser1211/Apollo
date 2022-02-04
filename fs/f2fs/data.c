@@ -248,6 +248,12 @@ static void f2fs_write_end_io(struct bio *bio)
 		if (unlikely(bio->bi_error)) {
 			mapping_set_error(page->mapping, -EIO);
 			if (type == F2FS_WB_CP_DATA) {
+#ifdef CONFIG_DDAR
+				if (fscrypt_dd_encrypted(bio)) {
+					panic("Knox-DualDAR : I/O error on ino(%ld)",
+							fscrypt_dd_get_ino(bio));
+				}
+#endif
 				f2fs_stop_checkpoint(sbi, true);
 				f2fs_bug_on_endio(sbi, 1);
 			}
@@ -380,6 +386,15 @@ submit_io:
 		trace_f2fs_submit_read_bio(sbi->sb, type, bio);
 	else
 		trace_f2fs_submit_write_bio(sbi->sb, type, bio);
+
+#ifdef CONFIG_DDAR
+	if (type == DATA) {
+		if (fscrypt_dd_may_submit_bio(bio) == -EOPNOTSUPP)
+			submit_bio(bio);
+		return;
+	}
+#endif
+
 	submit_bio(bio);
 }
 
@@ -615,6 +630,13 @@ next:
 
 	if (!f2fs_mergeable_bio(io->bio, dun, fscrypt_get_diskcipher(inode), bio_encrypted))
 		__submit_merged_bio(io);
+
+#ifdef CONFIG_DDAR
+	/* DDAR support */
+	if (!fscrypt_dd_can_merge_bio(io->bio, fio->page->mapping))
+		__submit_merged_bio(io);
+#endif
+
 alloc_new:
 	if (io->bio == NULL) {
 		if ((fio->type == DATA || fio->type == NODE) &&
@@ -1722,6 +1744,13 @@ submit_and_realloc:
 			bio = NULL;
 		}
 
+#ifdef CONFIG_DDAR
+		if (!fscrypt_dd_can_merge_bio(bio, mapping)) {
+			__submit_bio(F2FS_I_SB(inode), bio, DATA);
+			bio = NULL;
+		}
+#endif
+
 		if (bio == NULL) {
 			bio = f2fs_grab_read_bio(inode, block_nr, nr_pages,
 					is_readahead ? REQ_RAHEAD : 0);
@@ -1813,6 +1842,11 @@ static int encrypt_one_page(struct f2fs_io_info *fio)
 retry_encrypt:
 	if (fscrypt_disk_encrypted(inode))
 		return 0;
+
+#ifdef CONFIG_DDAR
+	if (fscrypt_dd_encrypted_inode(inode))
+		return 0;
+#endif
 
 	fio->encrypted_page = fscrypt_encrypt_page(inode, fio->page,
 			PAGE_SIZE, 0, fio->page->index, gfp_flags);

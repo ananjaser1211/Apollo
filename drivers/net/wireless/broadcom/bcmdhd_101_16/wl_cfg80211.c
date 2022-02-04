@@ -1,7 +1,7 @@
 /*
  * Linux cfg80211 driver
  *
- * Copyright (C) 2020, Broadcom.
+ * Copyright (C) 2021, Broadcom.
  *
  *      Unless you and Broadcom execute a separate written software license
  * agreement governing use of this software, this software is licensed to you
@@ -761,6 +761,11 @@ bool static wl_cfg80211_is_oce_ap(struct wiphy *wiphy, const u8 *bssid_hint);
 static s32 wl_bcnrecv_aborted_event_handler(struct bcm_cfg80211 *cfg, bcm_struct_cfgdev *cfgdev,
 		const wl_event_msg_t *e, void *data);
 #endif /* WL_BCNRECV */
+
+#if defined(KEEP_ALIVE) && defined(DHD_CLEANUP_KEEP_ALIVE)
+#define KEEP_ALIVE_ID_MAX	8
+void wl_cleanup_keep_alive(struct bcm_cfg80211 *cfg);
+#endif /* defined(KEEP_ALIVE) && defined(DHD_CLEANUP_KEEP_ALIVE) */
 
 #ifdef WL_CAC_TS
 static s32 wl_cfg80211_cac_event_handler(struct bcm_cfg80211 *cfg, bcm_struct_cfgdev *cfgdev,
@@ -7530,7 +7535,6 @@ wl_cfg80211_set_power_mgmt(struct wiphy *wiphy, struct net_device *dev,
 #ifdef RTT_SUPPORT
 	rtt_status_info_t *rtt_status;
 #endif /* RTT_SUPPORT */
-	int bcn_li_dtim = 0;
 	RETURN_EIO_IF_NOT_UP(cfg);
 
 	WL_DBG(("Enter\n"));
@@ -7585,31 +7589,9 @@ wl_cfg80211_set_power_mgmt(struct wiphy *wiphy, struct net_device *dev,
 		_net_info->ps_managed_start_ts = OSL_SYSUPTIME();
 	}
 
-	/* Set MAX bcn_li_dtim in suspend */
-	if (enabled) {
-		/* PM Enabled  */
-		dhd->max_dtim_enable = TRUE;
-		dhd->suspend_bcn_li_dtim = CUSTOM_SUSPEND_BCN_LI_DTIM;
-	} else {
-		/* PM Disabled  */
-		dhd->max_dtim_enable = FALSE;
-		dhd->suspend_bcn_li_dtim = NO_DTIM_SKIP;
-	}
-
-	/* Set bcn_li_dtim if suspend mode */
-	if (dhd->early_suspended) {
-		/* LCD off */
-#if defined(BCMPCIE)
-		int dtim_period = 0;
-		int bcn_interval = 0;
-		bcn_li_dtim = dhd_get_suspend_bcn_li_dtim(dhd, &dtim_period, &bcn_interval);
-#else
-		bcn_li_dtim = dhd_get_suspend_bcn_li_dtim(dhd);
-#endif /* OEM_ANDROID && BCMPCIE */
-		err = wldev_iovar_setint(dev, "bcn_li_dtim", bcn_li_dtim);
-		if (unlikely(err)) {
-			WL_ERR(("error (%d)\n", err));
-		}
+	if (dhd->in_suspend) {
+		/* Enable/Disable bcn_li_dtim if suspend mode */
+		dhd_set_suspend_bcn_li_dtim(dhd, enabled);
 	}
 
 	return err;
@@ -10109,7 +10091,8 @@ static s32 wl_setup_wiphy(struct wireless_dev *wdev, struct device *sdiofunc_dev
 #ifdef WL_FILS
 	wiphy_ext_feature_set(wdev->wiphy, NL80211_EXT_FEATURE_FILS_SK_OFFLOAD);
 #endif /* WL_FILS */
-#if (LINUX_VERSION_CODE >= KERNEL_VERSION(4, 11, 0)) && defined(WL_ACT_FRAME_MAC_RAND)
+#if ((LINUX_VERSION_CODE >= KERNEL_VERSION(4, 11, 0)) || \
+	defined(WL_SUPPORT_BACKPORTED_ANQP_RMAC)) && defined(WL_ACT_FRAME_MAC_RAND)
 	wiphy_ext_feature_set(wdev->wiphy, NL80211_EXT_FEATURE_MGMT_TX_RANDOM_TA);
 #endif /* LINUX_VERSION_CODE >= KERNEL_VERSION(4, 11, 0) && defined(WL_ACT_FRAME_MAC_RAND) */
 #if (LINUX_VERSION_CODE >= KERNEL_VERSION(3, 12, 0))
@@ -11456,6 +11439,12 @@ wl_post_linkdown_ops(struct bcm_cfg80211 *cfg,
 	}
 #endif /* WL_NAN */
 
+#if defined(KEEP_ALIVE) && defined(DHD_CLEANUP_KEEP_ALIVE)
+	if (ndev == bcmcfg_to_prmry_ndev(cfg) && cfg->mkeep_alive_avail) {
+		wl_cleanup_keep_alive(cfg);
+	}
+#endif /* defined(KEEP_ALIVE) && defined(DHD_CLEANUP_KEEP_ALIVE) */
+
 	return ret;
 }
 
@@ -12384,7 +12373,12 @@ wl_notify_roam_prep_status(struct bcm_cfg80211 *cfg, bcm_struct_cfgdev *cfgdev,
 	BCM_REFERENCE(sec);
 
 	if (status == WLC_E_STATUS_SUCCESS && reason != WLC_E_REASON_INITIAL_ASSOC) {
+#ifndef WES_SUPPORT
 		WL_ERR(("Attempting roam with reason code : %d\n", reason));
+#else
+		WL_ERR(("Attempting roam with reason code : %d, Current %s mode\n",
+			reason, (cfg->ncho_mode ? "NCHO" : "Legacy Roam")));
+#endif /* WES_SUPPORT */
 	}
 
 #ifdef CONFIG_SILENT_ROAM
@@ -12415,7 +12409,7 @@ wl_notify_roam_prep_status(struct bcm_cfg80211 *cfg, bcm_struct_cfgdev *cfgdev,
 	dhdp->dequeue_prec_map = 1 << dhdp->flow_prio_map[PRIO_8021D_NC];
 	/* Restore flow control  */
 	dhd_txflowcontrol(dhdp, ALL_INTERFACES, OFF);
-
+	DHD_DISABLE_RUNTIME_PM(dhdp);
 	mod_timer(&cfg->roam_timeout, jiffies + msecs_to_jiffies(WL_ROAM_TIMEOUT_MS));
 #endif /* DHD_LOSSLESS_ROAMING */
 
@@ -12716,6 +12710,7 @@ wl_bss_roaming_done(struct bcm_cfg80211 *cfg, struct net_device *ndev,
 #endif /* LINUX_VERSION > 2.6.39 || WL_COMPAT_WIRELESS */
 #endif /* BCM4359 CHIP */
 
+	wl_update_prof(cfg, ndev, NULL, (const void *)(e->addr.octet), WL_PROF_BSSID);
 	if ((err = wl_get_assoc_ies(cfg, ndev)) != BCME_OK) {
 		DHD_STATLOG_CTRL(dhdp, ST(DISASSOC_INT_START),
 			dhd_net2idx(dhdp->info, ndev), WLAN_REASON_DEAUTH_LEAVING);
@@ -12735,7 +12730,6 @@ wl_bss_roaming_done(struct bcm_cfg80211 *cfg, struct net_device *ndev,
 		goto fail;
 	}
 
-	wl_update_prof(cfg, ndev, NULL, (const void *)(e->addr.octet), WL_PROF_BSSID);
 	curbssid = wl_read_prof(cfg, ndev, WL_PROF_BSSID);
 	if ((err = wl_update_bss_info(cfg, ndev, true)) != BCME_OK) {
 		WL_ERR(("failed to update bss info, err=%d\n", err));
@@ -13432,8 +13426,9 @@ wl_notify_rx_mgmt_frame(struct bcm_cfg80211 *cfg, bcm_struct_cfgdev *cfgdev,
 		}
 
 		err = wldev_ioctl_get(ndev, WLC_GET_BSSID, &bssid, ETHER_ADDR_LEN);
-		if (err < 0)
+		if ((err < 0) && (err != BCME_NOTASSOCIATED)) {
 			 WL_ERR(("WLC_GET_BSSID error %d\n", err));
+		}
 		memcpy(da.octet, ioctl_buf, ETHER_ADDR_LEN);
 
 		if ((ndev->ieee80211_ptr->iftype == NL80211_IFTYPE_STATION) &&
@@ -14149,6 +14144,7 @@ static void wl_del_roam_timeout(struct bcm_cfg80211 *cfg)
 	/* restore prec_map to ALLPRIO */
 	dhdp->dequeue_prec_map = ALLPRIO;
 	del_timer_sync(&cfg->roam_timeout);
+	DHD_ENABLE_RUNTIME_PM(dhdp);
 }
 
 static void wl_roam_timeout(unsigned long data)
@@ -14160,6 +14156,7 @@ static void wl_roam_timeout(unsigned long data)
 
 	/* restore prec_map to ALLPRIO */
 	dhdp->dequeue_prec_map = ALLPRIO;
+	DHD_ENABLE_RUNTIME_PM(dhdp);
 }
 
 #endif /* DHD_LOSSLESS_ROAMING */
@@ -14761,6 +14758,9 @@ static void wl_deinit_priv(struct bcm_cfg80211 *cfg)
 	wl_destroy_event_handler(cfg);
 	wl_flush_eq(cfg);
 	wl_link_down(cfg);
+#ifdef WL_SCHED_SCAN
+	cancel_delayed_work_sync(&cfg->sched_scan_stop_work);
+#endif /* WL_SCHED_SCAN */
 	del_timer_sync(&cfg->scan_timeout);
 #ifdef DHD_LOSSLESS_ROAMING
 	del_timer_sync(&cfg->roam_timeout);
@@ -14998,7 +14998,7 @@ s32 wl_cfg80211_attach(struct net_device *ndev, void *context)
 #endif /* WL_ENABLE_P2P_IF || WL_NEWCFG_PRIVCMD_SUPPORT */
 
 #ifdef WL_SCHED_SCAN
-	INIT_WORK(&cfg->sched_scan_stop_work, wl_cfgscan_sched_scan_stop_work);
+	INIT_DELAYED_WORK(&cfg->sched_scan_stop_work, wl_cfgscan_sched_scan_stop_work);
 #endif /* WL_SCHED_SCAN */
 	INIT_DELAYED_WORK(&cfg->pm_enable_work, wl_cfg80211_work_handler);
 	INIT_DELAYED_WORK(&cfg->loc.work, wl_cfgscan_listen_complete_work);
@@ -16446,8 +16446,17 @@ static s32 __wl_cfg80211_down(struct bcm_cfg80211 *cfg)
 	}
 
 #ifdef WL_SCHED_SCAN
-	cancel_work_sync(&cfg->sched_scan_stop_work);
+	if (cfg->sched_scan_req) {
+		struct wireless_dev *wdev = ndev->ieee80211_ptr;
+#if (LINUX_VERSION_CODE >= KERNEL_VERSION(4, 11, 0))
+		wl_cfg80211_sched_scan_stop(wdev->wiphy, ndev,
+				cfg->sched_scan_req->reqid);
+#else
+		wl_cfg80211_sched_scan_stop(wdev->wiphy, ndev);
+#endif /* KERNEL >= 4.11 */
+	}
 #endif /* WL_SCHED_SCAN */
+
 #ifdef WL_SAR_TX_POWER
 	cfg->wifi_tx_power_mode = WIFI_POWER_SCENARIO_INVALID;
 #endif /* WL_SAR_TX_POWER */
@@ -21252,3 +21261,25 @@ wl_android_roamoff_dbg_dump(struct bcm_cfg80211 *cfg)
 	return;
 }
 #endif /* DEBUG_SETROAMMODE */
+
+#if defined(KEEP_ALIVE) && defined(DHD_CLEANUP_KEEP_ALIVE)
+void
+wl_cleanup_keep_alive(struct bcm_cfg80211 *cfg)
+{
+	int mkeep_alive_id;
+
+	for (mkeep_alive_id = 1; mkeep_alive_id < KEEP_ALIVE_ID_MAX; mkeep_alive_id++) {
+		if (isset(&cfg->mkeep_alive_avail, mkeep_alive_id)) {
+			if (wl_cfg80211_stop_mkeep_alive(cfg, mkeep_alive_id) == BCME_OK) {
+				clrbit(&cfg->mkeep_alive_avail, mkeep_alive_id);
+			}
+		}
+		if (!cfg->mkeep_alive_avail) {
+			WL_INFORM(("Stopped for all keep alive id.\n"));
+			break;
+		}
+	}
+
+	return;
+}
+#endif /* defined(KEEP_ALIVE) && defined(DHD_CLEANUP_KEEP_ALIVE) */

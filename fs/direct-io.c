@@ -443,7 +443,9 @@ static inline void dio_bio_submit(struct dio *dio, struct dio_submit *sdio)
 		bio_set_pages_dirty(bio);
 
 	dio->bio_bdev = bio->bi_bdev;
-
+#ifdef CONFIG_DDAR
+	bio->bi_dio_inode = dio->inode;
+#endif
 	if (sdio->submit_io) {
 		sdio->submit_io(bio, dio->inode, sdio->logical_offset_in_bio);
 		dio->bio_cookie = BLK_QC_T_NONE;
@@ -454,6 +456,20 @@ static inline void dio_bio_submit(struct dio *dio, struct dio_submit *sdio)
 	sdio->boundary = 0;
 	sdio->logical_offset_in_bio = 0;
 }
+
+#ifdef CONFIG_DDAR
+struct inode *dio_bio_get_inode(struct bio *bio)
+{
+	struct inode *inode = NULL;
+
+	if (bio == NULL)
+		return NULL;
+
+	inode = bio->bi_dio_inode;
+
+	return inode;
+}
+#endif
 
 /*
  * Release any resources in case of a failure

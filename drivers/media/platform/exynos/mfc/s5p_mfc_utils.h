@@ -182,5 +182,6 @@ static inline void mfc_change_idle_mode(struct s5p_mfc_dev *dev,
 	if (dev->idle_mode == MFC_IDLE_MODE_NONE)
 		mfc_idle_checker_start_tick(dev);
 }
+void mfc_update_real_time(struct s5p_mfc_ctx *ctx);
 
 #endif /* __S5P_MFC_UTILS_H */

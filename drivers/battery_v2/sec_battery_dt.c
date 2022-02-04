@@ -1592,6 +1592,11 @@ int sec_bat_parse_dt(struct device *dev,
 	if (ret)
 		pdata->siop_input_limit_current = SIOP_INPUT_LIMIT_CURRENT;
 
+	ret = of_property_read_u32(np, "battery,siop_input_limit_current_siop20",
+			&pdata->siop_input_limit_current_siop20);
+	if (ret)
+		pdata->siop_input_limit_current_siop20 = pdata->siop_input_limit_current;
+
 	ret = of_property_read_u32(np, "battery,siop_charging_limit_current",
 			&pdata->siop_charging_limit_current);
 	if (ret)
@@ -1602,6 +1607,11 @@ int sec_bat_parse_dt(struct device *dev,
 	if (ret)
 		pdata->siop_hv_12v_input_limit_current = SIOP_HV_12V_INPUT_LIMIT_CURRENT;
 
+	ret = of_property_read_u32(np, "battery,siop_hv_12v_input_limit_current_siop20",
+			&pdata->siop_hv_12v_input_limit_current_siop20);
+	if (ret)
+		pdata->siop_hv_12v_input_limit_current_siop20 = pdata->siop_hv_12v_input_limit_current;
+
 	ret = of_property_read_u32(np, "battery,siop_hv_12v_charging_limit_current",
 			&pdata->siop_hv_12v_charging_limit_current);
 	if (ret)
@@ -1611,6 +1621,11 @@ int sec_bat_parse_dt(struct device *dev,
 			&pdata->siop_hv_input_limit_current);
 	if (ret)
 		pdata->siop_hv_input_limit_current = SIOP_HV_INPUT_LIMIT_CURRENT;
+
+	ret = of_property_read_u32(np, "battery,siop_hv_input_limit_current_siop20",
+			&pdata->siop_hv_input_limit_current_siop20);
+	if (ret)
+		pdata->siop_hv_input_limit_current_siop20 = pdata->siop_hv_input_limit_current;
 
 	ret = of_property_read_u32(np, "battery,siop_hv_input_limit_current_2nd",
 			&pdata->siop_hv_input_limit_current_2nd);

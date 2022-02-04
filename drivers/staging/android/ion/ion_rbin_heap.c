@@ -213,6 +213,12 @@ static int ion_rbin_heap_allocate(struct ion_heap *heap,
 	if (align > PAGE_SIZE)
 		return -EINVAL;
 
+	if (!!(flags & ION_FLAG_PROTECTED)) {
+		pr_err("ION_FLAG_PROTECTED is set to non-secure heap %s",
+		       heap->name);
+		return -EINVAL;
+	}
+
 	size_remaining = size = PAGE_ALIGN(size_org);
 	nr_total = rbin_heap->count << PAGE_SHIFT;
 

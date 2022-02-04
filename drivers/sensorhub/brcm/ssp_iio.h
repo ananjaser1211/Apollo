@@ -43,6 +43,7 @@ void report_sensor_data(struct ssp_data *, int, struct sensor_value *);
 int initialize_indio_dev(struct ssp_data *data);
 void remove_indio_dev(struct ssp_data *data);
 short thermistor_rawToTemperature(struct ssp_data *data, int type, s16 raw);
+#if defined(CONFIG_SENSORS_SABC)
 void report_camera_lux_data(struct ssp_data *data, int lux);
-
+#endif
 #endif

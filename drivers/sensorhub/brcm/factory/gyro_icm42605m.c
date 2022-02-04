@@ -251,7 +251,7 @@ static ssize_t gyro_selftest_show(struct device *dev, struct device_attribute *a
 	int iRet = 0;
 	int fifo_ret = 0;
 	int cal_ret = 0;
-	int self_test_ret = 1;
+	int self_test_ret = 0;
 	int self_test_zro_ret = 0;
 	struct ssp_data *data = dev_get_drvdata(dev);
 	s16 st_off[3] = {0, };
@@ -285,7 +285,7 @@ static ssize_t gyro_selftest_show(struct device *dev, struct device_attribute *a
 	shift_ratio[0] = (s16)((chTempBuf[2] << 8) + chTempBuf[1]);
 	shift_ratio[1] = (s16)((chTempBuf[4] << 8) + chTempBuf[3]);
 	shift_ratio[2] = (s16)((chTempBuf[6] << 8) + chTempBuf[5]);
-	hw_result = (s8)chTempBuf[7];
+	self_test_ret = hw_result = (s8)chTempBuf[7];
 	total_count = (int)((chTempBuf[11] << 24) + (chTempBuf[10] << 16) +
 				(chTempBuf[9] << 8) + chTempBuf[8]);
 	avg[0] = (long)((chTempBuf[15] << 24) + (chTempBuf[14] << 16) +
@@ -324,10 +324,10 @@ static ssize_t gyro_selftest_show(struct device *dev, struct device_attribute *a
 	gyro_self_zro[0] = st_off[0] * DEF_GYRO_SENS;
 	gyro_self_zro[1] = st_off[1] * DEF_GYRO_SENS;
 	gyro_self_zro[2] = st_off[2] * DEF_GYRO_SENS;
-	//bias =  diff, st - nost (on - off)
-	gyro_self_bias[0] = (st_on[0] - st_off[0]) * DEF_GYRO_SENS;
-	gyro_self_bias[1] = (st_on[1] - st_off[1]) * DEF_GYRO_SENS;
-	gyro_self_bias[2] = (st_on[2] - st_off[2]) * DEF_GYRO_SENS;
+	//bias
+	gyro_self_bias[0] = st_on[0] * DEF_GYRO_SENS;
+	gyro_self_bias[1] = st_on[1] * DEF_GYRO_SENS;
+	gyro_self_bias[2] = st_on[2] * DEF_GYRO_SENS;
 	//diff = ratio from sensorhub
 	gyro_self_diff[0] = shift_ratio[0];
 	gyro_self_diff[1] = shift_ratio[1];

@@ -262,6 +262,7 @@ void report_pressure_data(struct ssp_data *data, struct sensor_value *predata)
 
 void report_light_data(struct ssp_data *data, struct sensor_value *lightdata)
 {
+#if defined(CONFIG_SENSORS_SABC)
 	if(!data->camera_lux_en && (lightdata->lux <= 100) && (data->brightness >= 60))
 	{
 
@@ -286,7 +287,7 @@ void report_light_data(struct ssp_data *data, struct sensor_value *lightdata)
 		pr_err("[SSP]: Light AB Sensor : report skip(camera_lux_en=%d)", data->camera_lux_en);
 		return;
 	}
-
+#endif
 	report_iio_data(data, LIGHT_SENSOR, lightdata);
 
 	if (data->light_log_cnt < 3) {
@@ -312,7 +313,7 @@ void report_uncal_light_data(struct ssp_data *data, struct sensor_value *lightda
 		data->light_log_cnt++;
 	}
 }
-
+#if defined(CONFIG_SENSORS_SABC)
 void report_camera_lux_data(struct ssp_data *data, int lux)
 {
 	pr_info("[SSP]: %s: %d", __func__, lux);
@@ -322,7 +323,7 @@ void report_camera_lux_data(struct ssp_data *data, int lux)
 	                     (char *)&data->buf[LIGHT_SENSOR], sensors_info[LIGHT_SENSOR].report_data_len);
 
 }
-
+#endif
 #ifdef CONFIG_SENSORS_SSP_IRDATA_FOR_CAMERA
 void report_light_ir_data(struct ssp_data *data, struct sensor_value *lightirdata)
 {

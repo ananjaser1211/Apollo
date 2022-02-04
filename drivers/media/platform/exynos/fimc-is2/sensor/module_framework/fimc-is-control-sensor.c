@@ -606,6 +606,9 @@ void fimc_is_sensor_ctl_frame_evt(struct fimc_is_device_sensor *device)
 
 			module_ctl->update_wb_gains = false;
 		}
+		ret = fimc_is_sensor_set_test_pattern(device, sensor_ctrl);
+		if (ret < 0)
+			err("[%s] frame number(%d) set test pattern fail\n", __func__, applied_frame_number);
 
 #ifdef CONFIG_COMPANION_USE
 		/* update cis_data about preproc */

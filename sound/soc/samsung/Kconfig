@@ -280,6 +280,10 @@ config SND_SOC_SAMSUNG_GTACTIVE3_RT5665_RT5510
 	tristate "rt5665 codec and rt5510 amp support on exynos9810"
 	select SND_SOC_RT5665
 
+config SND_SOC_SAMSUNG_GTACTIVE3_RT5665_TAS2562
+	tristate "rt5665 codec and tas2562 amp support on exynos9810"
+	select SND_SOC_RT5665
+
 config SND_SOC_SAMSUNG_R7_RT5665_TAS2562
 	tristate "rt5665 codec and tas2562 amp support on exynos9810"
 	select SND_SOC_RT5665

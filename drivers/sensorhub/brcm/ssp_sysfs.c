@@ -268,10 +268,13 @@ static int ssp_remove_sensor(struct ssp_data *data,
 			data->IsVDIS_Enabled = false;
 			send_vdis_flag(data, data->IsVDIS_Enabled);
 		}
-	} else if (uChangedSensor == LIGHT_SENSOR) {
+	} 
+#if defined(CONFIG_SENSORS_SABC)
+	else if (uChangedSensor == LIGHT_SENSOR) {
 		data->camera_lux_en = false;
 		report_camera_lux_data(data, -2);
 	}
+#endif
 
 	if (!data->bSspShutdown)
 		if (atomic64_read(&data->aSensorEnable) & (1ULL << uChangedSensor)) {
@@ -1105,6 +1108,7 @@ static int ssp_inject_additional_info(struct ssp_data *data,
                                           const char *buf, int count)
 {
 	int ret = 0;
+#if defined(CONFIG_SENSORS_SABC)
 	char type = buf[0];
 
 	pr_info("[SSP]: %s:: type = %d", __func__, type);
@@ -1136,7 +1140,7 @@ static int ssp_inject_additional_info(struct ssp_data *data,
 			report_camera_lux_data(data, data->camera_lux);
 		}
 	}
-
+#endif
 	return ret;	
 }
 

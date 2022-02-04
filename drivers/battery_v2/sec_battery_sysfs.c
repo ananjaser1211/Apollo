@@ -246,6 +246,7 @@ static struct device_attribute sec_battery_attrs[] = {
 	SEC_BATTERY_ATTR(normal_mode_bypass),
 	SEC_BATTERY_ATTR(factory_voltage_regulation),
 	SEC_BATTERY_ATTR(factory_mode_disable),
+	SEC_BATTERY_ATTR(batt_full_capacity),
 };
 
 void update_external_temp_table(struct sec_battery_info *battery, int temp[])
@@ -1777,7 +1778,11 @@ ssize_t sec_bat_show_attrs(struct device *dev,
 	case NORMAL_MODE_BYPASS:
 	case FACTORY_VOLTAGE_REGULATION:
 	case FACTORY_MODE_DISABLE:
-			break;
+		break;
+	case BATT_FULL_CAPACITY:
+		pr_info("%s: BATT_FULL_CAPACITY = %d\n", __func__, battery->batt_full_capacity);
+		i += scnprintf(buf + i, PAGE_SIZE - i, "%d\n", battery->batt_full_capacity);
+		break;
 	default:
 		i = -EINVAL;
 		break;
@@ -3458,6 +3463,21 @@ ssize_t sec_bat_store_attrs(
 			value.intval = x;
 			psy_do_property(battery->pdata->charger_name, set,
 				POWER_SUPPLY_EXT_PROP_DISABLE_FACTORY_MODE, value);
+			ret = count;
+		}
+		break;
+	case BATT_FULL_CAPACITY:
+		if (sscanf(buf, "%10d\n", &x) == 1) {
+			if (x >= 0 && x <= 100) {
+				pr_info("%s: update BATT_FULL_CAPACITY(%d)\n", __func__, x);
+				battery->batt_full_capacity = x;
+
+				wake_lock(&battery->monitor_wake_lock);
+				queue_delayed_work(battery->monitor_wqueue,
+					&battery->monitor_work, 0);
+			} else {
+				pr_info("%s: out of range(%d)\n", __func__, x);
+			}
 			ret = count;
 		}
 		break;

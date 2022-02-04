@@ -554,7 +554,7 @@ void s5p_mfc_set_enc_params_h264(struct s5p_mfc_ctx *ctx)
 	if (p->rc_frame) {
 		reg = MFC_READL(S5P_FIMV_E_RC_FRAME_RATE);
 		reg &= ~(0xFFFF << 16);
-		reg |= p_264->rc_framerate << 16;
+		reg |= p->rc_framerate << 16;
 		reg &= ~(0xFFFF);
 		reg |= p->rc_frame_delta & 0xFFFF;
 		MFC_WRITEL(reg, S5P_FIMV_E_RC_FRAME_RATE);
@@ -803,7 +803,7 @@ void s5p_mfc_set_enc_params_h263(struct s5p_mfc_ctx *ctx)
 	if (p->rc_frame) {
 		reg = MFC_READL(S5P_FIMV_E_RC_FRAME_RATE);
 		reg &= ~(0xFFFF << 16);
-		reg |= (p_mpeg4->rc_framerate << 16);
+		reg |= (p->rc_framerate << 16);
 		reg &= ~(0xFFFF);
 		reg |= (p->rc_frame_delta & 0xFFFF);
 		MFC_WRITEL(reg, S5P_FIMV_E_RC_FRAME_RATE);
@@ -936,7 +936,7 @@ void s5p_mfc_set_enc_params_vp8(struct s5p_mfc_ctx *ctx)
 	if (p->rc_frame) {
 		reg = MFC_READL(S5P_FIMV_E_RC_FRAME_RATE);
 		reg &= ~(0xFFFF << 16);
-		reg |= (p_vp8->rc_framerate << 16);
+		reg |= (p->rc_framerate << 16);
 		reg &= ~(0xFFFF);
 		reg |= (p->rc_frame_delta & 0xFFFF);
 		MFC_WRITEL(reg, S5P_FIMV_E_RC_FRAME_RATE);
@@ -1065,7 +1065,7 @@ void s5p_mfc_set_enc_params_vp9(struct s5p_mfc_ctx *ctx)
 	if (p->rc_frame) {
 		reg = MFC_READL(S5P_FIMV_E_RC_FRAME_RATE);
 		reg &= ~(0xFFFF << 16);
-		reg |= (p_vp9->rc_framerate << 16);
+		reg |= (p->rc_framerate << 16);
 		reg &= ~(0xFFFF);
 		reg |= (p->rc_frame_delta & 0xFFFF);
 		MFC_WRITEL(reg, S5P_FIMV_E_RC_FRAME_RATE);
@@ -1279,7 +1279,7 @@ void s5p_mfc_set_enc_params_hevc(struct s5p_mfc_ctx *ctx)
 	if (p->rc_frame) {
 		reg = MFC_READL(S5P_FIMV_E_RC_FRAME_RATE);
 		reg &= ~(0xFFFF << 16);
-		reg |= (p_hevc->rc_framerate << 16);
+		reg |= (p->rc_framerate << 16);
 		reg &= ~(0xFFFF);
 		reg |= (p->rc_frame_delta & 0xFFFF);
 		MFC_WRITEL(reg, S5P_FIMV_E_RC_FRAME_RATE);

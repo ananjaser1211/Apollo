@@ -102,6 +102,10 @@ struct fscrypt_info {
 	u8 ci_flags;
 	u8 ci_master_key_descriptor[FS_KEY_DESCRIPTOR_SIZE];
 	u8 ci_nonce[FS_KEY_DERIVATION_NONCE_SIZE];
+
+#ifdef CONFIG_DDAR
+	struct dd_info *ci_dd_info;
+#endif
 #ifdef CONFIG_FSCRYPT_SDP
 	struct sdp_info *ci_sdp_info;
 #endif

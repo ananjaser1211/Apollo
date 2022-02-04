@@ -22,6 +22,8 @@
 
 #define TAS2562_PAGE_REG(reg)			((reg % (256 * 128)) % 128)
 
+/* Added for register cache table */
+#define MAX_REGISTERS		0x7f
 
     /* Software Reset */
 #define TAS2562_SOFTWARERESET  TAS2562_REG(0x0, 0x0, 0x01)
@@ -429,6 +431,23 @@
 #define TAS2562_LATCHEDINTERRUPTREG1_PDMCLOCKERRORSTICKY_NOINTERRUPT  (0x0 << 0)
 #define TAS2562_LATCHEDINTERRUPTREG1_PDMCLOCKERRORSTICKY_INTERRUPT  (0x1 << 0)
 
+    /* Latched-Interrupt Reg2 */
+#define TAS2562_LATCHEDINTERRUPTREG2  TAS2562_REG(0x0, 0x0, 0x26)
+
+    /* Latched-Interrupt Reg3 */
+#define TAS2562_LATCHEDINTERRUPTREG3  TAS2562_REG(0x0, 0x0, 0x27)
+
+    /* Latched-Interrupt Reg4 */
+#define TAS2562_LATCHEDINTERRUPTREG4  TAS2562_REG(0x0, 0x0, 0x28)
+
+    /* Latched-Interrupt Reg5 */
+#define TAS2562_LATCHEDINTERRUPTREG5  TAS2562_REG(0x0, 0x0, 0x29)
+
+    /* INT STATUS */
+#define TAS2562_INTSTATUS  TAS2562_REG(0x0, 0x0, 0x78)
+#define TAS2562_INTSTATUS_CLASSD  (0x1 << 2)
+#define TAS2562_INTSTATUS_DAC  (0x1 << 3)
+
     /* VBAT MSB */
 #define TAS2562_VBATMSB  TAS2562_REG(0x0, 0x0, 0x2A)
 #define TAS2562_VBATMSB_VBATMSB70_MASK  (0xff << 0)
@@ -524,6 +543,10 @@ TAS2562_INTERRUPTCONFIGURATION_PININTCONFIG10_ASSERT2MSONLATCHEDINTERRUPTS \
 #define TAS2562_VBATFILTER TAS2562_REG(0x0, 0x0, 0x3b)
 #define TAS2562_CLASSHRELEASETIMER TAS2562_REG(0x0, 0x0, 0x3c)
 
+#define TAS2562_BOOST_CFG4 TAS2562_REG(0x0, 0x0, 0x40)
+#define TAS2562_BOOST_ILIM_MASK (0x3f << 0)
+#define TAS2562_BOOST_ILIM_DEFAULT (0x36)
+
 #define TAS2562_ICN_THRESHOLD_REG TAS2562_REG(0x0, 0x2, 0x64)
 #define TAS2562_ICN_HYSTERESIS_REG TAS2562_REG(0x0, 0x2, 0x6c)
 
@@ -537,6 +560,8 @@ TAS2562_INTERRUPTCONFIGURATION_PININTCONFIG10_ASSERT2MSONLATCHEDINTERRUPTS \
 #define TAS2562_CLASSDCONFIGURATION3	TAS2562_REG(0x0, 0xfd, 0x33)
 #define TAS2562_CLASSDCONFIGURATION4	TAS2562_REG(0x0, 0xfd, 0x3f)
 #define TAS2562_EFFICIENCYCONFIGURATION	TAS2562_REG(0x0, 0xfd, 0x5f)
+#define TAS2562_OSC_BOOST_CLK_MASK	(0x01 << 0x2)
+#define TAS2562_OSC_BOOST_CLK		(0x01 << 0x2)
 
 #define TAS2562_CLASSHHEADROOM TAS2562_REG(0x64, 0x7, 0x48)
 #define TAS2562_CLASSHHYSTERESIS TAS2562_REG(0x64, 0x7, 0x4c)
@@ -633,6 +658,8 @@ int mn_channels;
 int spk_l_control;
 int spk_r_control;
 int icn_sw;
+/* Added for Boost Clock Source Change - Mute Issue */
+int mn_bst_clk_src;
 int (*read)(struct tas2562_priv *p_tas2562, enum channel chn,
 	unsigned int reg, unsigned int *pValue);
 int (*write)(struct tas2562_priv *p_tas2562, enum channel chn,
@@ -661,6 +688,15 @@ int mn_dbg_cmd;
 int mn_current_reg;
 struct mutex file_lock;
 #endif
+
+/* Added for Mute Issue */
+struct delayed_work status_work;
+int mn_status_check;
+int mn_status_period;
+
+/* Added for direct power mode support */
+int pwr_mode;
+int ilimit;
 };
 
 #endif /* __TAS2562_ */

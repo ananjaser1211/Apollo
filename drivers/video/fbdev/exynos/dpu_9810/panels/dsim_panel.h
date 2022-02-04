@@ -22,5 +22,16 @@ extern struct dsim_lcd_driver *__stop___lcd_driver;
 struct dsim_lcd_driver *p_##name __attribute__((used, section("__lcd_driver"))) = &name;	\
 static struct dsim_lcd_driver __maybe_unused *this_driver = &name	\
 
+struct lcd_device;
+struct lcd_ops;
+struct backlight_device;
+struct backlight_ops;
+struct backlight_properties;
+extern struct lcd_device *exynos_lcd_device_register(const char *name,
+	struct device *parent, void *devdata, struct lcd_ops *ops);
+extern struct backlight_device *exynos_backlight_device_register(const char *name,
+	struct device *dev, void *devdata, const struct backlight_ops *ops,
+	const struct backlight_properties *props);
+
 #endif
 

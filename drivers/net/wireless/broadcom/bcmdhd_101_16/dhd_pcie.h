@@ -1,7 +1,7 @@
 /*
  * Linux DHD Bus Module for PCIE
  *
- * Copyright (C) 2020, Broadcom.
+ * Copyright (C) 2021, Broadcom.
  *
  *      Unless you and Broadcom execute a separate written software license
  * agreement governing use of this software, this software is licensed to you
@@ -736,6 +736,9 @@ extern void dhdpcie_oob_intr_set(dhd_bus_t *bus, bool enable);
 extern int dhdpcie_get_oob_irq_num(struct dhd_bus *bus);
 extern int dhdpcie_get_oob_irq_status(struct dhd_bus *bus);
 extern int dhdpcie_get_oob_irq_level(void);
+#ifdef PRINT_WAKEUP_GPIO_STATUS
+extern int dhdpcie_get_oob_gpio_number(void);
+#endif /* PRINT_WAKEUP_GPIO_STATUS */
 #endif /* BCMPCIE_OOB_HOST_WAKE */
 #if defined(PCIE_INB_DW)
 extern void dhd_bus_doorbell_timeout_reset(struct dhd_bus *bus);
@@ -852,6 +855,9 @@ extern int dhdpcie_send_mb_data(dhd_bus_t *bus, uint32 h2d_mb_data);
 #ifdef DHD_WAKE_STATUS
 int bcmpcie_get_total_wake(struct dhd_bus *bus);
 int bcmpcie_set_get_wake(struct dhd_bus *bus, int flag);
+#if defined(EWP_EDL)
+int bcmpcie_get_edl_wake(struct dhd_bus *bus);
+#endif /* EWP_EDL */
 #endif /* DHD_WAKE_STATUS */
 #ifdef DHD_MMIO_TRACE
 extern void dhd_dump_bus_mmio_trace(dhd_bus_t *bus, struct bcmstrbuf *strbuf);

@@ -224,6 +224,7 @@ typedef struct {
 #endif /* USE_MS_PDAF_INTERFACE */
 	unsigned int cur_width;
 	unsigned int cur_height;
+	unsigned int cur_pattern_mode;
 	unsigned int pre_width;
 	unsigned int pre_height;
 
@@ -382,6 +383,8 @@ struct fimc_is_cis_ops {
 	int (*cis_get_tof_tx_freq)(struct v4l2_subdev *subdev, u32 *value);
 	int (*cis_set_wb_gains)(struct v4l2_subdev *subdev, struct wb_gains wb_gains);
 	int (*cis_set_totalgain)(struct v4l2_subdev *subdev, struct ae_param *target_exposure, struct ae_param *again, struct ae_param *dgain);
+	int (*cis_set_test_pattern)(struct v4l2_subdev *subdev, camera2_sensor_ctl_t *sensor_ctl);
+	
 };
 
 struct fimc_is_sensor_ctl

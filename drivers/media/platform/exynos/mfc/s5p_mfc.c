@@ -165,8 +165,8 @@ static int mfc_init_dec_ctx(struct s5p_mfc_ctx *ctx)
 	mutex_init(&dec->dpb_mutex);
 
 	dec->sh_handle.fd = -1;
-	dec->ref_info = kzalloc(
-		(sizeof(struct dec_dpb_ref_info) * MFC_MAX_DPBS), GFP_KERNEL);
+	dec->sh_handle.data_size = sizeof(struct dec_dpb_ref_info) * MFC_MAX_DPBS;
+	dec->ref_info = kzalloc(dec->sh_handle.data_size, GFP_KERNEL);
 	if (!dec->ref_info) {
 		mfc_err_dev("failed to allocate decoder information data\n");
 		ret = -ENOMEM;
@@ -278,6 +278,8 @@ static int mfc_init_enc_ctx(struct s5p_mfc_ctx *ctx)
 
 	enc->sh_handle_svc.fd = -1;
 	enc->sh_handle_roi.fd = -1;
+	enc->sh_handle_svc.data_size = sizeof(struct temporal_layer_info);
+	enc->sh_handle_roi.data_size = sizeof(struct mfc_enc_roi_info);
 
 	/* Init videobuf2 queue for OUTPUT */
 	ctx->vq_src.type = V4L2_BUF_TYPE_VIDEO_OUTPUT_MPLANE;

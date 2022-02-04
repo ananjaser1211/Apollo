@@ -745,6 +745,34 @@ static void max77705_set_charger_state(struct max77705_charger_data *charger, in
 		cnfg_00, cnfg_12);
 }
 
+static void max77705_set_otg_current(struct max77705_charger_data *charger, int curr)
+{
+	u8 reg_data;
+
+	pr_info("%s: otg_curr(%d)mA\n", __func__, curr);
+	switch (curr) {
+	case 500:
+		reg_data = MAX77705_OTG_ILIM_500;
+		break;
+	case 900:
+		reg_data = MAX77705_OTG_ILIM_900;
+		break;
+	case 1200:
+		reg_data = MAX77705_OTG_ILIM_1200;
+		break;
+	case 1500:
+		reg_data = MAX77705_OTG_ILIM_1500;
+		break;
+	default:
+		reg_data = MAX77705_OTG_ILIM_900;
+		break;
+	}
+
+	max77705_update_reg(charger->i2c, MAX77705_CHG_REG_CNFG_02,
+		reg_data << CHG_CNFG_02_OTG_ILIM_SHIFT,
+		CHG_CNFG_02_OTG_ILIM_MASK);
+}
+
 static void max77705_set_skipmode(struct max77705_charger_data *charger, int enable)
 {
 
@@ -962,17 +990,8 @@ static void max77705_charger_initialize(struct max77705_charger_data *charger)
 			MAX77705_RECYCLE_EN_ENABLE << CHG_CNFG_01_RECYCLE_EN_SHIFT,
 			CHG_CNFG_01_RECYCLE_EN_MASK);
 
-#if defined(CONFIG_CHARGER_MAX77705_OTG_LIMIT)
-	/*otg current limit 900mA */
-	max77705_update_reg(charger->i2c, MAX77705_CHG_REG_CNFG_02,
-			MAX77705_OTG_ILIM_900 << CHG_CNFG_02_OTG_ILIM_SHIFT,
-			CHG_CNFG_02_OTG_ILIM_MASK);
-#else
-	/*otg current limit 1500mA */
-	max77705_update_reg(charger->i2c, MAX77705_CHG_REG_CNFG_02,
-			MAX77705_OTG_ILIM_1500 << CHG_CNFG_02_OTG_ILIM_SHIFT,
-			CHG_CNFG_02_OTG_ILIM_MASK);
-#endif
+	/* otg current limit 900mA or 1200mA in CONFIG_CHARGER_MAX77705_OTG_LIMIT */
+	max77705_set_otg_current(charger, charger->pdata->chg_otg_current);
 
 	/* BAT to SYS OCP */
 	max77705_set_b2sovrc(charger, charger->pdata->chg_ocp_current);
@@ -2331,6 +2350,19 @@ static int max77705_charger_parse_dt(struct max77705_charger_data *charger)
 		}
 		pr_info("%s: battery,chg_ocp_current is %d\n", __func__,
 			pdata->chg_ocp_current);
+
+		ret = of_property_read_u32(np, "battery,chg_otg_current",
+					   &pdata->chg_otg_current);
+		if (ret) {
+			pr_info("%s: battery,chg_otg_current is Empty\n", __func__);
+			pdata->chg_otg_current = 900; /* mA */
+		}
+#if !defined(CONFIG_CHARGER_MAX77705_OTG_LIMIT)
+		/* otg current limit 1500mA */
+		pdata->chg_otg_current = 1500; /* mA */
+#endif
+		pr_info("%s: battery,chg_otg_current is %d\n", __func__,
+			pdata->chg_otg_current);
 
 		ret = of_property_read_string(np,
 					      "battery,wireless_charger_name",

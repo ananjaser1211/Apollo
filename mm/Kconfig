@@ -784,7 +784,22 @@ config PAGE_BOOST_RECORDING
 	  As Android executes an app one by one, only allow 1 recording
 	  at a time.
 
-# IOPP-dirty_buffer-v2.0.4.4
+config PROCESS_RECLAIM
+	bool "Enable process reclaim"
+	depends on PROC_FS
+	default y
+	help
+	 It allows to reclaim pages of the process by /proc/pid/reclaim.
+
+	 (echo file > /proc/PID/reclaim) reclaims file-backed pages only.
+	 (echo anon > /proc/PID/reclaim) reclaims anonymous pages only.
+	 (echo all > /proc/PID/reclaim) reclaims all pages.
+
+	 (echo addr size-byte > /proc/PID/reclaim) reclaims pages in
+	 (addr, addr + size-bytes) of the process.
+
+	 Any other value is ignored.
+
 config LARGE_DIRTY_BUFFER
 	bool "Use large dirty_threshold value by enabling dirty_ratio"
 	default y
@@ -795,6 +810,7 @@ config LARGE_DIRTY_BUFFER
 
 config MAX_DIRTY_THRESH_PAGES
 	int "The upper bound of VM dirty_thresh value in number of pages"
+	depends on LARGE_DIRTY_BUFFER
 	default 25600
 	help
 	  This value is the upper bound of VM dirty-thresh. (0 means no limit.)

@@ -27,5 +27,6 @@
 int tas2562_register_codec(struct tas2562_priv *p_tas2562);
 int tas2562_deregister_codec(struct tas2562_priv *p_tas2562);
 int tas2562_load_config(struct tas2562_priv *p_tas2562);
+void tas2562_reset_reload(struct tas2562_priv *p_tas2562);
 
 #endif /* _TAS2562_CODEC_H */

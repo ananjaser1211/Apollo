@@ -223,7 +223,7 @@ int sensor_3l6_cis_init(struct v4l2_subdev *subdev)
 	cis->mipi_clock_index_cur = CAM_MIPI_NOT_INITIALIZED;
 	cis->mipi_clock_index_new = CAM_MIPI_NOT_INITIALIZED;
 #endif
-
+	cis->cis_data->cur_pattern_mode = SENSOR_TEST_PATTERN_MODE_OFF;
 	sensor_3l6_cis_data_calculation(sensor_3l6_pllinfos[setfile_index], cis->cis_data);
 	sensor_3l6_set_integration_max_margin(setfile_index, cis->cis_data);
 
@@ -1827,6 +1827,7 @@ static struct fimc_is_cis_ops cis_ops = {
 	.cis_wait_streamon = sensor_cis_wait_streamon,
 	.cis_data_calculation = sensor_3l6_cis_data_calc,
 	.cis_check_rev_on_init = sensor_cis_check_rev_on_init,
+	.cis_set_test_pattern = sensor_cis_set_test_pattern,
 };
 
 int cis_3l6_probe(struct i2c_client *client,

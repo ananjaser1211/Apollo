@@ -2446,6 +2446,9 @@ static int f2fs_move_file_range(struct file *file_in, loff_t pos_in,
 	if (f2fs_encrypted_inode(src) || f2fs_encrypted_inode(dst))
 		return -EOPNOTSUPP;
 
+	if (pos_out < 0 || pos_in < 0)
+		return -EINVAL;
+
 	if (src == dst) {
 		if (pos_in == pos_out)
 			return 0;
@@ -2846,6 +2849,12 @@ long f2fs_ioctl(struct file *filp, unsigned int cmd, unsigned long arg)
 	case FS_IOC_REMOVE_CHAMBER:
 		return fscrypt_sdp_ioctl(filp, cmd, arg);
 #endif
+#ifdef CONFIG_DDAR
+	case F2FS_IOC_GET_DD_POLICY:
+	case F2FS_IOC_SET_DD_POLICY:
+	case FS_IOC_GET_DD_INODE_COUNT:
+		return fscrypt_dd_ioctl(cmd, &arg, file_inode(filp));
+#endif
 	default:
 		return -ENOTTY;
 	}
@@ -2959,6 +2968,11 @@ long f2fs_compat_ioctl(struct file *file, unsigned int cmd, unsigned long arg)
 	case FS_IOC_SET_PROTECTED:
 	case FS_IOC_ADD_CHAMBER:
 	case FS_IOC_REMOVE_CHAMBER:
+#endif
+#ifdef CONFIG_DDAR
+	case F2FS_IOC_GET_DD_POLICY:
+	case F2FS_IOC_SET_DD_POLICY:
+	case FS_IOC_GET_DD_INODE_COUNT:
 #endif
 		break;
 	default:

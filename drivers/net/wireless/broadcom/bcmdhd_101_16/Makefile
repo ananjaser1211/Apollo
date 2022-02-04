@@ -1,5 +1,5 @@
 #
-# Copyright (C) 2020, Broadcom.
+# Copyright (C) 2021, Broadcom.
 #
 #      Unless you and Broadcom execute a separate written software license
 # agreement governing use of this software, this software is licensed to you
@@ -32,12 +32,7 @@ DHDCFLAGS += -Wall -Werror -Wstrict-prototypes -Dlinux -DLINUX -DBCMDRIVER      
         -DSEC_ENHANCEMENT
 
 DHDCFLAGS += -DOEM_ANDROID
-ifeq ($(SEC_BUILD_OPTION_ALT_WIFI), true)
-export CONFIG_BCM4389=m
-export CONFIG_BCM4375=n
-endif
-$(warning DHDMAKEFILE CONFIG_BCM4389 = $(CONFIG_BCM4389))
-$(warning DHDMAKEFILE CONFIG_BCM4375 = $(CONFIG_BCM4375))
+
 #####################
 # Bus Interface Type
 #####################
@@ -219,6 +214,7 @@ DHDCFLAGS += -DDEBUG_SETROAMMODE
 DHDCFLAGS += -DCUSTOM_ROAM_TIME_THRESH_IN_SUSPEND=6000
 DHDCFLAGS += -DENABLE_MAX_DTIM_IN_SUSPEND
 DHDCFLAGS += -DMAX_DTIM_ALLOWED_INTERVAL=925
+DHDCFLAGS += -DCUSTOM_SUSPEND_BCN_LI_DTIM=1
 DHDCFLAGS += -DDISABLE_DTIM_IN_SUSPEND
 
 # SoftAP
@@ -254,6 +250,9 @@ DHDCFLAGS += -DSUPPORT_SET_TID
 DHDCFLAGS += -DROAMEXP_SUPPORT
 DHDCFLAGS += -DCUSTOM_BSSID_BLACKLIST_NUM=0
 DHDCFLAGS += -DCUSTOM_SSID_WHITELIST_NUM=0
+# For cleanup KEEP_ALIVE
+DHDCFLAGS += -DDHD_CLEANUP_KEEP_ALIVE
+
 # Extended HANG event with reason codes
 DHDCFLAGS += -DDHD_USE_EXTENDED_HANG_REASON
 # Override HANG detect on MFG Test
@@ -360,6 +359,10 @@ ifeq ($(CONFIG_WLAN_VENDOR_DUMP_ENABLE),y)
        DHDCFLAGS := $(filter-out -DDHD_DUMP_FILE_WRITE_FROM_KERNEL ,$(DHDCFLAGS))
 endif
 
+ifeq ($(CONFIG_WLAN_ANQP_RMAC_BACKPORTED),y)
+	DHDCFLAGS += -DWL_SUPPORT_BACKPORTED_ANQP_RMAC
+endif
+
 ##############################
 # Android Platform Definition
 ##############################
@@ -416,12 +419,10 @@ DHDCFLAGS += -DCUSTOM_COUNTRY_CODE_XZ
 DHDCFLAGS += -DWL_SCHED_SCAN
 
 # Enable the Linux Firmware API for Andorid R OS
-ifeq ($(BUS_IFACE_PCIE),y)
 DHDCFLAGS += -DDHD_LINUX_STD_FW_API
 DHDCFLAGS += -DDHD_FW_NAME="\"bcmdhd_sta.bin\""
 DHDCFLAGS += -DDHD_NVRAM_NAME="\"nvram.txt\""
 DHDCFLAGS += -DDHD_CLM_NAME="\"bcmdhd_clm.blob\""
-endif
 
 # GN4 platform still disabled Lollipop features
 ifeq ($(filter y,$(CONFIG_MACH_UNIVERSAL5433) $(CONFIG_ARCH_APQ8084)),y)
@@ -535,6 +536,10 @@ ifeq ($(filter y,$(CONFIG_SOC_EXYNOS9820) $(CONFIG_SOC_EXYNOS9830) \
 # AXI error logging
   DHDCFLAGS += -DDNGL_AXI_ERROR_LOGGING
 #DHDCFLAGS += -DDHD_USE_WQ_FOR_DNGL_AXI_ERROR
+endif
+# Host wakeup gpio debug
+ifeq ($(CONFIG_SOC_EXYNOS2100),y)
+  DHDCFLAGS += -DPRINT_WAKEUP_GPIO_STATUS
 endif
   DHDCFLAGS += -DUSE_DMA_LOCK
   DHDCFLAGS += -DDHD_MAP_LOGGING
@@ -692,6 +697,7 @@ endif
   DHDCFLAGS += -DWL_BCNRECV
 # Iface force dev close
   DHDCFLAGS += -DIFACE_HANG_FORCE_DEV_CLOSE
+  DHDCFLAGS += -DHANG_DELAY_BEFORE_DEV_CLOSE
 
 # Basic types and constants relating to 802.11ax
   DHDCFLAGS += -DWL11AX
@@ -811,6 +817,10 @@ ifeq ($(filter y,$(CONFIG_SOC_EXYNOS9820) $(CONFIG_SOC_EXYNOS9830) \
 # AXI error logging
   DHDCFLAGS += -DDNGL_AXI_ERROR_LOGGING
   #DHDCFLAGS += -DDHD_USE_WQ_FOR_DNGL_AXI_ERROR
+endif
+# Host wakeup gpio debug
+ifeq ($(CONFIG_SOC_EXYNOS2100),y)
+  DHDCFLAGS += -DPRINT_WAKEUP_GPIO_STATUS
 endif
   DHDCFLAGS += -DUSE_DMA_LOCK
   DHDCFLAGS += -DDHD_MAP_LOGGING
@@ -966,6 +976,9 @@ endif
   DHDCFLAGS += -DWL_CAC_TS
 # FAKEAP
   DHDCFLAGS += -DWL_BCNRECV
+# Iface force dev close
+  DHDCFLAGS += -DIFACE_HANG_FORCE_DEV_CLOSE
+  DHDCFLAGS += -DHANG_DELAY_BEFORE_DEV_CLOSE
 
 # Basic types and constants relating to 802.11ax
   DHDCFLAGS += -DWL11AX
@@ -1041,6 +1054,8 @@ ifneq ($(CONFIG_BCM4361),)
 # Customer ocl disabe
  DHDCFLAGS += -DCUSTOM_SET_OCLOFF
  DHDCFLAGS += -DCUSTOM_BLOCK_DEAUTH_AT_EAP_FAILURE
+# Channel Utilization
+ DHDCFLAGS += -DWL_GET_CU
 # OCE/MBO
 DHDCFLAGS += -DWL_MBO
 DHDCFLAGS += -DWL_OCE
@@ -1055,6 +1070,8 @@ DHDCFLAGS += -DWL_FILS_ROAM_OFFLD
 endif
 # ADDTS
  DHDCFLAGS += -DWL_CAC_TS
+# FAKEAP
+ DHDCFLAGS += -DWL_BCNRECV
 # tput enhancement for PCIE
 ifeq ($(BUS_IFACE_PCIE),y)
   DHDCFLAGS += -DCUSTOM_TCPACK_SUPP_RATIO=15
@@ -1201,6 +1218,8 @@ ifeq ($(CONFIG_BCM4361),y)
 endif
 # Latency critical data
   DHDCFLAGS += -DSUPPORT_LATENCY_CRITICAL_DATA
+# Silent roam
+  DHDCFLAGS += -DCONFIG_SILENT_ROAM
 endif
 
 ifneq ($(CONFIG_BCM4359),)
@@ -1713,14 +1732,22 @@ ifeq ($(CONFIG_NOBLESSE),y)
  DHDCFLAGS += -DDHD_PM_OVERRIDE
  DHDCFLAGS += -DP2P_IF_STATE_EVENT_CTRL
 endif
+ifeq ($(CONFIG_WLAN_MERLOT),y)
+ DHDCFLAGS += -USUPPORT_P2P_GO_PS
+ DHDCFLAGS += -UP2P_LISTEN_OFFLOADING
+ DHDCFLAGS += -DUSE_INITIAL_2G_SCAN
+ DHDCFLAGS += -DENABLE_WAKEUP_PKT_DUMP
+ DHDCFLAGS += -DWL_CFGVENDOR_SEND_HANG_EVENT
+ DHDCFLAGS += -DNOT_SUPPORT_EXT_TRAP_INFO
+ DHDCFLAGS += -DDHD_USE_EXTENDED_HANG_REASON
+ DHDCFLAGS += -DDHD_DUMP_MNGR
+ DHDCFLAGS += -DTSQ_MULTIPLIER=10
+ DHDCFLAGS += -DDHD_PM_OVERRIDE
+ DHDCFLAGS += -DP2P_IF_STATE_EVENT_CTRL
+endif
   # Remove common feature for 43013
   DHDCFLAGS :=$(filter-out -DROAM_AP_ENV_DETECTION,$(DHDCFLAGS))
   DHDCFLAGS :=$(filter-out -DDISABLE_11H_SOFTAP,$(DHDCFLAGS))
-endif
-
-ifneq ($(CONFIG_BCM43013),)
-  # band lock : auto=0, 5G=1, 2G=2
-  DHDCFLAGS += -DBANDLOCK=2
 endif
 endif # chipset supported SDIO only
 

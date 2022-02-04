@@ -64,9 +64,11 @@
 #include <asm/tlb.h>
 
 #include <trace/events/task.h>
+/*
 #ifdef CONFIG_RKP_NS_PROT
 #include "mount.h"
 #endif
+*/
 #include "internal.h"
 
 #include <trace/events/sched.h>
@@ -1270,6 +1272,8 @@ void __set_task_comm(struct task_struct *tsk, const char *buf, bool exec)
 	task_unlock(tsk);
 	perf_event_comm(tsk, exec);
 }
+
+#if 0
 #ifdef CONFIG_RKP_NS_PROT
 extern struct super_block *sys_sb;	/* pointer to superblock */
 extern struct super_block *odm_sb;	/* pointer to superblock */
@@ -1301,6 +1305,7 @@ static int kdp_check_path_mismatch(struct vfsmount *vfsmnt)
 		"/com.android.conscrypt",
 		"/com.android.art",
 		"/com.android.adbd",
+		"/com.android.sdkext",
 	};
 
 	if (!vfsmnt->bp_mount) {
@@ -1367,6 +1372,7 @@ static int is_rkp_priv_task(void)
 	return 0;
 }
 #endif
+#endif
 
 int flush_old_exec(struct linux_binprm * bprm)
 {
@@ -1392,11 +1398,13 @@ int flush_old_exec(struct linux_binprm * bprm)
 	 */
 	acct_arg_size(bprm, 0);
 #ifdef CONFIG_RKP_NS_PROT
+	/*
 	if(rkp_cred_enable &&
 		is_rkp_priv_task() && 
 		invalid_drive(bprm)) {
 		panic("\n KDP_NS: Illegal Execution of file #%s#\n", bprm->filename);
 	}
+	*/
 #endif /*CONFIG_RKP_NS_PROT*/
 	retval = exec_mmap(bprm->mm);
 	if (retval)

@@ -96,9 +96,6 @@ static struct mdnie_table *mdnie_find_table(struct mdnie_info *mdnie)
 	} else if (IS_COLOR_LENS(mdnie->color_lens)) {
 		table = mdnie->tune->lens_table ? &mdnie->tune->lens_table[mdnie->color_lens] : NULL;
 		goto exit;
-	} else if (IS_HDR(mdnie->hdr)) {
-		table = mdnie->tune->hdr_table ? &mdnie->tune->hdr_table[mdnie->hdr] : NULL;
-		goto exit;
 	} else if (IS_HMT(mdnie->hmt_mode)) {
 		table = mdnie->tune->hmt_table ? &mdnie->tune->hmt_table[mdnie->hmt_mode] : NULL;
 		goto exit;
@@ -107,6 +104,9 @@ static struct mdnie_table *mdnie_find_table(struct mdnie_info *mdnie)
 		goto exit;
 	} else if (IS_HBM(mdnie->hbm)) {
 		table = mdnie->tune->hbm_table ? &mdnie->tune->hbm_table[mdnie->hbm] : NULL;
+		goto exit;
+	} else if (IS_HDR(mdnie->hdr)) {
+		table = mdnie->tune->hdr_table ? &mdnie->tune->hdr_table[mdnie->hdr] : NULL;
 		goto exit;
 	} else if (IS_DMB(mdnie->scenario)) {
 		table = mdnie->tune->dmb_table ? &mdnie->tune->dmb_table[mdnie->mode] : NULL;

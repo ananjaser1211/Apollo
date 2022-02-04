@@ -198,7 +198,9 @@
  *
  */
 
+#include <linux/backlight.h>
 #include <linux/lcd.h>
+#include <linux/platform_device.h>
 #include "../dsim.h"
 #include "../decon_board.h"
 
@@ -222,6 +224,49 @@ static int __init get_lcd_type(char *arg)
 	return 0;
 }
 early_param("lcdtype", get_lcd_type);
+
+struct platform_device *panel;
+struct platform_device *panel_drv;
+
+static struct platform_device *get_parent_platform_device(void)
+{
+	if (!panel) {
+		panel = platform_device_register_resndata(NULL, "panel", PLATFORM_DEVID_NONE, NULL, 0, NULL, 0);
+		if (!panel)
+			return NULL;
+	}
+
+	if (!panel_drv) {
+		panel_drv = platform_device_register_resndata(&panel->dev, "panel_drv", PLATFORM_DEVID_NONE, NULL, 0, NULL, 0);
+		if (!panel_drv)
+			return NULL;
+	}
+
+	return panel_drv;
+}
+
+struct lcd_device *exynos_lcd_device_register(const char *name,
+	struct device *parent, void *devdata, struct lcd_ops *ops)
+{
+	struct platform_device *p = get_parent_platform_device();
+
+	if (!p)
+		return NULL;
+
+	return lcd_device_register(name, &p->dev, devdata, ops);
+}
+
+struct backlight_device *exynos_backlight_device_register(const char *name,
+	struct device *dev, void *devdata, const struct backlight_ops *ops,
+	const struct backlight_properties *props)
+{
+	struct platform_device *p = get_parent_platform_device();
+
+	if (!p)
+		return NULL;
+
+	return backlight_device_register(name, &p->dev, devdata, ops, props);
+}
 
 struct dsim_lcd_driver *mipi_lcd_driver;
 

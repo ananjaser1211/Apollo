@@ -211,10 +211,10 @@ static void initialize_variable(struct ssp_data *data)
 	data->IsVDIS_Enabled = false;
         data->IsAPsuspend = false;
         data->IsNoRespCnt = 0;
-
+#if defined(CONFIG_SENSORS_SABC)
 	data->camera_lux_en = false;
 //	data->brightness = -1;
-
+#endif
 	data->hall_ic_status = 0;
 }
 
@@ -291,9 +291,9 @@ int initialize_mcu(struct ssp_data *data)
 
 
 	send_hall_ic_status(data->hall_ic_status);
-
+#if defined(CONFIG_SENSORS_SABC)
 	set_light_brightness(data);
-
+#endif
 /* hoi: il dan mak a */
 #ifndef CONFIG_SENSORS_SSP_BBD
 	iRet = ssp_send_cmd(data, MSG2SSP_AP_MCU_DUMP_CHECK, 0);
@@ -603,18 +603,25 @@ int ssp_motor_callback(int state)
 {
 	int iRet = 0;
 
-	ssp_data_info->motor_state = state;
+	if (ssp_data_info != NULL) {
+		ssp_data_info->motor_state = state;
 
-	queue_work(ssp_data_info->ssp_motor_wq,
-			&ssp_data_info->work_ssp_motor);
-
-	pr_info("[SSP] %s : Motor state %d\n", __func__, state);
+		if (ssp_data_info->ssp_motor_wq != NULL)
+				queue_work(ssp_data_info->ssp_motor_wq, &ssp_data_info->work_ssp_motor);
+		pr_info("[SSP] %s : Motor state %d\n", __func__, state);
+	} else {
+		pr_info("[SSP] %s : ssp do not ready yet.\n", __func__);
+	}
+	
 
 	return iRet;
 }
 int get_current_motor_state(void)
 {
-	return ssp_data_info->motor_state;
+	if (ssp_data_info != NULL)
+		return ssp_data_info->motor_state;
+	else
+		return 0;
 }
 int (*getMotorCallback(void))(int)
 {
@@ -632,7 +639,7 @@ void ssp_motor_work_func(struct work_struct *work)
 	pr_info("[SSP] %s : Motor state %d, iRet %d\n", __func__, data->motor_state, iRet);
 }
 #endif
-
+#if defined(CONFIG_SENSORS_SABC)
 void set_light_brightness(struct ssp_data *data) {
 	struct ssp_msg *msg = kzalloc(sizeof(*msg), GFP_KERNEL);
 	int iRet = 0;
@@ -655,7 +662,7 @@ void set_light_brightness(struct ssp_data *data) {
 	else
 		pr_info("[SSP] %s, %d\n", __func__, data->brightness);
 }
-
+#endif
 int send_hall_ic_status(bool enable) {
 	struct ssp_msg *msg;
 	int iRet = 0;

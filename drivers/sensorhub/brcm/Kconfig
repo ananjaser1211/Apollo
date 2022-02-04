@@ -743,6 +743,15 @@ config SENSORS_A96T3X6_CRC_CHECK
 	help
 	  Say Y here if you use crc check instead of checksum compare
 
+config SENSORS_A96T365IF
+	tristate "a96t365IF Grip sensor"
+	default n
+	help
+	  Say Y here if you use a96t365IF.
+	  This option enables grip sensors using
+	  ABOV a96t365IF device driver.
+	  Say N here if you do not use a96t365IF.
+
 config SENSORS_SSP_VCNL36811S
 	bool "vcnl36811s proximity sensor"
 	default n
@@ -759,5 +768,13 @@ config SENSORS_SSP_GTACTIVE3
 	  factory test.
 	  To compile this driver as a module, choose M here: the
 	  module will be called ssp.
+
+config SENSORS_SABC
+	tristate "sABC Algorithm"
+	default n
+	depends on SPI
+	help
+		If you have to use sABC alogorithm, 
+		it should be set, it use camera lux.
 
 source "drivers/sensorhub/brcm/bbdpl/Kconfig"

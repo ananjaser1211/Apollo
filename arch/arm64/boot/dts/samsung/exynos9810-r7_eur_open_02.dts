@@ -4278,10 +4278,13 @@
 				battery,swelling_high_rechg_voltage = <0xfa0>;
 				battery,swelling_low_rechg_thr = <0x96>;
 				battery,siop_input_limit_current = <0x4b0>;
+				battery,siop_input_limit_current_siop20 = <0x3e8>;
 				battery,siop_charging_limit_current = <0x3e8>;
 				battery,siop_hv_input_limit_current = <0x2bc>;
+				battery,siop_hv_input_limit_current_siop20 = <0x226>;
 				battery,siop_hv_input_limit_current_2nd = <0x1c2>;
 				battery,siop_hv_charging_limit_current = <0x3e8>;
+				battery,siop_hv_12v_input_limit_current_siop20 = <0x1c2>;
 				battery,siop_apdo_input_limit_current = <0x4b0>;
 				battery,siop_apdo_charging_limit_current = <0x7d0>;
 				battery,siop_wireless_input_limit_current = <0x258>;

@@ -2753,6 +2753,7 @@ static int decon_set_win_config(struct decon_device *decon,
 	 */
 	if (num_of_window)
 			fd_install(win_data->retire_fence, sync_file->file);
+
 	mutex_unlock(&decon->lock);
 #if defined(CONFIG_SUPPORT_MASK_LAYER)
 	if (decon->wait_mask_layer_trigger) {

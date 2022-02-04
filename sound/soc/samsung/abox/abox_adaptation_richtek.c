@@ -230,7 +230,7 @@ static int samsung_abox_adaptation_remove(struct platform_device *pdev)
 
 static const struct of_device_id samsung_abox_adaptation_match[] = {
 	{
-		.compatible = "samsung,abox-adaptation",
+		.compatible = "samsung,abox-adaptation-richtek",
 	},
 	{},
 };
@@ -240,7 +240,7 @@ static struct platform_driver samsung_abox_adaptation_driver = {
 	.probe  = samsung_abox_adaptation_probe,
 	.remove = samsung_abox_adaptation_remove,
 	.driver = {
-	.name = "samsung-abox-adaptation",
+	.name = "samsung-abox-adaptation-richtek",
 	.owner = THIS_MODULE,
 	.of_match_table = of_match_ptr(samsung_abox_adaptation_match),
 	},
@@ -250,5 +250,5 @@ module_platform_driver(samsung_abox_adaptation_driver);
 /* Module information */
 MODULE_AUTHOR("SeokYoung Jang, <quartz.jang@samsung.com>");
 MODULE_DESCRIPTION("Samsung ASoC A-Box Adaptation Driver");
-MODULE_ALIAS("platform:samsung-abox-adaptation");
+MODULE_ALIAS("platform:samsung-abox-adaptation-richtek");
 MODULE_LICENSE("GPL");

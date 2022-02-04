@@ -146,6 +146,8 @@
 #define	DEC_SET_DYNAMIC_DPB		(1 << 1)
 #define	DEC_SET_LAST_FRAME_INFO		(1 << 2)
 #define	DEC_SET_SKYPE_FLAG		(1 << 3)
+#define	DEC_SET_OPERATING_FPS		(1 << 8)
+#define	DEC_SET_PRIORITY		(1 << 23)
 
 /* Extra information for Encoder */
 #define	ENC_SET_RGB_INPUT		(1 << 0)
@@ -160,6 +162,8 @@
 #define	ENC_SET_COLOR_ASPECT		(1 << 9)
 #define	ENC_SET_HP_BITRATE_CONTROL	(1 << 10)
 #define	ENC_SET_STATIC_INFO		(1 << 11)
+#define	ENC_SET_OPERATING_FPS		(1 << 18)
+#define	ENC_SET_PRIORITY		(1 << 23)
 
 #define MFC_VER_MAJOR(dev)	((s5p_mfc_version(dev) >> 8) & 0xFF)
 #define MFC_VER_MINOR(dev)	(s5p_mfc_version(dev) & 0xFF)

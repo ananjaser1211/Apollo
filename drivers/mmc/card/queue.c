@@ -311,18 +311,21 @@ int mmc_init_queue(struct mmc_queue *mq, struct mmc_card *card,
 		host->index, subname ? subname : "");
 
 	if (mmc_card_sd(card)) {
-		/* decrease max # of requests to 32. The goal of this tunning is
+		/* decrease max # of requests to 32. The goal of this tuning is
 		 * reducing the time for draining elevator when elevator_switch
 		 * function is called. It is effective for slow external sdcard.
 		 */
 		mq->queue->nr_requests = BLKDEV_MAX_RQ / 8;
-		if (mq->queue->nr_requests < 32) mq->queue->nr_requests = 32;
+		if (mq->queue->nr_requests < 32)
+			mq->queue->nr_requests = 32;
+
 #ifdef CONFIG_LARGE_DIRTY_BUFFER
 		/* apply more throttle on external sdcard */
 		mq->queue->backing_dev_info.capabilities |= BDI_CAP_STRICTLIMIT;
 		bdi_set_min_ratio(&mq->queue->backing_dev_info, 30);
 		bdi_set_max_ratio(&mq->queue->backing_dev_info, 60);
 #endif
+
 		pr_info("Parameters for external-sdcard: min/max_ratio: %u/%u "
 			"strictlimit: on nr_requests: %lu read_ahead_kb: %lu\n",
 			mq->queue->backing_dev_info.min_ratio,

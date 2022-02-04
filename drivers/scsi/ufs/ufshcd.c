@@ -952,9 +952,6 @@ static inline void ufshcd_hba_start(struct ufs_hba *hba)
 }
 
 #ifdef CUSTOMIZE_UPIU_FLAGS
-SIO_PATCH_VERSION(UPIU_customize, 1, 1, "");
-
-/* IOPP-ufs_cp-v1.0.4.9 */
 static void set_customized_upiu_flags(struct ufshcd_lrb *lrbp, u32 *upiu_flags)
 {
 	if (lrbp->command_type == UTP_CMD_TYPE_SCSI) {

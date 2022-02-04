@@ -939,10 +939,12 @@ struct ssp_data {
 /* no ack about mcu_resp pin*/
         bool IsNoRespCnt;
 	bool hall_ic_status; // 0: open, 1: close
+#if defined(CONFIG_SENSORS_SABC)
 	int brightness;
 	int last_brightness_level;
 	bool camera_lux_en;
 	int camera_lux;
+#endif
 };
 
 //#if defined (CONFIG_SENSORS_SSP_VLTE)
@@ -1181,7 +1183,9 @@ void ssp_reset_work_func(struct work_struct *work);
 void set_AccelCalibrationInfoData(char *pchRcvDataFrame, int *iDataIdx);
 void set_GyroCalibrationInfoData(char *pchRcvDataFrame, int *iDataIdx);
 int send_vdis_flag(struct ssp_data *data, bool bFlag);
+#if defined(CONFIG_SENSORS_SABC)
 void set_light_brightness(struct ssp_data *data);
+#endif
 void initialize_super_vdis_setting(void);
 
 int proximity_save_calibration(int *cal_data, int size);

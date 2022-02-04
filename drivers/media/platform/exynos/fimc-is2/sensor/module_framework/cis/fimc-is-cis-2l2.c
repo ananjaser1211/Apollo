@@ -322,7 +322,7 @@ int sensor_2l2_cis_init(struct v4l2_subdev *subdev)
 	cis->need_mode_change = false;
 	cis->long_term_mode.sen_strm_off_on_step = 0;
 	cis->long_term_mode.sen_strm_off_on_enable = false;
-
+	cis->cis_data->cur_pattern_mode = SENSOR_TEST_PATTERN_MODE_OFF;
 	sensor_2l2_cis_data_calculation(sensor_2l2_pllinfos[setfile_index], cis->cis_data);
 	sensor_2l2_set_integration_max_margin(setfile_index, cis->cis_data);
 
@@ -685,6 +685,8 @@ int sensor_2l2_cis_retention_crc_check(struct v4l2_subdev *subdev)
 
 	if(crc_check == 0x01) {
 		info("[%s] retention SRAM CRC check: pass!\n", __func__);
+		/* init pattern */
+		fimc_is_sensor_write16(cis->client, 0x0600, 0x0000);
 	} else {
 		info("[%s] retention SRAM CRC check: fail! Undefined Retention SRAM CRC Check register value: 0x%x\n", __func__, crc_check);
 
@@ -2126,6 +2128,7 @@ static struct fimc_is_cis_ops cis_ops_2l2 = {
 	.cis_set_long_term_exposure = sensor_2l2_cis_long_term_exposure,
 	.cis_check_rev_on_init = sensor_cis_check_rev_on_init,
 	.cis_recover_stream_on = sensor_2l2_cis_recover_stream_on,
+	.cis_set_test_pattern =  sensor_cis_set_test_pattern,
 };
 
 static int cis_2l2_probe(struct i2c_client *client,

@@ -2220,7 +2220,8 @@ static void rt5665_jack_detect_handler(struct work_struct *work)
 					RT5665_EJD_CTRL_1, 0x180, 0x180);
 
 				rt5665_button_detect(rt5665->codec);
-			} else {
+			} else if ((rt5665->jack_type & SND_JACK_HEADSET) ==
+				SND_JACK_HEADSET) {
 				sar_adc_value = snd_soc_read(rt5665->codec,
 					RT5665_SAR_IL_CMD_4) & 0x7ff;
 				rt5665->adc_val = sar_adc_value;

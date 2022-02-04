@@ -251,6 +251,12 @@ struct fsxattr {
 #define FS_IOC_FSGETXATTR		_IOR ('X', 31, struct fsxattr)
 #define FS_IOC_FSSETXATTR		_IOW ('X', 32, struct fsxattr)
 
+#ifdef CONFIG_DDAR
+#define FS_IOC_GET_DD_POLICY			_IO('P', 0x00)
+#define FS_IOC_SET_DD_POLICY			_IO('P', 0x01)
+#define FS_IOC_GET_DD_INODE_COUNT		_IOR('P', 0x02, long)
+#endif
+
 #if defined(CONFIG_SDP) && !defined(CONFIG_FSCRYPT_SDP)
 #define FS_IOC_INVAL_MAPPING		_IO('f', 13)	/* CONFIG_EPM FMP */
 #endif
