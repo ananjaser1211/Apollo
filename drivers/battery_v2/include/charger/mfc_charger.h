@@ -709,8 +709,6 @@ struct mfc_charger_data {
 	bool is_probed;
 	bool is_afc_tx;
 	int tx_id;
-
-	struct mutex fw_lock;
 };
 
 #endif /* __MFC_CHARGER_H */
