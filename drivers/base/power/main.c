@@ -425,7 +425,7 @@ static void dpm_watchdog_handler(unsigned long data)
 
 	dev_emerg(wd->dev, "**** DPM device timeout ****\n");
 #ifdef CONFIG_SEC_DEBUG_EXTRA_INFO
-	sec_debug_set_extra_info_dpm_timeout(dev_name(wd->dev));
+	sec_debug_set_extra_info_dpm_timeout((char *)dev_name(wd->dev));
 #endif
 	show_stack(wd->tsk, NULL);
 	panic("%s %s: unrecoverable failure\n",

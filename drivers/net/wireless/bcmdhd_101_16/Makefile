@@ -1,5 +1,5 @@
 #
-# Copyright (C) 2020, Broadcom.
+# Copyright (C) 2021, Broadcom.
 #
 #      Unless you and Broadcom execute a separate written software license
 # agreement governing use of this software, this software is licensed to you
@@ -250,6 +250,9 @@ DHDCFLAGS += -DSUPPORT_SET_TID
 DHDCFLAGS += -DROAMEXP_SUPPORT
 DHDCFLAGS += -DCUSTOM_BSSID_BLACKLIST_NUM=0
 DHDCFLAGS += -DCUSTOM_SSID_WHITELIST_NUM=0
+# For cleanup KEEP_ALIVE
+DHDCFLAGS += -DDHD_CLEANUP_KEEP_ALIVE
+
 # Extended HANG event with reason codes
 DHDCFLAGS += -DDHD_USE_EXTENDED_HANG_REASON
 # Override HANG detect on MFG Test
@@ -534,6 +537,10 @@ ifeq ($(filter y,$(CONFIG_SOC_EXYNOS9820) $(CONFIG_SOC_EXYNOS9830) \
   DHDCFLAGS += -DDNGL_AXI_ERROR_LOGGING
 #DHDCFLAGS += -DDHD_USE_WQ_FOR_DNGL_AXI_ERROR
 endif
+# Host wakeup gpio debug
+ifeq ($(CONFIG_SOC_EXYNOS2100),y)
+  DHDCFLAGS += -DPRINT_WAKEUP_GPIO_STATUS
+endif
   DHDCFLAGS += -DUSE_DMA_LOCK
   DHDCFLAGS += -DDHD_MAP_LOGGING
   DHDCFLAGS += -DDHD_MAP_PKTID_LOGGING
@@ -811,6 +818,10 @@ ifeq ($(filter y,$(CONFIG_SOC_EXYNOS9820) $(CONFIG_SOC_EXYNOS9830) \
   DHDCFLAGS += -DDNGL_AXI_ERROR_LOGGING
   #DHDCFLAGS += -DDHD_USE_WQ_FOR_DNGL_AXI_ERROR
 endif
+# Host wakeup gpio debug
+ifeq ($(CONFIG_SOC_EXYNOS2100),y)
+  DHDCFLAGS += -DPRINT_WAKEUP_GPIO_STATUS
+endif
   DHDCFLAGS += -DUSE_DMA_LOCK
   DHDCFLAGS += -DDHD_MAP_LOGGING
   DHDCFLAGS += -DDHD_MAP_PKTID_LOGGING
@@ -1043,6 +1054,8 @@ ifneq ($(CONFIG_BCM4361),)
 # Customer ocl disabe
  DHDCFLAGS += -DCUSTOM_SET_OCLOFF
  DHDCFLAGS += -DCUSTOM_BLOCK_DEAUTH_AT_EAP_FAILURE
+# Channel Utilization
+ DHDCFLAGS += -DWL_GET_CU
 # OCE/MBO
 DHDCFLAGS += -DWL_MBO
 DHDCFLAGS += -DWL_OCE
@@ -1057,6 +1070,8 @@ DHDCFLAGS += -DWL_FILS_ROAM_OFFLD
 endif
 # ADDTS
  DHDCFLAGS += -DWL_CAC_TS
+# FAKEAP
+ DHDCFLAGS += -DWL_BCNRECV
 # tput enhancement for PCIE
 ifeq ($(BUS_IFACE_PCIE),y)
   DHDCFLAGS += -DCUSTOM_TCPACK_SUPP_RATIO=15
@@ -1733,11 +1748,6 @@ endif
   # Remove common feature for 43013
   DHDCFLAGS :=$(filter-out -DROAM_AP_ENV_DETECTION,$(DHDCFLAGS))
   DHDCFLAGS :=$(filter-out -DDISABLE_11H_SOFTAP,$(DHDCFLAGS))
-endif
-
-ifneq ($(CONFIG_BCM43013),)
-  # band lock : auto=0, 5G=1, 2G=2
-  DHDCFLAGS += -DBANDLOCK=2
 endif
 endif # chipset supported SDIO only
 

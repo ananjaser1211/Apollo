@@ -1,7 +1,7 @@
 /*
  * DHD Bus Module for PCIE
  *
- * Copyright (C) 2020, Broadcom.
+ * Copyright (C) 2021, Broadcom.
  *
  *      Unless you and Broadcom execute a separate written software license
  * agreement governing use of this software, this software is licensed to you
@@ -250,7 +250,9 @@ static void dhd_bus_idle_scan(dhd_bus_t *bus);
 #ifdef EXYNOS_PCIE_DEBUG
 extern void exynos_pcie_register_dump(int ch_num);
 #endif /* EXYNOS_PCIE_DEBUG */
-
+#ifdef PRINT_WAKEUP_GPIO_STATUS
+extern void exynos_pin_dbg_show(unsigned int pin, const char* str);
+#endif /* PRINT_WAKEUP_GPIO_STATUS */
 #if defined(DHD_H2D_LOG_TIME_SYNC)
 static void dhdpci_bus_rte_log_time_sync_poll(dhd_bus_t *bus);
 #endif /* DHD_H2D_LOG_TIME_SYNC */
@@ -3804,6 +3806,8 @@ dhdpcie_mem_dump(dhd_bus_t *bus)
 		case DUMP_TYPE_ESCAN_SYNCID_MISMATCH:
 			/* intentional fall through */
 		case DUMP_TYPE_INVALID_SHINFO_NRFRAGS:
+			/* intentional fall through */
+		case DUMP_TYPE_P2P_DISC_BUSY:
 			if (dhdp->db7_trap.fw_db7w_trap) {
 				/* Set fw_db7w_trap_inprogress here and clear from DPC */
 				dhdp->db7_trap.fw_db7w_trap_inprogress = TRUE;
@@ -7080,7 +7084,7 @@ dhdpcie_bus_suspend(struct dhd_bus *bus, bool state)
 			uint32 intstatus = si_corereg(bus->sih, bus->sih->buscoreidx,
 				bus->pcie_mailbox_int, 0, 0);
 			int host_irq_disabled = dhdpcie_irq_disabled(bus);
-			if ((intstatus != (uint32)-1) &&
+			if ((intstatus) && (intstatus != (uint32)-1) &&
 				(timeleft == 0) && (!dhd_query_bus_erros(bus->dhd))) {
 				DHD_ERROR(("%s: resumed on timeout for D3 ack. intstatus=%x"
 					" host_irq_disabled=%d\n",
@@ -10262,6 +10266,9 @@ static bool
 dhdpci_bus_read_frames(dhd_bus_t *bus)
 {
 	bool more = FALSE;
+#if defined(EWP_EDL)
+	uint32 edl_itmes = 0;
+#endif /* EWP_EDL */
 
 	/* First check if there a FW trap */
 	if ((bus->api.fw_rev >= PCIE_SHARED_VERSION_6) &&
@@ -10322,7 +10329,7 @@ dhdpci_bus_read_frames(dhd_bus_t *bus)
 	}
 #ifdef EWP_EDL
 	else {
-		more |= dhd_prot_process_msgbuf_edl(bus->dhd);
+		more |= dhd_prot_process_msgbuf_edl(bus->dhd, &edl_itmes);
 		bus->last_process_edl_time = OSL_LOCALTIME_NS();
 	}
 #endif /* EWP_EDL */
@@ -10382,6 +10389,13 @@ dhdpci_bus_read_frames(dhd_bus_t *bus)
 #if defined(DHD_H2D_LOG_TIME_SYNC)
 	dhdpci_bus_rte_log_time_sync_poll(bus);
 #endif /* DHD_H2D_LOG_TIME_SYNC */
+
+#if defined(EWP_EDL) && defined(DHD_WAKE_STATUS)
+	if ((edl_itmes > 0) && (bcmpcie_get_edl_wake(bus) > 0)) {
+		DHD_ERROR(("##### dhdpcie_host_wake caused by Event Logs, edl_itmes %d\n",
+			edl_itmes));
+	}
+#endif /* EWP_EDL && DHD_WAKE_STATUS */
 	return more;
 }
 
@@ -13836,6 +13850,9 @@ dhd_pcie_intr_count_dump(dhd_pub_t *dhd)
 	DHD_ERROR(("oob_irq_enabled=%d oob_gpio_level=%d\n",
 		dhdpcie_get_oob_irq_status(bus),
 		dhdpcie_get_oob_irq_level()));
+#ifdef PRINT_WAKEUP_GPIO_STATUS
+	exynos_pin_dbg_show(dhdpcie_get_oob_gpio_number(), "gpa0");
+#endif /* PRINT_WAKEUP_GPIO_STATUS */
 #endif /* BCMPCIE_OOB_HOST_WAKE */
 	DHD_ERROR(("dpc_return_busdown_count=%lu non_ours_irq_count=%lu\n",
 		bus->dpc_return_busdown_count, bus->non_ours_irq_count));

@@ -3,7 +3,7 @@
  * Provides type definitions and function prototypes used to link the
  * DHD OS, bus, and protocol modules.
  *
- * Copyright (C) 2020, Broadcom.
+ * Copyright (C) 2021, Broadcom.
  *
  *      Unless you and Broadcom execute a separate written software license
  * agreement governing use of this software, this software is licensed to you
@@ -914,6 +914,13 @@ dhd_prot_check_pending_ctrl_cmpls(dhd_pub_t *dhd)
 	bool ret;
 
 	dhd_bus_cmn_readshared(dhd->bus, &tcm_wr, RING_WR_UPD, ring->idx);
+
+	if (tcm_wr > ring->max_items) {
+		DHD_ERROR(("%s(): ring %p, ring->name %s, tcm_wr %d ring->max_items %d\n",
+			__FUNCTION__, ring, ring->name, tcm_wr, ring->max_items));
+		return FALSE;
+	}
+
 	host_rd = ring->rd;
 	/* Consider the ring as processed if host rd and tcm wr are same */
 	ret = (host_rd != tcm_wr) ? TRUE : FALSE;
@@ -1644,6 +1651,13 @@ typedef struct dhd_pktid_log {
 typedef void * dhd_pktid_log_handle_t; /* opaque handle to pktid log */
 
 #define	MAX_PKTID_LOG				(2048)
+/*
+ * index timestamp pktaddr(pa) pktid size
+ * index(4) + timestamp (<= 12) + pa (<=12) + pktid (4) + size(4) + space x 4 + 2 (lf)
+ * ex)    1 22531185990 0x91fc38010 1017 8192
+ */
+#define PKTID_LOG_STR_SZ			48u
+#define MAX_PKTID_LOG_BUF_SZ			MAX_PKTID_LOG * PKTID_LOG_STR_SZ
 #define DHD_PKTID_LOG_ITEM_SZ			(sizeof(dhd_pktid_log_item_t))
 #define DHD_PKTID_LOG_SZ(items)			(uint32)((sizeof(dhd_pktid_log_t)) + \
 					((DHD_PKTID_LOG_ITEM_SZ) * (items)))
@@ -1724,6 +1738,8 @@ dhd_pktid_logging_dump(dhd_pub_t *dhd)
 		return;
 	}
 
+	dhd->enable_pktid_log_dump = TRUE;
+
 	map_log = (dhd_pktid_log_t *)(prot->pktid_dma_map);
 	unmap_log = (dhd_pktid_log_t *)(prot->pktid_dma_unmap);
 	OSL_GET_LOCALTIME(&ts_sec, &ts_usec);
@@ -1739,6 +1755,103 @@ dhd_pktid_logging_dump(dhd_pub_t *dhd)
 			(uint64)__virt_to_phys((ulong)(unmap_log->map)),
 			(uint32)(DHD_PKTID_LOG_ITEM_SZ * unmap_log->items)));
 	}
+}
+
+uint32
+dhd_pktid_buf_len(dhd_pub_t *dhd, bool is_map)
+{
+	dhd_prot_t *prot = dhd->prot;
+	dhd_pktid_log_t *pktlog_buf;
+	uint32 len = 0;
+
+	if (is_map == TRUE) {
+		pktlog_buf = (dhd_pktid_log_t *)(prot->pktid_dma_map);
+		len += strlen(DHD_PKTID_MAP_LOG_HDR);
+	} else {
+		pktlog_buf = (dhd_pktid_log_t *)(prot->pktid_dma_unmap);
+		len += strlen(DHD_PKTID_UNMAP_LOG_HDR);
+	}
+
+	/* Adding Format string + LineFeed */
+	len += strlen(PKTID_LOG_DUMP_FMT) + 2;
+	len += (uint32)PKTID_LOG_STR_SZ * pktlog_buf->items;
+	return len;
+}
+
+int
+dhd_write_pktid_log_dump(dhd_pub_t *dhdp, const void *user_buf,
+	void *fp, uint32 len, unsigned long *pos, bool is_map)
+{
+	dhd_prot_t *prot = dhdp->prot;
+	dhd_pktid_log_t *log_buf;
+	log_dump_section_hdr_t sec_hdr;
+	char *buf;
+	uint32 buflen = 0, remain_len = 0;
+	unsigned long long addr = 0;
+	int i = 0;
+	int ret = BCME_OK;
+
+	if (prot == NULL) {
+		DHD_ERROR(("%s: prot is NULL\n", __FUNCTION__));
+		return BCME_ERROR;
+	}
+
+	buf = (char *)VMALLOCZ(dhdp->osh, MAX_PKTID_LOG_BUF_SZ);
+	remain_len = buflen = MAX_PKTID_LOG_BUF_SZ;
+
+	dhd_init_sec_hdr(&sec_hdr);
+	sec_hdr.magic = LOG_DUMP_MAGIC;
+
+	if (is_map) {
+		log_buf = prot->pktid_dma_map;
+		ret = dhd_export_debug_data(DHD_PKTID_MAP_LOG_HDR, fp, user_buf,
+			strlen(DHD_PKTID_MAP_LOG_HDR), pos);
+		if (ret < 0) {
+			DHD_ERROR(("%s :  PKTID_MAP_LOG_HDR write error\n",
+				__FUNCTION__));
+			goto exit;
+		}
+		sec_hdr.type = LOG_DUMP_SECTION_PKTID_MAP_LOG;
+	} else {
+		log_buf = prot->pktid_dma_unmap;
+		ret = dhd_export_debug_data(DHD_PKTID_UNMAP_LOG_HDR, fp, user_buf,
+			strlen(DHD_PKTID_UNMAP_LOG_HDR), pos);
+		if (ret < 0) {
+			DHD_ERROR(("%s :  PKTID_UNMAP_LOG_HDR write error\n",
+				__FUNCTION__));
+			goto exit;
+		}
+		sec_hdr.type = LOG_DUMP_SECTION_PKTID_UNMAP_LOG;
+	}
+
+	remain_len -= scnprintf(&buf[buflen - remain_len], remain_len,
+			PKTID_LOG_DUMP_FMT, log_buf->index);
+
+	for (i = 0; i < log_buf->items; i++) {
+#ifdef BCMDMA64OSL
+		PHYSADDRTOULONG(log_buf->map[i].pa, addr);
+#else
+		addr = PHYSADDRLO(log_buf->map[i].pa);
+#endif /* BCMDMA64OSL */
+		remain_len -= scnprintf(&buf[buflen - remain_len], remain_len,
+				"%4u %12llu 0x%llx %4u %4u\n",
+				i, log_buf->map[i].ts_nsec, addr,
+				log_buf->map[i].pktid, log_buf->map[i].size);
+	}
+	remain_len -= scnprintf(&buf[buflen - remain_len], remain_len, "\n");
+
+	sec_hdr.timestamp = local_clock();
+	sec_hdr.length = buflen - remain_len;
+
+	ret = dhd_export_debug_data((char *)&sec_hdr, NULL, user_buf, sizeof(sec_hdr), pos);
+	ret = dhd_export_debug_data(buf, NULL, user_buf, sec_hdr.length, pos);
+
+exit:
+	if (buf) {
+		VMFREE(dhdp->osh, buf, buflen);
+	}
+
+	return ret;
 }
 #endif /* DHD_MAP_PKTID_LOGGING */
 
@@ -4534,8 +4647,13 @@ BCMFASTPATH(dhd_prot_rxbuf_post)(dhd_pub_t *dhd, uint16 count, bool use_rsv_pkti
 			dhd->rx_pktgetfail++;
 			DHD_ERROR(("%s:%d: PKTGET for rxbuf failed, rx_pktget_fail :%lu\n",
 				__FUNCTION__, __LINE__, dhd->rx_pktgetfail));
+			/* Try to get pkt from Rx reserve pool if monitor mode is not enabled as
+			 * the buffer size for monitor mode is larger(4k) than normal rx pkt(1920)
+			 */
 #if defined(WL_MONITOR)
-			if (!dhd_monitor_enabled(dhd, 0))
+			if (dhd_monitor_enabled(dhd, 0)) {
+				break;
+			} else
 #endif /* WL_MONITOR */
 			{
 #ifdef RX_PKT_POOL
@@ -5240,7 +5358,7 @@ BCMFASTPATH(dhd_prot_process_msgbuf_infocpl)(dhd_pub_t *dhd, uint bound)
 
 #ifdef EWP_EDL
 bool
-dhd_prot_process_msgbuf_edl(dhd_pub_t *dhd)
+dhd_prot_process_msgbuf_edl(dhd_pub_t *dhd, uint32 *edl_itmes)
 {
 	dhd_prot_t *prot = dhd->prot;
 	msgbuf_ring_t *ring = prot->d2hring_edl;
@@ -5286,6 +5404,7 @@ dhd_prot_process_msgbuf_edl(dhd_pub_t *dhd)
 	depth = ring->max_items;
 	/* check for avail space, in number of ring items */
 	items = READ_AVAIL_SPACE(ring->wr, rd, depth);
+	*edl_itmes = items;
 	if (items == 0) {
 		/* no work items in edl ring */
 		return FALSE;
@@ -7800,7 +7919,7 @@ dhd_msgbuf_wait_ioctl_cmplt(dhd_pub_t *dhd, uint32 len, void *buf)
 		uint32 intstatus = si_corereg(dhd->bus->sih,
 			dhd->bus->sih->buscoreidx, dhd->bus->pcie_mailbox_int, 0, 0);
 		int host_irq_disbled = dhdpcie_irq_disabled(dhd->bus);
-		if ((intstatus != (uint32)-1) &&
+		if ((intstatus) && (intstatus != (uint32)-1) &&
 			(timeleft == 0) && (!dhd_query_bus_erros(dhd))) {
 			DHD_ERROR(("%s: resumed on timeout for IOVAR happened. intstatus=%x"
 				" host_irq_disabled=%d\n",

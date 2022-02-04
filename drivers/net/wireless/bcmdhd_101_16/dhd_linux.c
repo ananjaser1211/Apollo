@@ -2,7 +2,7 @@
  * Broadcom Dongle Host Driver (DHD), Linux-specific network interface.
  * Basically selected code segments from usb-cdc.c and usb-rndis.c
  *
- * Copyright (C) 2020, Broadcom.
+ * Copyright (C) 2021, Broadcom.
  *
  *      Unless you and Broadcom execute a separate written software license
  * agreement governing use of this software, this software is licensed to you
@@ -1803,7 +1803,6 @@ static int dhd_set_suspend(int value, dhd_pub_t *dhd)
 	int power_mode = PM_MAX;
 #endif /* SUPPORT_PM2_ONLY */
 	/* wl_pkt_filter_enable_t	enable_parm; */
-	int bcn_li_dtim = 0; /* Default bcn_li_dtim in resume mode is 0 */
 	int ret = 0;
 #ifdef DHD_USE_EARLYSUSPEND
 #ifdef CUSTOM_ROAM_TIME_THRESH_IN_SUSPEND
@@ -1812,9 +1811,6 @@ static int dhd_set_suspend(int value, dhd_pub_t *dhd)
 #ifndef ENABLE_FW_ROAM_SUSPEND
 	uint roamvar = 1;
 #endif /* ENABLE_FW_ROAM_SUSPEND */
-#ifdef ENABLE_BCN_LI_BCN_WAKEUP
-	int bcn_li_bcn = 1;
-#endif /* ENABLE_BCN_LI_BCN_WAKEUP */
 	uint nd_ra_filter = 0;
 #ifdef ENABLE_IPMCAST_FILTER
 	int ipmcast_l2filter;
@@ -1839,13 +1835,8 @@ static int dhd_set_suspend(int value, dhd_pub_t *dhd)
 	/* CUSTOM_BCN_TIMEOUT_IN_SUSPEND in suspend, otherwise CUSTOM_BCN_TIMEOUT */
 	int bcn_timeout = CUSTOM_BCN_TIMEOUT;
 #endif /* DHD_BCN_TIMEOUT_IN_SUSPEND && DHD_USE_EARLYSUSPEND */
-#if defined(BCMPCIE)
-	int lpas = 0;
-	int dtim_period = 0;
-	int bcn_interval = 0;
-	int bcn_to_dly = 0;
-#endif /* OEM_ANDROID && BCMPCIE */
 
+	BCM_REFERENCE(ret);
 	if (!dhd)
 		return -ENODEV;
 
@@ -1888,7 +1879,6 @@ static int dhd_set_suspend(int value, dhd_pub_t *dhd)
 					dhd_arp_offload_enable(dhd, TRUE);
 				}
 #endif /* ARP_OFFLOAD_SUPPORT */
-
 #ifdef PASS_ALL_MCAST_PKTS
 				allmulti = 0;
 				for (i = 0; i < DHD_MAX_IFS; i++) {
@@ -1908,66 +1898,7 @@ static int dhd_set_suspend(int value, dhd_pub_t *dhd)
 				 * each third DTIM for better power savings.  Note that
 				 * one side effect is a chance to miss BC/MC packet.
 				 */
-#ifdef WLTDLS
-				/* Do not set bcn_li_ditm on WFD mode */
-				if (dhd->tdls_mode) {
-					bcn_li_dtim = 0;
-				} else
-#endif /* WLTDLS */
-#if defined(BCMPCIE)
-				bcn_li_dtim = dhd_get_suspend_bcn_li_dtim(dhd, &dtim_period,
-						&bcn_interval);
-				ret = dhd_iovar(dhd, 0, "bcn_li_dtim", (char *)&bcn_li_dtim,
-						sizeof(bcn_li_dtim), NULL, 0, TRUE);
-				if (ret < 0) {
-					DHD_ERROR(("%s bcn_li_dtim failed %d\n",
-							__FUNCTION__, ret));
-				}
-				if ((bcn_li_dtim * dtim_period * bcn_interval) >=
-					MIN_DTIM_FOR_ROAM_THRES_EXTEND) {
-					/*
-					 * Increase max roaming threshold from 2 secs to 8 secs
-					 * the real roam threshold is MIN(max_roam_threshold,
-					 * bcn_timeout/2)
-					 */
-					lpas = 1;
-					ret = dhd_iovar(dhd, 0, "lpas", (char *)&lpas, sizeof(lpas),
-							NULL, 0, TRUE);
-					if (ret < 0) {
-						if (ret == BCME_UNSUPPORTED) {
-							DHD_ERROR(("%s lpas, UNSUPPORTED\n",
-								__FUNCTION__));
-						} else {
-							DHD_ERROR(("%s set lpas failed %d\n",
-								__FUNCTION__, ret));
-						}
-					}
-					bcn_to_dly = 1;
-					/*
-					 * if bcn_to_dly is 1, the real roam threshold is
-					 * MIN(max_roam_threshold, bcn_timeout -1);
-					 * notify link down event after roaming procedure complete
-					 * if we hit bcn_timeout while we are in roaming progress.
-					 */
-					ret = dhd_iovar(dhd, 0, "bcn_to_dly", (char *)&bcn_to_dly,
-							sizeof(bcn_to_dly), NULL, 0, TRUE);
-					if (ret < 0) {
-						if (ret == BCME_UNSUPPORTED) {
-							DHD_ERROR(("%s bcn_to_dly, UNSUPPORTED\n",
-								__FUNCTION__));
-						} else {
-							DHD_ERROR(("%s set bcn_to_dly failed %d\n",
-								__FUNCTION__, ret));
-						}
-					}
-				}
-#else
-				bcn_li_dtim = dhd_get_suspend_bcn_li_dtim(dhd);
-				if (dhd_iovar(dhd, 0, "bcn_li_dtim", (char *)&bcn_li_dtim,
-						sizeof(bcn_li_dtim), NULL, 0, TRUE) < 0)
-					DHD_ERROR(("%s: set dtim failed\n", __FUNCTION__));
-#endif /* OEM_ANDROID && BCMPCIE */
-
+				dhd_set_suspend_bcn_li_dtim(dhd, TRUE);
 #ifdef DHD_USE_EARLYSUSPEND
 #ifdef DHD_BCN_TIMEOUT_IN_SUSPEND
 				bcn_timeout = CUSTOM_BCN_TIMEOUT_IN_SUSPEND;
@@ -1999,16 +1930,6 @@ static int dhd_set_suspend(int value, dhd_pub_t *dhd)
 				ROAMOFF_DBG_SAVE(dhd_linux_get_primary_netdev(dhd),
 					SET_ROAM_DHD_SUSPEND, roamvar);
 #endif /* ENABLE_FW_ROAM_SUSPEND */
-#ifdef ENABLE_BCN_LI_BCN_WAKEUP
-				if (bcn_li_dtim) {
-					bcn_li_bcn = 0;
-				}
-				ret = dhd_iovar(dhd, 0, "bcn_li_bcn", (char *)&bcn_li_bcn,
-						sizeof(bcn_li_bcn), NULL, 0, TRUE);
-				if (ret < 0) {
-					DHD_ERROR(("%s bcn_li_bcn failed %d\n", __FUNCTION__, ret));
-				}
-#endif /* ENABLE_BCN_LI_BCN_WAKEUP */
 #if defined(WL_CFG80211) && defined(WL_BCNRECV)
 				ret = wl_android_bcnrecv_suspend(dhd_linux_get_primary_netdev(dhd));
 				if (ret != BCME_OK) {
@@ -2134,43 +2055,8 @@ static int dhd_set_suspend(int value, dhd_pub_t *dhd)
 					}
 				}
 #endif /* PASS_ALL_MCAST_PKTS */
-#if defined(BCMPCIE)
-				/* restore pre-suspend setting */
-				ret = dhd_iovar(dhd, 0, "bcn_li_dtim", (char *)&bcn_li_dtim,
-						sizeof(bcn_li_dtim), NULL, 0, TRUE);
-				if (ret < 0) {
-					DHD_ERROR(("%s:bcn_li_ditm failed:%d\n",
-							__FUNCTION__, ret));
-				}
-				ret = dhd_iovar(dhd, 0, "lpas", (char *)&lpas, sizeof(lpas), NULL,
-						0, TRUE);
-				if (ret < 0) {
-					if (ret == BCME_UNSUPPORTED) {
-						DHD_ERROR(("%s lpas, UNSUPPORTED\n", __FUNCTION__));
-					 } else {
-						DHD_ERROR(("%s set lpas failed %d\n",
-							__FUNCTION__, ret));
-					 }
-				}
-				ret = dhd_iovar(dhd, 0, "bcn_to_dly", (char *)&bcn_to_dly,
-						sizeof(bcn_to_dly), NULL, 0, TRUE);
-				if (ret < 0) {
-					if (ret == BCME_UNSUPPORTED) {
-						DHD_ERROR(("%s bcn_to_dly UNSUPPORTED\n",
-							__FUNCTION__));
-					} else {
-						DHD_ERROR(("%s set bcn_to_dly failed %d\n",
-							__FUNCTION__, ret));
-					}
-				}
-#else
 				/* restore pre-suspend setting for dtim_skip */
-				ret = dhd_iovar(dhd, 0, "bcn_li_dtim", (char *)&bcn_li_dtim,
-						sizeof(bcn_li_dtim), NULL, 0, TRUE);
-				if (ret < 0) {
-					DHD_ERROR(("%s:bcn_li_ditm fail:%d\n", __FUNCTION__, ret));
-				}
-#endif /* OEM_ANDROID && BCMPCIE */
+				dhd_set_suspend_bcn_li_dtim(dhd, FALSE);
 #ifdef DHD_USE_EARLYSUSPEND
 #ifdef DHD_BCN_TIMEOUT_IN_SUSPEND
 				bcn_timeout = CUSTOM_BCN_TIMEOUT;
@@ -2202,14 +2088,6 @@ static int dhd_set_suspend(int value, dhd_pub_t *dhd)
 				ROAMOFF_DBG_SAVE(dhd_linux_get_primary_netdev(dhd),
 					SET_ROAM_DHD_SUSPEND, roamvar);
 #endif /* ENABLE_FW_ROAM_SUSPEND */
-#ifdef ENABLE_BCN_LI_BCN_WAKEUP
-				ret = dhd_iovar(dhd, 0, "bcn_li_bcn", (char *)&bcn_li_bcn,
-						sizeof(bcn_li_bcn), NULL, 0, TRUE);
-				if (ret < 0) {
-					DHD_ERROR(("%s: bcn_li_bcn failed:%d\n",
-						__FUNCTION__, ret));
-				}
-#endif /* ENABLE_BCN_LI_BCN_WAKEUP */
 #ifdef NDO_CONFIG_SUPPORT
 				if (dhd->ndo_enable) {
 					/* Disable ND offload on resume */
@@ -4335,6 +4213,7 @@ dhd_rx_frame(dhd_pub_t *dhdp, int ifidx, void *pktbuf, int numpkt, uint8 chan)
 			len, NULL, NULL, FALSE, pkt_wake, TRUE);
 #if defined(DHD_WAKE_STATUS) && defined(DHD_WAKEPKT_DUMP)
 		if (pkt_wake) {
+			DHD_ERROR(("##### dhdpcie_host_wake caused by packets\n"));
 			dhd_prhex("[wakepkt_dump]", (char*)dump_data, MIN(len, 64), DHD_ERROR_VAL);
 			DHD_ERROR(("config check in_suspend: %d ", dhdp->in_suspend));
 #ifdef ARP_OFFLOAD_SUPPORT
@@ -4764,6 +4643,9 @@ dhd_watchdog_thread(void *data)
 					    min(msecs_to_jiffies(dhd_watchdog_ms), time_lapse));
 				}
 				DHD_GENERAL_UNLOCK(&dhd->pub, flags);
+#if !defined(PCIE_FULL_DONGLE) && defined(P2P_IF_STATE_EVENT_CTRL)
+				dhd_throttle_p2p_interface_event(dhd, true);
+#endif /* !PCIE_FULL_DONGLE & P2P_IF_STATE_EVENT_CTRL */
 			}
 #ifdef BCMPCIE
 			DHD_OS_WD_WAKE_UNLOCK(&dhd->pub);
@@ -6786,6 +6668,7 @@ dhd_open(struct net_device *net)
 	dhd->pub.iface_op_failed = 0;
 	dhd->pub.scan_timeout_occurred = 0;
 	dhd->pub.scan_busy_occurred = 0;
+	dhd->pub.p2p_disc_busy_occurred = 0;
 	dhd->pub.smmu_fault_occurred = 0;
 #ifdef DHD_LOSSLESS_ROAMING
 	dhd->pub.dequeue_prec_map = ALLPRIO;
@@ -7767,6 +7650,12 @@ dhd_remove_if(dhd_pub_t *dhdpub, int ifidx, bool need_rtnl_lock)
 #endif /* WL_STATIC_IF */
 		if (ifp->net != NULL) {
 			DHD_ERROR(("deleting interface '%s' idx %d\n", ifp->net->name, ifp->idx));
+
+#if !defined(PCIE_FULL_DONGLE) && defined(P2P_IF_STATE_EVENT_CTRL)
+			if (wl_cfgp2p_vif_created(wl_get_cfg(ifp->net))) {
+				dhd_reset_p2p_interface_event(dhdpub);
+			}
+#endif /* !PCIE_FULL_DONGLE & P2P_IF_STATE_EVENT_CTRL */
 
 			DHD_GENERAL_LOCK(dhdpub, flags);
 			ifp->del_in_progress = true;
@@ -9297,11 +9186,15 @@ dhd_bus_start(dhd_pub_t *dhdp)
 	dhd->pub.iface_op_failed = 0;
 	dhd->pub.scan_timeout_occurred = 0;
 	dhd->pub.scan_busy_occurred = 0;
+	dhd->pub.p2p_disc_busy_occurred = 0;
 	/* Retain BH induced errors and clear induced error during initialize */
 	if (dhd->pub.dhd_induce_error) {
 		dhd->pub.dhd_induce_bh_error = dhd->pub.dhd_induce_error;
 	}
 	dhd->pub.dhd_induce_error = DHD_INDUCE_ERROR_CLEAR;
+#ifdef DHD_MAP_PKTID_LOGGING
+	dhd->pub.enable_pktid_log_dump = FALSE;
+#endif /* DHD_MAP_PKTID_LOGGING */
 	dhd->pub.tput_test_done = FALSE;
 
 	/* try to download image and nvram to the dongle */
@@ -14574,6 +14467,7 @@ dhd_net_bus_devreset(struct net_device *dev, uint8 flag)
 		dhd->pub.iface_op_failed = 0;
 		dhd->pub.scan_timeout_occurred = 0;
 		dhd->pub.scan_busy_occurred = 0;
+		dhd->pub.p2p_disc_busy_occurred = 0;
 	}
 
 	if ((ret == BCME_NOMEM) || (ret == BCME_NOTFOUND)) {
@@ -14638,19 +14532,27 @@ int net_os_set_suspend(struct net_device *dev, int val, int force)
 int net_os_set_suspend_bcn_li_dtim(struct net_device *dev, int val)
 {
 	dhd_info_t *dhd = DHD_DEV_INFO(dev);
+	dhd_pub_t *dhdp = &dhd->pub;
 
 	if (dhd) {
 		DHD_ERROR(("%s: Set bcn_li_dtim in suspend %d\n",
 			__FUNCTION__, val));
 		dhd->pub.suspend_bcn_li_dtim = val;
+	} else {
+		return BCME_ERROR;
 	}
 
-	return 0;
+	if (dhdp->in_suspend) {
+		dhd_set_suspend_bcn_li_dtim(dhdp, TRUE);
+	}
+
+	return BCME_OK;
 }
 
 int net_os_set_max_dtim_enable(struct net_device *dev, int val)
 {
 	dhd_info_t *dhd = DHD_DEV_INFO(dev);
+	dhd_pub_t *dhdp = &dhd->pub;
 
 	if (dhd) {
 		DHD_ERROR(("%s: use MAX bcn_li_dtim in suspend %s\n",
@@ -14661,16 +14563,21 @@ int net_os_set_max_dtim_enable(struct net_device *dev, int val)
 			dhd->pub.max_dtim_enable = FALSE;
 		}
 	} else {
-		return -1;
+		return BCME_ERROR;
 	}
 
-	return 0;
+	if (dhdp->in_suspend) {
+		dhd_set_suspend_bcn_li_dtim(dhdp, TRUE);
+	}
+
+	return BCME_OK;
 }
 
 #ifdef DISABLE_DTIM_IN_SUSPEND
 int net_os_set_disable_dtim_in_suspend(struct net_device *dev, int val)
 {
 	dhd_info_t *dhd = DHD_DEV_INFO(dev);
+	dhd_pub_t *dhdp = &dhd->pub;
 
 	if (dhd) {
 		DHD_ERROR(("%s: Disable bcn_li_dtim in suspend %s\n",
@@ -14684,9 +14591,87 @@ int net_os_set_disable_dtim_in_suspend(struct net_device *dev, int val)
 		return BCME_ERROR;
 	}
 
+	if (dhdp->in_suspend) {
+		dhd_set_suspend_bcn_li_dtim(dhdp, TRUE);
+	}
+
 	return BCME_OK;
 }
 #endif /* DISABLE_DTIM_IN_SUSPEND */
+
+int
+dhd_set_suspend_bcn_li_dtim(dhd_pub_t *dhd, bool set_suspend)
+{
+	int ret = BCME_OK;
+	int bcn_li_dtim = 0; /* Default bcn_li_dtim in resume mode is 0 */
+#if defined(BCMPCIE)
+	int lpas = 0;
+	int dtim_period = 0;
+	int bcn_interval = 0;
+	int bcn_to_dly = 0;
+#endif /* OEM_ANDROID && BCMPCIE */
+#ifdef ENABLE_BCN_LI_BCN_WAKEUP
+	int bcn_li_bcn = 1;
+#endif /* ENABLE_BCN_LI_BCN_WAKEUP */
+
+	if (set_suspend) {
+#ifdef WLTDLS
+		/* Do not set bcn_li_ditm on WFD mode */
+		if (dhd->tdls_mode) {
+			return 0;
+		}
+#endif /* WLTDLS */
+#if defined(BCMPCIE)
+		bcn_li_dtim = dhd_get_suspend_bcn_li_dtim(dhd, &dtim_period, &bcn_interval);
+		if ((bcn_li_dtim * dtim_period * bcn_interval) >= MIN_DTIM_FOR_ROAM_THRES_EXTEND) {
+			/*
+			 * Increase max roaming threshold from 2 secs to 8 secs
+			 * the real roam threshold is MIN(max_roam_threshold,
+			 * bcn_timeout/2)
+			 */
+			lpas = 1;
+			bcn_to_dly = 1;
+			/*
+			 * if bcn_to_dly is 1, the real roam threshold is
+			 * MIN(max_roam_threshold, bcn_timeout -1);
+			 * notify link down event after roaming procedure complete
+			 * if we hit bcn_timeout while we are in roaming progress.
+			 */
+		}
+#else
+		bcn_li_dtim = dhd_get_suspend_bcn_li_dtim(dhd);
+#endif /* OEM_ANDROID && BCMPCIE */
+	}
+
+	ret = dhd_iovar(dhd, 0, "bcn_li_dtim", (char *)&bcn_li_dtim, sizeof(bcn_li_dtim),
+		NULL, 0, TRUE);
+	if (ret < 0) {
+		DHD_ERROR(("%s set bcn_li_ditm failed %d\n", __FUNCTION__, ret));
+	}
+#if defined(BCMPCIE)
+	ret = dhd_iovar(dhd, 0, "lpas", (char *)&lpas, sizeof(lpas), NULL, 0, TRUE);
+	if (ret < 0) {
+		DHD_ERROR(("%s set lpas failed %d\n", __FUNCTION__, ret));
+	}
+	ret = dhd_iovar(dhd, 0, "bcn_to_dly", (char *)&bcn_to_dly, sizeof(bcn_to_dly),
+		NULL, 0, TRUE);
+	if (ret < 0) {
+		DHD_ERROR(("%s set bcn_to_dly failed %d\n", __FUNCTION__, ret));
+	}
+#endif /* OEM_ANDROID && BCMPCIE */
+#ifdef ENABLE_BCN_LI_BCN_WAKEUP
+	if (bcn_li_dtim) {
+		bcn_li_bcn = 0;
+	}
+	ret = dhd_iovar(dhd, 0, "bcn_li_bcn", (char *)&bcn_li_bcn, sizeof(bcn_li_bcn),
+		NULL, 0, TRUE);
+	if (ret < 0) {
+		DHD_ERROR(("%s set bcn_li_bcn failed %d\n", __FUNCTION__, ret));
+	}
+#endif /* ENABLE_BCN_LI_BCN_WAKEUP */
+
+	return 0;
+}
 
 #ifdef PKT_FILTER_SUPPORT
 int net_os_rxfilter_add_remove(struct net_device *dev, int add_remove, int num)
@@ -18009,6 +17994,11 @@ dhd_log_flush(dhd_pub_t *dhdp, log_dump_type_t *type)
 #endif /* DHD_LOG_DUMP */
 
 #ifdef DHD_FW_COREDUMP
+bool dhd_memdump_is_scheduled(dhd_pub_t *dhdp)
+{
+	return dhdp->info->scheduled_memdump;
+}
+
 void dhd_schedule_memdump(dhd_pub_t *dhdp, uint8 *buf, uint32 size)
 {
 	dhd_dump_t *dump = NULL;
@@ -20048,6 +20038,45 @@ dhd_get_rtt_len(void *ndev, dhd_pub_t *dhdp)
 	return length;
 }
 #endif /* EWP_RTT_LOGGING */
+
+#ifdef DHD_MAP_PKTID_LOGGING
+uint32
+dhd_get_pktid_map_logging_len(void *ndev, dhd_pub_t *dhdp, bool is_map)
+{
+	dhd_info_t *dhd_info;
+	log_dump_section_hdr_t sec_hdr;
+	uint32 length = 0;
+
+	if (ndev) {
+		dhd_info = *(dhd_info_t **)netdev_priv((struct net_device *)ndev);
+		dhdp = &dhd_info->pub;
+	}
+
+	if (!dhdp || !dhdp->enable_pktid_log_dump)
+		return length;
+
+	length = dhd_pktid_buf_len(dhdp, is_map) + sizeof(sec_hdr);
+	return length;
+}
+
+int
+dhd_print_pktid_map_log_data(void *dev, dhd_pub_t *dhdp, const void *user_buf,
+	void *fp, uint32 len, void *pos, bool is_map)
+{
+	dhd_info_t *dhd_info;
+
+	if (dev) {
+		dhd_info = *(dhd_info_t **)netdev_priv((struct net_device *)dev);
+		dhdp = &dhd_info->pub;
+	}
+
+	if (!dhdp) {
+		return BCME_ERROR;
+	}
+
+	return dhd_write_pktid_log_dump(dhdp, user_buf, fp, len, pos, is_map);
+}
+#endif /* DHD_MAP_PKTID_LOGGING */
 
 int
 dhd_os_get_version(struct net_device *dev, bool dhd_ver, char **buf, uint32 size)
@@ -23707,9 +23736,56 @@ static void dhd_p2p_interface_event_ctrl_fn(struct work_struct * work)
 	}
 }
 
-static bool dhd_is_p2p_connected(dhd_info_t *dhd)
+#define P2P_NOA_CONTINUOUS 255
+static bool dhd_is_noa_enabled(dhd_pub_t *dhd_pub, int ifidx)
+{
+	int iov_len = 0;
+	char iovbuf[128];
+	wl_p2p_sched_t dongle_noa[2];
+	wl_p2p_sched_t *noa;
+	int rc;
+
+	if (dhd_pub == NULL) {
+		return false;
+	}
+
+	iov_len = bcm_mkiovar("p2p_noa", (char *)dongle_noa,
+		sizeof(dongle_noa), iovbuf, sizeof(iovbuf));
+	if (!iov_len) {
+		DHD_ERROR(("%s: Insufficient iovar buffer size %zu \n",
+			__FUNCTION__, sizeof(iovbuf)));
+		return false;
+	}
+
+	rc = dhd_wl_ioctl_cmd(dhd_pub, WLC_GET_VAR, iovbuf, iov_len, FALSE, ifidx);
+
+	if (rc) {
+		DHD_ERROR(("%s: failed to get p2p_noa info, retcode = %d\n",
+			__FUNCTION__, rc));
+
+		return false;
+	}
+
+	noa = (wl_p2p_sched_t *)iovbuf;
+	DHD_INFO(("%s, ifidx=%d noa type=%d, st=%d, interval=%d, dur=%d, cnt=%d\n",
+		__FUNCTION__, ifidx, noa->type, noa->desc[0].start,
+		noa->desc[0].interval, noa->desc[0].duration, noa->desc[0].count));
+
+	if ((noa->type == WL_P2P_SCHED_TYPE_ABS) &&
+		(noa->desc[0].duration != 0) && (noa->desc[0].count == P2P_NOA_CONTINUOUS)) {
+		return true;
+	}
+
+	return false;
+}
+
+static bool dhd_is_p2pgc_noa(dhd_info_t *dhd)
 {
 	dhd_pub_t *dhdp;
+	struct net_device *dev;
+	int idx, p2p_idx = -1;
+	bool p2pgc_connected = FALSE;
+	int connected_cnt = 0;
 
 	if (dhd == NULL) {
 		return false;
@@ -23721,7 +23797,29 @@ static bool dhd_is_p2p_connected(dhd_info_t *dhd)
 		return false;
 	}
 
-	return true;
+	for (idx = 0; idx < DHD_MAX_IFS; idx++) {
+		if (dhd->iflist[idx] != NULL) {
+			dev = dhd->iflist[idx]->net;
+			/* check if connected */
+			if (wl_get_drv_status(wl_get_cfg(dev), CONNECTED, dev)) {
+				connected_cnt++;
+				if (dev->ieee80211_ptr &&
+					dev->ieee80211_ptr->iftype == NL80211_IFTYPE_P2P_CLIENT) {
+					p2pgc_connected = true;
+					p2p_idx = idx;
+				}
+			}
+		}
+	}
+
+	/* check if only p2p is connected */
+	if (p2pgc_connected && (connected_cnt == 1)) {
+		if (dhd_is_noa_enabled(dhdp, p2p_idx)) {
+			return true;
+		}
+	}
+
+	return false;
 }
 
 #define NO_TX_DURATION 5000
@@ -23731,23 +23829,24 @@ static bool dhd_is_p2p_connected(dhd_info_t *dhd)
 int dhd_throttle_p2p_interface_event(void *handle, bool onoff)
 {
 	dhd_info_t *dhd = handle;
-	uint32 cur, diff;
 
-	if (!dhd_is_p2p_connected(dhd)) {
-		return 0;
-	}
-
-	cur = OSL_SYSUPTIME();
-
-	DHD_INFO(("%s, onoff=%d, tx_time=%u, cur=%u p2p_close=%d\n",
-		__FUNCTION__, onoff, dhd->last_tx_time, cur, dhd-> p2p_if_event_close));
 	if (onoff) { /* on */
+		uint32 cur, diff;
 
-		if (dhd->p2p_if_event_close)
+		if (dhd->p2p_if_event_close) {
 			return 0;
+		}
+
+		cur = OSL_SYSUPTIME();
+		DHD_INFO(("%s, onoff=%d, tx_time=%u, cur=%u p2p_close=%d\n",
+			__FUNCTION__, onoff, dhd->last_tx_time, cur, dhd-> p2p_if_event_close));
 
 		diff = TIME_DIFF(cur, dhd->last_tx_time);
 		if ((dhd->last_tx_time != 0) && (diff > NO_TX_DURATION)) {
+			if (!dhd_is_p2pgc_noa(dhd)) {
+				return 0;
+			}
+
 			dhd->p2p_if_event_close = true;
 			schedule_work(&dhd->p2p_interface_event_ctrl_work);
 		}
@@ -23763,6 +23862,20 @@ int dhd_throttle_p2p_interface_event(void *handle, bool onoff)
 	}
 
 	return 0;
+}
+
+void dhd_reset_p2p_interface_event(void *handle)
+{
+	dhd_pub_t *dhdp = handle;
+
+	dhdp->info->p2p_if_event_close = false;
+	dhdp->info->last_tx_time = 0;
+
+	if (dhd_wlfc_ctrl_if_state_event(dhdp, false)) {
+		DHD_ERROR(("%s, iface event open failure\n", __FUNCTION__));
+	} else {
+		DHD_ERROR(("%s, iface event open success\n", __FUNCTION__));
+	}
 }
 #endif /* !PCIE_FULL_DONGLE & P2P_IF_STATE_EVENT_CTRL */
 #if defined(WLAN_ACCEL_BOOT)

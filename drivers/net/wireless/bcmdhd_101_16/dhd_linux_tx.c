@@ -2,7 +2,7 @@
  * Broadcom Dongle Host Driver (DHD),
  * Linux-specific network interface for transmit(tx) path
  *
- * Copyright (C) 2020, Broadcom.
+ * Copyright (C) 2021, Broadcom.
  *
  *      Unless you and Broadcom execute a separate written software license
  * agreement governing use of this software, this software is licensed to you
@@ -561,8 +561,10 @@ BCMFASTPATH(dhd_start_xmit)(struct sk_buff *skb, struct net_device *net)
 			__FUNCTION__, dhd->pub.busstate, dhd->pub.dhd_bus_busy_state));
 		DHD_BUS_BUSY_CLEAR_IN_TX(&dhd->pub);
 #ifdef PCIE_FULL_DONGLE
-		/* Stop tx queues if suspend is in progress */
-		if (DHD_BUS_CHECK_ANY_SUSPEND_IN_PROGRESS(&dhd->pub)) {
+		/* Stop tx queues if suspend is in progress or suspended */
+		if (DHD_BUS_CHECK_ANY_SUSPEND_IN_PROGRESS(&dhd->pub) ||
+			(dhd->pub.busstate == DHD_BUS_SUSPEND &&
+			!DHD_BUS_BUSY_CHECK_RESUME_IN_PROGRESS(&dhd->pub))) {
 			dhd_bus_stop_queue(dhd->pub.bus);
 		}
 #endif /* PCIE_FULL_DONGLE */
@@ -772,6 +774,11 @@ done:
 static void
 __dhd_txflowcontrol(dhd_pub_t *dhdp, struct net_device *net, bool state)
 {
+
+	if (net->reg_state != NETREG_REGISTERED) {
+		return;
+	}
+
 	if (state == ON) {
 		if (!netif_queue_stopped(net)) {
 			DHD_ERROR(("%s: Stop Netif Queue\n", __FUNCTION__));

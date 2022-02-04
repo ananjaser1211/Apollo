@@ -525,10 +525,12 @@ static int s2mu106_get_comp_socr(struct s2mu106_fuelgauge_data *fuelgauge)
 
 	if (fuelgauge->temperature <= 0) {
 		i_socr = (-1) * fuelgauge->i_socr_coeff * fuelgauge->avg_curr;
-		t_socr = ((-223) * fuelgauge->temperature + fuelgauge->t_socr_coeff) / 1000;
+		t_socr = (((-1) * fuelgauge->low_t_compen_coeff) * fuelgauge->temperature
+				+ fuelgauge->t_socr_coeff) / 1000;
 	} else if (fuelgauge->temperature <= 200) {
 		i_socr = (-1) * fuelgauge->i_socr_coeff * fuelgauge->avg_curr;
-		t_socr = ((-75) * fuelgauge->temperature + fuelgauge->t_socr_coeff) / 1000;
+		t_socr = (((-1) * fuelgauge->t_compen_coeff) * fuelgauge->temperature
+				+ fuelgauge->t_socr_coeff) / 1000;
 	}
 
 	comp_socr = ((t_socr + 1) * i_socr) / 100000;
@@ -2168,6 +2170,22 @@ static int s2mu106_fuelgauge_parse_dt(struct s2mu106_fuelgauge_data *fuelgauge)
 			pr_err("%s There is no t_socr_coeff . Use default(15500)\n",
 					__func__);
 			fuelgauge->t_socr_coeff = 15500;
+		}
+
+		ret = of_property_read_u32(np, "fuelgauge,t_compen_coeff",
+				&fuelgauge->t_compen_coeff);
+		if (ret < 0) {
+			pr_err("%s There is no t_compen_coeff . Use default(75)\n",
+					__func__);
+			fuelgauge->t_compen_coeff = 75;
+		}
+
+		ret = of_property_read_u32(np, "fuelgauge,low_t_compen_coeff",
+				&fuelgauge->low_t_compen_coeff);
+		if (ret < 0) {
+			pr_err("%s There is no low_t_compen_coeff . Use default(223)\n",
+					__func__);
+			fuelgauge->low_t_compen_coeff = 223;
 		}
 
 		ret = of_property_read_u32(np, "fuelgauge,val_0x5C",

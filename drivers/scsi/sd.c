@@ -3565,7 +3565,17 @@ static int sd_suspend_common(struct device *dev, bool ignore_stop_errors)
 		return 0;
 
 	if (sdkp->WCE && sdkp->media_present) {
-		sd_printk(KERN_NOTICE, sdkp, "Synchronizing SCSI cache\n");
+		if (sdkp->device->host->by_ufs) {
+			sd_printk(KERN_NOTICE, sdkp,
+				"Synchronizing SCSI cache, %d/%d, %d/%d, %d/%d\n",
+				sdkp->device->request_queue->nr_rqs[0],
+				sdkp->device->request_queue->nr_rqs[1],
+				sdkp->device->request_queue->root_rl.count[0],
+				sdkp->device->request_queue->root_rl.count[1],
+				sdkp->device->request_queue->root_rl.starved[0],
+				sdkp->device->request_queue->root_rl.starved[1]);
+		} else
+			sd_printk(KERN_NOTICE, sdkp, "Synchronizing SCSI cache\n");
 		ret = sd_sync_cache(sdkp);
 		if (ret) {
 			/* ignore OFFLINE device */

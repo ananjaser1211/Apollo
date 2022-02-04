@@ -2,7 +2,7 @@
  * Broadcom Dongle Host Driver (DHD), Linux-specific network interface
  * Basically selected code segments from usb-cdc.c and usb-rndis.c
  *
- * Copyright (C) 2020, Broadcom.
+ * Copyright (C) 2021, Broadcom.
  *
  *      Unless you and Broadcom execute a separate written software license
  * agreement governing use of this software, this software is licensed to you
@@ -225,6 +225,13 @@ void dhd_select_cpu_candidacy(dhd_info_t *dhd)
 
 	ASSERT(napi_cpu < nr_cpu_ids);
 	ASSERT(tx_cpu < nr_cpu_ids);
+
+	if (!cpu_online(napi_cpu)) {
+		napi_cpu = 0;
+	}
+	if (!cpu_online(tx_cpu)) {
+		tx_cpu = 0;
+	}
 
 	atomic_set(&dhd->rx_napi_cpu, napi_cpu);
 	atomic_set(&dhd->tx_cpu, tx_cpu);

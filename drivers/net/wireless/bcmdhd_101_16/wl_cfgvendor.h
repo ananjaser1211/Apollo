@@ -1,7 +1,7 @@
 /*
  * Linux cfg80211 Vendor Extension Code
  *
- * Copyright (C) 2020, Broadcom.
+ * Copyright (C) 2021, Broadcom.
  *
  *      Unless you and Broadcom execute a separate written software license
  * agreement governing use of this software, this software is licensed to you
@@ -498,6 +498,10 @@ typedef enum {
 	DUMP_LEN_ATTR_AXI_ERROR = 35,
 	DUMP_FILENAME_ATTR_AXI_ERROR_DUMP = 36,
 	DUMP_LEN_ATTR_RTT_LOG = 37,
+	DUMP_LEN_ATTR_SDTC_ETB_DUMP = 38,
+	DUMP_FILENAME_ATTR_SDTC_ETB_DUMP = 39,
+	DUMP_LEN_ATTR_PKTID_MAP_LOG = 40,
+	DUMP_LEN_ATTR_PKTID_UNMAP_LOG = 41,
 	/* Please add new attributes from here to sync up old HAL */
 	DUMP_TYPE_ATTR_MAX
 } EWP_DUMP_EVENT_ATTRIBUTE;
@@ -529,6 +533,9 @@ typedef enum {
 	DUMP_BUF_ATTR_STATUS_LOG = 22,
 	DUMP_BUF_ATTR_AXI_ERROR = 23,
 	DUMP_BUF_ATTR_RTT_LOG = 24,
+	DUMP_BUF_ATTR_SDTC_ETB_DUMP = 25,
+	DUMP_BUF_ATTR_PKTID_MAP_LOG = 26,
+	DUMP_BUF_ATTR_PKTID_UNMAP_LOG = 27,
 	/* Please add new attributes from here to sync up old HAL */
 	DUMP_BUF_ATTR_MAX
 } EWP_DUMP_CMD_ATTRIBUTE;

@@ -1,7 +1,7 @@
 /*
  * Linux cfg80211 driver
  *
- * Copyright (C) 2020, Broadcom.
+ * Copyright (C) 2021, Broadcom.
  *
  *      Unless you and Broadcom execute a separate written software license
  * agreement governing use of this software, this software is licensed to you
@@ -1927,6 +1927,9 @@ struct bcm_cfg80211 {
 #ifdef WL_SCHED_SCAN
 	struct delayed_work sched_scan_stop_work;
 #endif /* WL_SCHED_SCAN */
+#ifdef DHD_CLEANUP_KEEP_ALIVE
+	uint8 mkeep_alive_avail;
+#endif /* DHD_CLEANUP_KEEP_ALIVE */
 };
 
 /* Max auth timeout allowed in case of EAP is 70sec, additional 5 sec for
