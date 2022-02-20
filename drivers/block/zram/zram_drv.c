@@ -1467,7 +1467,7 @@ static void zram_comp_writeback(struct zram *zram)
 			break;
 	}
 	free_zwbs(zwbs);
-	pr_info("%s done", __func__);
+	pr_debug("%s done", __func__);
 }
 
 static int zram_wbd(void *p)
@@ -1509,7 +1509,7 @@ static int zram_wbd(void *p)
 				break;
 		}
 		zram->wbd_running = false;
-		pr_info("%s done", __func__);
+		pr_debug("%s done", __func__);
 	}
 	free_zwbs(zwbs);
 
