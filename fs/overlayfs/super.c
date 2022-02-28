@@ -21,6 +21,9 @@
 #include <linux/seq_file.h>
 #include <linux/posix_acl_xattr.h>
 #include "overlayfs.h"
+#ifdef CONFIG_RKP_NS_PROT
+#include <linux/kdp.h>
+#endif
 
 MODULE_AUTHOR("Miklos Szeredi <miklos@szeredi.hu>");
 MODULE_DESCRIPTION("Overlay filesystem");
@@ -31,6 +34,7 @@ struct ovl_config {
 	char *upperdir;
 	char *workdir;
 	bool default_permissions;
+	bool override_creds;
 };
 
 /* private information held for overlayfs's superblock */
@@ -266,7 +270,15 @@ const struct cred *ovl_override_creds(struct super_block *sb)
 {
 	struct ovl_fs *ofs = sb->s_fs_info;
 
+	if (!ofs->config.override_creds)
+		return NULL;
 	return override_creds(ofs->creator_cred);
+}
+
+void ovl_revert_creds(const struct cred *old_cred)
+{
+	if (old_cred)
+		revert_creds(old_cred);
 }
 
 static bool ovl_is_opaquedir(struct dentry *dentry)
@@ -584,7 +596,7 @@ struct dentry *ovl_lookup(struct inode *dir, struct dentry *dentry,
 		ovl_copyattr(realdentry->d_inode, inode);
 	}
 
-	revert_creds(old_cred);
+	ovl_revert_creds(old_cred);
 	oe->opaque = upperopaque;
 	oe->__upperdentry = upperdentry;
 	memcpy(oe->lowerstack, stack, sizeof(struct path) * ctr);
@@ -603,7 +615,7 @@ out_put:
 out_put_upper:
 	dput(upperdentry);
 out:
-	revert_creds(old_cred);
+	ovl_revert_creds(old_cred);
 	return ERR_PTR(err);
 }
 
@@ -656,6 +668,11 @@ static int ovl_statfs(struct dentry *dentry, struct kstatfs *buf)
 	return err;
 }
 
+static bool __read_mostly ovl_override_creds_def = true;
+module_param_named(override_creds, ovl_override_creds_def, bool, 0644);
+MODULE_PARM_DESC(ovl_override_creds_def,
+		 "Use mounter's credentials for accesses");
+
 /**
  * ovl_show_options
  *
@@ -674,6 +691,9 @@ static int ovl_show_options(struct seq_file *m, struct dentry *dentry)
 	}
 	if (ufs->config.default_permissions)
 		seq_puts(m, ",default_permissions");
+	if (ufs->config.override_creds != ovl_override_creds_def)
+		seq_show_option(m, "override_creds",
+				ufs->config.override_creds ? "on" : "off");
 	return 0;
 }
 
@@ -700,6 +720,8 @@ enum {
 	OPT_UPPERDIR,
 	OPT_WORKDIR,
 	OPT_DEFAULT_PERMISSIONS,
+	OPT_OVERRIDE_CREDS_ON,
+	OPT_OVERRIDE_CREDS_OFF,
 	OPT_ERR,
 };
 
@@ -708,6 +730,8 @@ static const match_table_t ovl_tokens = {
 	{OPT_UPPERDIR,			"upperdir=%s"},
 	{OPT_WORKDIR,			"workdir=%s"},
 	{OPT_DEFAULT_PERMISSIONS,	"default_permissions"},
+	{OPT_OVERRIDE_CREDS_ON,		"override_creds=on"},
+	{OPT_OVERRIDE_CREDS_OFF,	"override_creds=off"},
 	{OPT_ERR,			NULL}
 };
 
@@ -738,6 +762,7 @@ static int ovl_parse_opt(char *opt, struct ovl_config *config)
 {
 	char *p;
 
+	config->override_creds = ovl_override_creds_def;
 	while ((p = ovl_next_opt(&opt)) != NULL) {
 		int token;
 		substring_t args[MAX_OPT_ARGS];
@@ -770,6 +795,14 @@ static int ovl_parse_opt(char *opt, struct ovl_config *config)
 
 		case OPT_DEFAULT_PERMISSIONS:
 			config->default_permissions = true;
+			break;
+
+		case OPT_OVERRIDE_CREDS_ON:
+			config->override_creds = true;
+			break;
+
+		case OPT_OVERRIDE_CREDS_OFF:
+			config->override_creds = false;
 			break;
 
 		default:
@@ -1245,11 +1278,12 @@ static int ovl_fill_super(struct super_block *sb, void *data, int silent)
 			goto out_put_lowerpath;
 		}
 		/* Don't inherit atime flags */
-#ifdef CONFIG_RKP_KDP
+#ifdef CONFIG_RKP_NS_PROT
 		rkp_reset_mnt_flags(ufs->upper_mnt, (MNT_NOATIME | MNT_NODIRATIME | MNT_RELATIME));
 #else
 		ufs->upper_mnt->mnt_flags &= ~(MNT_NOATIME | MNT_NODIRATIME | MNT_RELATIME);
 #endif
+
 		sb->s_time_gran = ufs->upper_mnt->mnt_sb->s_time_gran;
 
 		ufs->workdir = ovl_workdir_create(ufs->upper_mnt, workpath.dentry);
@@ -1298,11 +1332,7 @@ static int ovl_fill_super(struct super_block *sb, void *data, int silent)
 		 * Make lower_mnt R/O.  That way fchmod/fchown on lower file
 		 * will fail instead of modifying lower fs.
 		 */
-#ifdef CONFIG_RKP_NS_PROT
-		rkp_set_mnt_flags(mnt,MNT_READONLY|MNT_NOATIME);
-#else
 		mnt->mnt_flags |= MNT_READONLY | MNT_NOATIME;
-#endif
 
 		ufs->lower_mnt[ufs->numlower] = mnt;
 		ufs->numlower++;
@@ -1360,7 +1390,6 @@ static int ovl_fill_super(struct super_block *sb, void *data, int silent)
 	ovl_copyattr(realinode, d_inode(root_dentry));
 
 	sb->s_root = root_dentry;
-
 	return 0;
 
 out_free_oe:
