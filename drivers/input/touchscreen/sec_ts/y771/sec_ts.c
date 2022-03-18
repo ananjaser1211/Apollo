@@ -1382,6 +1382,7 @@ static void sec_ts_read_event(struct sec_ts_data *ts)
 				input_report_key(ts->input_dev, KEY_BLACK_UI_GESTURE, 1);
 				break;
 			case SEC_TS_GESTURE_CODE_FORCE:
+#ifndef CONFIG_CUSTOM_FORCETOUCH
 				if (ts->power_status == SEC_TS_STATE_POWER_ON) {
 					if (p_gesture_status->gesture_id == SEC_TS_EVENT_PRESSURE_TOUCHED) {
 						ts->all_force_count++;
@@ -1416,6 +1417,46 @@ static void sec_ts_read_event(struct sec_ts_data *ts)
 						ts->all_force_count++;
 					}
 				}
+#else
+				if (ts->power_status == SEC_TS_STATE_POWER_ON) {
+					if (p_gesture_status->gesture_id == SEC_TS_EVENT_PRESSURE_RELEASED) {
+						input_report_key(ts->input_dev, KEY_HOMEPAGE, 0);
+						input_report_key(ts->input_dev, KEY_BLACK_UI_GESTURE, 1);
+						ts->scrub_id = SPONGE_EVENT_TYPE_AOD_HOMEKEY_RELEASE_NO_HAPTIC;
+						input_sync(ts->input_dev);
+
+						haptic_homekey_release();
+					} else {
+						input_report_key(ts->input_dev, KEY_HOMEPAGE, 1);
+						ts->scrub_id = SPONGE_EVENT_TYPE_AOD_HOMEKEY_PRESS;
+						input_sync(ts->input_dev);
+
+						haptic_homekey_press();
+						ts->all_force_count++;
+					}
+
+					if (ts->pressure_setting_mode)
+						input_info(true, &ts->client->dev, "%s: skip force events in pressure setting mode\n", __func__);
+					else
+						input_report_key(ts->input_dev, KEY_BLACK_UI_GESTURE, 1);
+				} else {
+					if (p_gesture_status->gesture_id == SEC_TS_EVENT_PRESSURE_RELEASED) {
+						input_report_key(ts->input_dev, KEY_HOMEPAGE, 0);
+						input_report_key(ts->input_dev, KEY_BLACK_UI_GESTURE, 1);
+						ts->scrub_id = SPONGE_EVENT_TYPE_AOD_HOMEKEY_RELEASE_NO_HAPTIC;
+						input_sync(ts->input_dev);
+
+						haptic_homekey_release();
+					} else {
+						input_report_key(ts->input_dev, KEY_HOMEPAGE, 1);
+						ts->scrub_id = SPONGE_EVENT_TYPE_AOD_HOMEKEY_PRESS;
+						input_sync(ts->input_dev);
+
+						haptic_homekey_press();
+						ts->all_force_count++;
+					}
+				}
+#endif
 
 				ts->scrub_x = (p_gesture_status->gesture_data_1 << 4)
 							| (p_gesture_status->gesture_data_3 >> 4);
