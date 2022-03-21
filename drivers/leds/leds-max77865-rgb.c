@@ -91,8 +91,8 @@ static u8 led_lowpower_mode;
 static unsigned int octa_color;
 
 static unsigned int led_enable_fade = 1;
-static unsigned int led_fade_time_up = 800;
-static unsigned int led_fade_time_down = 800;
+static unsigned int led_fade_time_up = 200;
+static unsigned int led_fade_time_down = 200;
 
 enum max77865_led_color {
 	WHITE,
