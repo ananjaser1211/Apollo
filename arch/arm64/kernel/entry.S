@@ -1208,7 +1208,7 @@ __ni_sys_trace:
 	sub	\dst, \dst, PAGE_SIZE
 	.endm
 
-	.macro tramp_ventry, regsize = 64
+	.macro tramp_ventry, vector_start, regsize
 	.align	7
 1:
 	.if	\regsize == 64
@@ -1235,10 +1235,10 @@ alternative_insn isb, nop, ARM64_WORKAROUND_QCOM_FALKOR_E1003
 	ldr	x30, [x30]
 #else
 	ldr	x30, =vectors
-#endif /* CONFIG_RANDOMIZE_BASE */
-	prfm	plil1strm, [x30, #(1b - tramp_vectors)]
+#endif
+	prfm	plil1strm, [x30, #(1b - \vector_start)]
 	msr	vbar_el1, x30
-	add	x30, x30, #(1b - tramp_vectors + 4)
+	add	x30, x30, #(1b - \vector_start + 4)
 	isb
 	ret
 .org 1b + 128	// Did we overflow the ventry slot?
@@ -1256,23 +1256,24 @@ alternative_insn isb, nop, ARM64_WORKAROUND_QCOM_FALKOR_E1003
 	eret
 	.endm
 
+	.macro	generate_tramp_vector
+.Lvector_start\@:
+	.space	0x400
+
+	.rept	4
+	tramp_ventry	.Lvector_start\@, 64
+	.endr
+	.rept	4
+	tramp_ventry	.Lvector_start\@, 32
+	.endr
+	.endm
+
 	.align	11
 #ifdef CONFIG_RKP_CFP_JOPP
 VECTOR_ENTRY(tramp_vectors)
 #else
 ENTRY(tramp_vectors)
 #endif
-	.space	0x400
-
-	tramp_ventry
-	tramp_ventry
-	tramp_ventry
-	tramp_ventry
-
-	tramp_ventry	32
-	tramp_ventry	32
-	tramp_ventry	32
-	tramp_ventry	32
 END(tramp_vectors)
 
 ENTRY(tramp_exit_native)
