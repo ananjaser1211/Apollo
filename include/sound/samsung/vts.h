@@ -42,7 +42,7 @@ extern int vts_clear_sram(struct platform_device *pdev);
  * @return		true if VTS is on, false on otherwise
  */
 extern volatile bool vts_is_on(void);
-extern volatile bool vts_is_recognitionrunning(void);
+extern bool vts_is_recognitionrunning(void);
 #else /* !CONFIG_SND_SOC_SAMSUNG_VTS */
 static inline int vts_acquire_sram(struct platform_device *pdev, int vts)
 { return -ENODEV; }
