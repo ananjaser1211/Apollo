@@ -1,7 +1,7 @@
 /*
  * Wifi Virtual Interface implementaion
  *
- * Copyright (C) 2020, Broadcom.
+ * Copyright (C) 2021, Broadcom.
  *
  *      Unless you and Broadcom execute a separate written software license
  * agreement governing use of this software, this software is licensed to you
@@ -983,6 +983,10 @@ wl_cfg80211_change_p2prole(struct wiphy *wiphy, struct net_device *ndev, enum nl
 	if (mode == WL_MODE_AP) {
 		wl_set_drv_status(cfg, CONNECTED, ndev);
 	}
+
+#if !defined(PCIE_FULL_DONGLE) && defined(P2P_IF_STATE_EVENT_CTRL)
+	dhd_reset_p2p_interface_event(dhd);
+#endif /* !PCIE_FULL_DONGLE & P2P_IF_STATE_EVENT_CTRL */
 
 	return BCME_OK;
 }

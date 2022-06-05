@@ -1151,8 +1151,8 @@ set_proptx(struct dhd_info *dev, const char *buf, size_t count)
 	}
 
 	proptx = onoff;
-	DHD_ERROR(("[WIFI_SEC] %s: FRAMEBURST On/Off from sysfs = %u\n",
-		__FUNCTION__, txbf));
+	DHD_ERROR(("[WIFI_SEC] %s: proptx from sysfs = %u\n",
+		__FUNCTION__, proptx));
 	return count;
 }
 
