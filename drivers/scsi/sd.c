@@ -107,6 +107,8 @@ MODULE_ALIAS_SCSI_DEVICE(TYPE_RBC);
 #define SD_MINORS	0
 #endif
 
+#define SCSI_MAX_PENDING_REQ	256
+
 static void sd_config_discard(struct scsi_disk *, unsigned int);
 static void sd_config_write_same(struct scsi_disk *);
 static int  sd_revalidate_disk(struct gendisk *);
@@ -3560,13 +3562,27 @@ static void sd_shutdown(struct device *dev)
 static int sd_suspend_common(struct device *dev, bool ignore_stop_errors)
 {
 	struct scsi_disk *sdkp = dev_get_drvdata(dev);
+	struct scsi_device *sdp = sdkp->device;
+	struct request_queue *q = sdp->request_queue;
 	int ret = 0;
 
 	if (!sdkp)	/* E.g.: runtime suspend following sd_remove() */
 		return 0;
 
 	if (sdkp->WCE && sdkp->media_present) {
-		sd_printk(KERN_NOTICE, sdkp, "Synchronizing SCSI cache\n");
+		if (sdkp->device->host->by_ufs) {
+			sd_printk(KERN_NOTICE, sdkp, "Synchronizing SCSI cache\n");
+
+			if ((q->nr_rqs[0] + q->nr_rqs[1]) > SCSI_MAX_PENDING_REQ) {
+				sd_printk(KERN_NOTICE, sdkp,
+						"Synchronizing SCSI cache busy return, %d/%d, %d/%d, %d/%d\n",
+					q->nr_rqs[0], q->nr_rqs[1],
+					q->root_rl.count[0], q->root_rl.count[1],
+					q->root_rl.starved[0], q->root_rl.starved[1]);
+				return -EBUSY;
+			}
+		} else
+			sd_printk(KERN_NOTICE, sdkp, "Synchronizing SCSI cache\n");
 		ret = sd_sync_cache(sdkp);
 		if (ret) {
 			/* ignore OFFLINE device */

@@ -12,22 +12,13 @@ How to build Module for Platform
    
   # It is possible to build all modules at once.
   
-3. You should add module name to 'PRODUCT_PACKAGES' in 'build\target\product\core.mk' as following case.
-	case 1) e2fsprog : should add 'e2fsck','resize2fs' to PRODUCT_PACKAGES
-	case 2) libexifa : should add 'libexifa.camera.samsung' to PRODUCT_PACKAGES
-	case 3) libjpega : should add 'libjpega.camera.samsung' to PRODUCT_PACKAGES
-	case 4) keyutils : should add 'libknox_keyutils' to PRODUCT_PACKAGES
+3. You should add module name to 'PRODUCT_PACKAGES' in 'build/make/target/product/base_system.mk' as following case.
+	case 1) libexifa : should add 'libexifa.camera.samsung' to PRODUCT_PACKAGES
+	case 2) libjpega : should add 'libjpega.camera.samsung' to PRODUCT_PACKAGES
+	case 3) keyutils : should add 'libknox_keyutils' to PRODUCT_PACKAGES
 	
 
-ex.) [build\target\product\core.mk] - add all module name for case 1 ~ 5 at once
-    
-# e2fsprog
-PRODUCT_PACKAGES += \
-    e2fsck \
-    libext2fs \
-    libext2_blkid \
-    ibext2_e2p \
-    resize2fs
+ex.) [build/make/target/product/base_system.mk] - add all module name for case 1 ~ 3 at once
     
 # libexifa
 PRODUCT_PACKAGES += \
@@ -54,7 +45,6 @@ PRODUCT_PACKAGES += \
 	- SBrowser_16.0_Removable.apk : "SBrowser"
 	- BixbyVisionFramework3.5.apk : "BixbyVisionFramework"
 	- Notes40.apk : "Samsung Notes"
-	- ShareLive.apk : "ShareLive"
 	- MdecService.apk : "MdecService"
 	- BixbyWakeup.apk : "BixbyWakeup"
 	- HybridRadio.apk : "FMRadio"
