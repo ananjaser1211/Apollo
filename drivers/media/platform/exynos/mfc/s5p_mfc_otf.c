@@ -412,7 +412,7 @@ int s5p_mfc_otf_run_enc_frame(struct s5p_mfc_ctx *ctx)
 
 	/* Change timestamp usec -> nsec */
 	s5p_mfc_qos_update_last_framerate(ctx, handle->otf_time_stamp * 1000);
-	s5p_mfc_qos_update_framerate(ctx);
+	s5p_mfc_qos_update_framerate(ctx, 0);
 
 	/* Set stream buffer size to handle buffer full */
 	s5p_mfc_clean_ctx_int_flags(ctx);

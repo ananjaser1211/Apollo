@@ -383,6 +383,7 @@ static void s5p_mfc_enc_buf_queue(struct vb2_buffer *vb)
 
 		/* Mark destination as available for use by MFC */
 		s5p_mfc_add_tail_buf(&ctx->buf_queue_lock, &ctx->dst_buf_queue, buf);
+		s5p_mfc_qos_update_framerate(ctx, 1);
 	} else if (vq->type == V4L2_BUF_TYPE_VIDEO_OUTPUT_MPLANE) {
 		s5p_mfc_add_tail_buf(&ctx->buf_queue_lock, &ctx->src_buf_queue, buf);
 	} else {
@@ -393,7 +394,7 @@ static void s5p_mfc_enc_buf_queue(struct vb2_buffer *vb)
 	mfc_debug(7, "qos ratio: %d\n", ctx->qos_ratio);
 
 	s5p_mfc_qos_update_last_framerate(ctx, buf->vb.vb2_buf.timestamp);
-	s5p_mfc_qos_update_framerate(ctx);
+	s5p_mfc_qos_update_framerate(ctx, 0);
 
 	if (s5p_mfc_enc_ctx_ready(ctx)) {
 		s5p_mfc_set_bit(ctx->num, &dev->work_bits);

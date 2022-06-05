@@ -1007,6 +1007,62 @@ static void mfc_nal_q_handle_frame_copy_timestamp(struct s5p_mfc_ctx *ctx, Decod
 	mfc_debug_leave();
 }
 
+static void mfc_nal_q_handle_frame_output_move_vc1(struct s5p_mfc_ctx *ctx,
+			dma_addr_t dspl_y_addr, unsigned int released_flag)
+{
+	struct s5p_mfc_dec *dec = ctx->dec_priv;
+	struct s5p_mfc_dev *dev = ctx->dev;
+	struct s5p_mfc_buf *dst_mb;
+	int index = 0;
+	int i;
+
+	dst_mb = s5p_mfc_find_move_buf_vb(&ctx->buf_queue_lock,
+			&ctx->dst_buf_queue, &ctx->ref_buf_queue, dspl_y_addr, released_flag);
+	if (dst_mb) {
+		mfc_debug(2, "NAL Q: find display buf, index: %d\n", dst_mb->vb.vb2_buf.index);
+		/* Check if this is the buffer we're looking for */
+		mfc_debug(2, "NAL Q: buf addr: 0x%08llx, disp addr: 0x%08llx\n",
+				s5p_mfc_mem_get_daddr_vb(&dst_mb->vb.vb2_buf, 0), dspl_y_addr);
+
+		index = dst_mb->vb.vb2_buf.index;
+
+		if (released_flag & (1 << index)) {
+			dec->available_dpb &= ~(1 << index);
+			released_flag &= ~(1 << index);
+			mfc_debug(2, "NAL Q: Corrupted frame(%d), it will be re-used(release)\n",
+					s5p_mfc_get_warn(s5p_mfc_get_int_err()));
+		} else {
+			dec->err_reuse_flag |= 1 << index;
+			mfc_debug(2, "NAL Q: Corrupted frame(%d), it will be re-used(not released)\n",
+					s5p_mfc_get_warn(s5p_mfc_get_int_err()));
+		}
+	}
+
+	if (!released_flag)
+		return;
+
+	for (i = 0; i < MFC_MAX_DPBS; i++) {
+		if (released_flag & (1 << i)) {
+			if (s5p_mfc_move_reuse_buffer(ctx, i)) {
+				/*
+				 * If the released buffer is in ref_buf_q,
+				 * it means that driver owns that buffer.
+				 * In that case, move buffer from ref_buf_q to dst_buf_q to reuse it.
+				 */
+				dec->available_dpb &= ~(1 << i);
+				mfc_debug(2, "[NALQ][DPB] released buf[%d] is reused\n", i);
+			} else {
+				/*
+				 * Otherwise, because the user owns the buffer
+				 * the buffer should be included in release_info when display frame.
+				 */
+				dec->dec_only_release_flag |= (1 << i);
+				mfc_debug(2, "[NALQ][DPB] released buf[%d] is in dec_only flag\n", i);
+			}
+		}
+	}
+}
+
 static void mfc_nal_q_handle_frame_output_move(struct s5p_mfc_ctx *ctx,
 			dma_addr_t dspl_y_addr, unsigned int released_flag)
 {
@@ -1220,9 +1276,10 @@ static void mfc_nal_q_handle_frame_new(struct s5p_mfc_ctx *ctx, unsigned int err
 	mfc_debug(2, "NAL Q: Used flag = %08x, Released Buffer = %08x\n",
 			dec->dynamic_used, released_flag);
 
-	if ((IS_VC1_RCV_DEC(ctx) &&
-			(disp_err == S5P_FIMV_ERR_SYNC_POINT_NOT_RECEIVED)) ||
-			(disp_err == S5P_FIMV_ERR_BROKEN_LINK))
+	if (IS_VC1_RCV_DEC(ctx) &&
+			(disp_err == S5P_FIMV_ERR_SYNC_POINT_NOT_RECEIVED))
+		mfc_nal_q_handle_frame_output_move_vc1(ctx, dspl_y_addr, released_flag);
+	else if (disp_err == S5P_FIMV_ERR_BROKEN_LINK)
 		mfc_nal_q_handle_frame_output_move(ctx, dspl_y_addr, released_flag);
 	else
 		mfc_nal_q_handle_frame_output_del(ctx, pOutStr, err, released_flag);

@@ -42,7 +42,8 @@ void s5p_mfc_qos_off(struct s5p_mfc_ctx *ctx);
 #define s5p_mfc_qos_off(ctx)	do {} while (0)
 #endif
 
-void s5p_mfc_qos_update_framerate(struct s5p_mfc_ctx *ctx);
+void mfc_qos_idle_worker(struct work_struct *work);
+void s5p_mfc_qos_update_framerate(struct s5p_mfc_ctx *ctx, int idle_trigger_only);
 void s5p_mfc_qos_update_last_framerate(struct s5p_mfc_ctx *ctx, u64 timestamp);
 
 static inline void s5p_mfc_qos_reset_framerate(struct s5p_mfc_ctx *ctx)

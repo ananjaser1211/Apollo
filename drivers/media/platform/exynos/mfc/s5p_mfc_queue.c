@@ -618,7 +618,7 @@ void s5p_mfc_handle_released_info(struct s5p_mfc_ctx *ctx,
 		return;
 	}
 	refBuf = &dec->ref_info[index];
-	
+
 	if (dec->dec_only_release_flag) {
 		for (t = 0; t < MFC_MAX_DPBS; t++) {
 			if (dec->dec_only_release_flag & (1 << t)) {
@@ -630,7 +630,7 @@ void s5p_mfc_handle_released_info(struct s5p_mfc_ctx *ctx,
 			}
 		}
 	}
-	
+
 	if (released_flag) {
 		for (t = 0; t < MFC_MAX_DPBS; t++) {
 			if (released_flag & (1 << t)) {

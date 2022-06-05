@@ -590,6 +590,7 @@ static int vidioc_querybuf(struct file *file, void *priv,
 static int vidioc_qbuf(struct file *file, void *priv, struct v4l2_buffer *buf)
 {
 	struct s5p_mfc_ctx *ctx = fh_to_mfc_ctx(file->private_data);
+	struct s5p_mfc_dev *dev = ctx->dev;
 	int i, ret = -EINVAL;
 
 	mfc_debug_enter();
@@ -639,6 +640,8 @@ static int vidioc_qbuf(struct file *file, void *priv, struct v4l2_buffer *buf)
 		ret = vb2_qbuf(&ctx->vq_dst, buf);
 	}
 
+	atomic_inc(&dev->queued_cnt);
+
 	mfc_debug_leave();
 	return ret;
 }
@@ -667,7 +670,7 @@ static int vidioc_dqbuf(struct file *file, void *priv, struct v4l2_buffer *buf)
 		mfc_err_ctx("Invalid V4L2 Buffer for driver: type(%d)\n", buf->type);
 		return -EINVAL;
 	}
-	
+
 	if (buf->type == V4L2_BUF_TYPE_VIDEO_OUTPUT_MPLANE)
 		ret = vb2_dqbuf(&ctx->vq_src, buf, file->f_flags & O_NONBLOCK);
 	else
@@ -692,7 +695,7 @@ static int vidioc_streamon(struct file *file, void *priv,
 
 	if (!V4L2_TYPE_IS_MULTIPLANAR(type)) {
 		mfc_err_ctx("Invalid V4L2 Buffer for driver: type(%d)\n", type);
-		return -EINVAL;		
+		return -EINVAL;
 	}
 
 	if (type == V4L2_BUF_TYPE_VIDEO_OUTPUT_MPLANE) {
@@ -891,7 +894,7 @@ static int vidioc_g_ctrl(struct file *file, void *priv,
 
 static inline int mfc_enc_h264_level(enum v4l2_mpeg_video_h264_level lvl)
 {
-	static unsigned int t[V4L2_MPEG_VIDEO_H264_LEVEL_5_1 + 1] = {
+	static unsigned int t[V4L2_MPEG_VIDEO_H264_LEVEL_5_2 + 1] = {
 		/* V4L2_MPEG_VIDEO_H264_LEVEL_1_0   */ 10,
 		/* V4L2_MPEG_VIDEO_H264_LEVEL_1B    */ 9,
 		/* V4L2_MPEG_VIDEO_H264_LEVEL_1_1   */ 11,
@@ -908,6 +911,7 @@ static inline int mfc_enc_h264_level(enum v4l2_mpeg_video_h264_level lvl)
 		/* V4L2_MPEG_VIDEO_H264_LEVEL_4_2   */ 42,
 		/* V4L2_MPEG_VIDEO_H264_LEVEL_5_0   */ 50,
 		/* V4L2_MPEG_VIDEO_H264_LEVEL_5_1   */ 51,
+		/* V4L2_MPEG_VIDEO_H264_LEVEL_5_2   */ 52,
 	};
 	return t[lvl];
 }

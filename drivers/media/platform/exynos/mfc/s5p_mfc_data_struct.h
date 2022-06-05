@@ -185,6 +185,13 @@ enum s5p_mfc_ctrl_mode {
 	MFC_CTRL_MODE_CST	= 0x2,
 };
 
+enum mfc_idle_mode {
+	MFC_IDLE_MODE_NONE	= 0,
+	MFC_IDLE_MODE_RUNNING	= 1,
+	MFC_IDLE_MODE_IDLE	= 2,
+	MFC_IDLE_MODE_CANCEL	= 3,
+};
+
 struct s5p_mfc_ctx;
 
 enum s5p_mfc_debug_cause {
@@ -722,6 +729,14 @@ struct s5p_mfc_dev {
 	struct timer_list watchdog_timer;
 	struct workqueue_struct *watchdog_wq;
 	struct work_struct watchdog_work;
+
+	atomic_t hw_run_cnt;
+	atomic_t queued_cnt;
+	struct mutex idle_qos_mutex;
+	enum mfc_idle_mode idle_mode;
+	struct timer_list mfc_idle_timer;
+	struct workqueue_struct *mfc_idle_wq;
+	struct work_struct mfc_idle_work;
 
 	/* for DRM */
 	int curr_ctx_is_drm;

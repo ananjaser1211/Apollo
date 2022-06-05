@@ -14,6 +14,7 @@
 #include <soc/samsung/bts.h>
 
 #include "s5p_mfc_qos.h"
+#include "s5p_mfc_utils.h"
 
 #ifdef CONFIG_MFC_USE_BUS_DEVFREQ
 enum {
@@ -23,15 +24,14 @@ enum {
 	MFC_QOS_BW,
 };
 
-static void mfc_qos_operate(struct s5p_mfc_ctx *ctx, int opr_type, int idx)
+static void mfc_qos_operate(struct s5p_mfc_dev *dev, int opr_type, int idx)
 {
-	struct s5p_mfc_dev *dev = ctx->dev;
 	struct s5p_mfc_platdata *pdata = dev->pdata;
 	struct s5p_mfc_qos *qos_table = pdata->qos_table;
 
 	switch (opr_type) {
 	case MFC_QOS_ADD:
-		MFC_TRACE_CTX("++ QOS add[%d] (int:%d, mif:%d)\n",
+		MFC_TRACE_DEV("++ QOS add[%d] (int:%d, mif:%d)\n",
 			idx, qos_table[idx].freq_int, qos_table[idx].freq_mif);
 
 		pm_qos_add_request(&dev->qos_req_int,
@@ -55,7 +55,7 @@ static void mfc_qos_operate(struct s5p_mfc_ctx *ctx, int opr_type, int idx)
 		bts_update_scen(BS_MFC_UHD, qos_table[idx].mo_value);
 
 		atomic_set(&dev->qos_req_cur, idx + 1);
-		MFC_TRACE_CTX("-- QOS add[%d] (int:%d, mif:%d, mo:%d, mo_10bit:%d, mo_uhd_enc:%d)\n",
+		MFC_TRACE_DEV("-- QOS add[%d] (int:%d, mif:%d, mo:%d, mo_10bit:%d, mo_uhd_enc:%d)\n",
 				idx, qos_table[idx].freq_int, qos_table[idx].freq_mif,
 				qos_table[idx].mo_value, qos_table[idx].mo_10bit_value,
 				qos_table[idx].mo_uhd_enc60_value);
@@ -65,7 +65,7 @@ static void mfc_qos_operate(struct s5p_mfc_ctx *ctx, int opr_type, int idx)
 				qos_table[idx].mo_uhd_enc60_value);
 		break;
 	case MFC_QOS_UPDATE:
-		MFC_TRACE_CTX("++ QOS update[%d] (int:%d, mif:%d)\n",
+		MFC_TRACE_DEV("++ QOS update[%d] (int:%d, mif:%d)\n",
 				idx, qos_table[idx].freq_int, qos_table[idx].freq_mif);
 
 		pm_qos_update_request(&dev->qos_req_int,
@@ -85,7 +85,7 @@ static void mfc_qos_operate(struct s5p_mfc_ctx *ctx, int opr_type, int idx)
 		bts_update_scen(BS_MFC_UHD, qos_table[idx].mo_value);
 
 		atomic_set(&dev->qos_req_cur, idx + 1);
-		MFC_TRACE_CTX("-- QOS update[%d] (int:%d, mif:%d, mo:%d, mo_10bit:%d, mo_uhd_enc:%d)\n",
+		MFC_TRACE_DEV("-- QOS update[%d] (int:%d, mif:%d, mo:%d, mo_10bit:%d, mo_uhd_enc:%d)\n",
 				idx, qos_table[idx].freq_int, qos_table[idx].freq_mif,
 				qos_table[idx].mo_value, qos_table[idx].mo_10bit_value,
 				qos_table[idx].mo_uhd_enc60_value);
@@ -95,7 +95,7 @@ static void mfc_qos_operate(struct s5p_mfc_ctx *ctx, int opr_type, int idx)
 				qos_table[idx].mo_uhd_enc60_value);
 		break;
 	case MFC_QOS_REMOVE:
-		MFC_TRACE_CTX("++ QOS remove\n");
+		MFC_TRACE_DEV("++ QOS remove\n");
 
 		pm_qos_remove_request(&dev->qos_req_int);
 		pm_qos_remove_request(&dev->qos_req_mif);
@@ -115,22 +115,22 @@ static void mfc_qos_operate(struct s5p_mfc_ctx *ctx, int opr_type, int idx)
 		bts_update_bw(BTS_BW_MFC, dev->mfc_bw);
 
 		atomic_set(&dev->qos_req_cur, 0);
-		MFC_TRACE_CTX("-- QOS remove\n");
+		MFC_TRACE_DEV("-- QOS remove\n");
 		mfc_debug(2, "QoS remove\n");
 		break;
 	case MFC_QOS_BW:
-		MFC_TRACE_CTX("++ QOS BW (peak: %d, read: %d, write: %d)\n",
+		MFC_TRACE_DEV("++ QOS BW (peak: %d, read: %d, write: %d)\n",
 				dev->mfc_bw.peak, dev->mfc_bw.read, dev->mfc_bw.write);
 
 		bts_update_bw(BTS_BW_MFC, dev->mfc_bw);
 
-		MFC_TRACE_CTX("-- QOS BW (peak: %d, read: %d, write: %d)\n",
+		MFC_TRACE_DEV("-- QOS BW (peak: %d, read: %d, write: %d)\n",
 				dev->mfc_bw.peak, dev->mfc_bw.read, dev->mfc_bw.write);
 		mfc_debug(2, "QoS BW, (peak: %d, read: %d, write: %d)\n",
 				dev->mfc_bw.peak, dev->mfc_bw.read, dev->mfc_bw.write);
 		break;
 	default:
-		mfc_err_ctx("Unknown request for opr [%d]\n", opr_type);
+		mfc_err_dev("Unknown request for opr [%d]\n", opr_type);
 		break;
 	}
 }
@@ -151,15 +151,13 @@ static void mfc_qos_set(struct s5p_mfc_ctx *ctx, struct bts_bw *mfc_bw, int i)
 		dev->mfc_bw.peak = mfc_bw->peak;
 		dev->mfc_bw.read = mfc_bw->read;
 		dev->mfc_bw.write = mfc_bw->write;
-		mfc_qos_operate(ctx, MFC_QOS_BW, i);
+		mfc_qos_operate(dev, MFC_QOS_BW, i);
 	}
 
-	mutex_lock(&dev->qos_mutex);
 	if (atomic_read(&dev->qos_req_cur) == 0)
-		mfc_qos_operate(ctx, MFC_QOS_ADD, i);
+		mfc_qos_operate(dev, MFC_QOS_ADD, i);
 	else if (atomic_read(&dev->qos_req_cur) != (i + 1))
-		mfc_qos_operate(ctx, MFC_QOS_UPDATE, i);
-	mutex_unlock(&dev->qos_mutex);
+		mfc_qos_operate(dev, MFC_QOS_UPDATE, i);
 }
 
 static inline unsigned long mfc_qos_get_weighted_mb(struct s5p_mfc_ctx *ctx,
@@ -397,6 +395,7 @@ void s5p_mfc_qos_on(struct s5p_mfc_ctx *ctx)
 	int i, found = 0, enc_found = 0;
 	int start_qos_step;
 
+	mutex_lock(&dev->qos_mutex);
 	list_for_each_entry(qos_ctx, &dev->qos_queue, qos_list)
 		if (qos_ctx == ctx)
 			found = 1;
@@ -445,6 +444,7 @@ void s5p_mfc_qos_on(struct s5p_mfc_ctx *ctx)
 		mfc_debug(4, "QoS overspec mb %ld > %d\n", total_mb, pdata->max_mb);
 
 	mfc_qos_set(ctx, &mfc_bw, i);
+	mutex_unlock(&dev->qos_mutex);
 }
 
 void s5p_mfc_qos_off(struct s5p_mfc_ctx *ctx)
@@ -459,11 +459,11 @@ void s5p_mfc_qos_off(struct s5p_mfc_ctx *ctx)
 	int i, found = 0, enc_found = 0;
 	int start_qos_step;
 
+	mutex_lock(&dev->qos_mutex);
 	if (list_empty(&dev->qos_queue)) {
-		mutex_lock(&dev->qos_mutex);
 		if (atomic_read(&dev->qos_req_cur) != 0) {
 			mfc_err_ctx("MFC request count is wrong!\n");
-			mfc_qos_operate(ctx, MFC_QOS_REMOVE, 0);
+			mfc_qos_operate(dev, MFC_QOS_REMOVE, 0);
 		}
 		mutex_unlock(&dev->qos_mutex);
 		return;
@@ -472,6 +472,7 @@ void s5p_mfc_qos_off(struct s5p_mfc_ctx *ctx)
 	mfc_bw.peak = 0;
 	mfc_bw.read = 0;
 	mfc_bw.write = 0;
+
 	/* get the hw macroblock */
 	list_for_each_entry(qos_ctx, &dev->qos_queue, qos_list) {
 		if (qos_ctx == ctx) {
@@ -488,6 +489,8 @@ void s5p_mfc_qos_off(struct s5p_mfc_ctx *ctx)
 		mfc_bw.write += mfc_bw_ctx.write;
 		total_fps += (qos_ctx->framerate / 1000);
 	}
+	if (found)
+		list_del(&ctx->qos_list);
 
 	start_qos_step = pdata->num_qos_steps;
 	if (enc_found)
@@ -514,16 +517,54 @@ void s5p_mfc_qos_off(struct s5p_mfc_ctx *ctx)
 	if (total_mb > pdata->max_mb)
 		mfc_debug(4, "QoS overspec mb %ld > %d\n", total_mb, pdata->max_mb);
 
-	if (found)
-		list_del(&ctx->qos_list);
-
-	if (list_empty(&dev->qos_queue) || total_mb == 0) {
-		mutex_lock(&dev->qos_mutex);
-		mfc_qos_operate(ctx, MFC_QOS_REMOVE, 0);
-		mutex_unlock(&dev->qos_mutex);
-	} else {
+	if (list_empty(&dev->qos_queue) || total_mb == 0)
+		mfc_qos_operate(dev, MFC_QOS_REMOVE, 0);
+	else
 		mfc_qos_set(ctx, &mfc_bw, i);
+
+	mutex_unlock(&dev->qos_mutex);
+}
+
+void __mfc_qos_off_all(struct s5p_mfc_dev *dev)
+{
+	struct s5p_mfc_ctx *qos_ctx, *tmp_ctx;
+
+	mutex_lock(&dev->qos_mutex);
+	if (list_empty(&dev->qos_queue)) {
+		mfc_err_dev("[QoS][MFCIDLE] MFC QoS list already empty (%d)\n",
+				atomic_read(&dev->qos_req_cur));
+		mutex_unlock(&dev->qos_mutex);
+		return;
 	}
+
+	/* Delete all of QoS list */
+	list_for_each_entry_safe(qos_ctx, tmp_ctx, &dev->qos_queue, qos_list)
+		list_del(&qos_ctx->qos_list);
+
+	/* Select the opend ctx structure for QoS remove */
+	mfc_qos_operate(dev, MFC_QOS_REMOVE, 0);
+	mutex_unlock(&dev->qos_mutex);
+}
+
+void mfc_qos_idle_worker(struct work_struct *work)
+{
+	struct s5p_mfc_dev *dev;
+
+	dev = container_of(work, struct s5p_mfc_dev, mfc_idle_work);
+
+	mutex_lock(&dev->idle_qos_mutex);
+	if (dev->idle_mode == MFC_IDLE_MODE_CANCEL) {
+		mfc_change_idle_mode(dev, MFC_IDLE_MODE_NONE);
+		mfc_debug(2, "[QoS][MFCIDLE] idle mode is canceled\n");
+		mutex_unlock(&dev->idle_qos_mutex);
+		return;
+	}
+
+	__mfc_qos_off_all(dev);
+	mfc_info_dev("[QoS][MFCIDLE] MFC go to QoS idle mode\n");
+
+	mfc_change_idle_mode(dev, MFC_IDLE_MODE_IDLE);
+	mutex_unlock(&dev->idle_qos_mutex);
 }
 #endif
 
@@ -697,14 +738,38 @@ static unsigned long mfc_qos_get_fps_by_timestamp(struct s5p_mfc_ctx *ctx, struc
 	return max_framerate;
 }
 
-void s5p_mfc_qos_update_framerate(struct s5p_mfc_ctx *ctx)
+void s5p_mfc_qos_update_framerate(struct s5p_mfc_ctx *ctx, int idle_trigger_only)
 {
+	struct s5p_mfc_dev *dev = ctx->dev;
+	bool update_framerate = false, update_idle = false;
+
+	/* 1) Idle mode trigger */
+	mutex_lock(&dev->idle_qos_mutex);
+	if (dev->idle_mode == MFC_IDLE_MODE_IDLE) {
+		mfc_debug(2, "[QoS][MFCIDLE] restart QoS control\n");
+		mfc_change_idle_mode(dev, MFC_IDLE_MODE_NONE);
+		update_idle = true;
+	} else if (dev->idle_mode == MFC_IDLE_MODE_RUNNING) {
+		mfc_debug(2, "[QoS][MFCIDLE] restart QoS control, cancel idle\n");
+		mfc_change_idle_mode(dev, MFC_IDLE_MODE_CANCEL);
+		update_idle = true;
+	}
+	mutex_unlock(&dev->idle_qos_mutex);
+
+	if (idle_trigger_only)
+		goto update_qos;
+
+	/* 2) framerate is updated */
 	if (ctx->last_framerate != 0 && ctx->last_framerate != ctx->framerate) {
 		mfc_debug(2, "fps changed: %ld -> %ld\n",
 				ctx->framerate, ctx->last_framerate);
 		ctx->framerate = ctx->last_framerate;
-		s5p_mfc_qos_on(ctx);
+		update_framerate = true;
 	}
+
+update_qos:
+	if (update_idle || update_framerate)
+		s5p_mfc_qos_on(ctx);
 }
 
 void s5p_mfc_qos_update_last_framerate(struct s5p_mfc_ctx *ctx, u64 timestamp)
