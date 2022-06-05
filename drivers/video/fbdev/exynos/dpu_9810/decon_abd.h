@@ -182,6 +182,9 @@ struct abd_protect {
 
 	struct dentry *debugfs_root;
 	unsigned int init_done;
+
+	struct miscdevice misc_entry;
+	struct mutex misc_lock;
 };
 
 #if defined(CONFIG_EXYNOS_DPU20)

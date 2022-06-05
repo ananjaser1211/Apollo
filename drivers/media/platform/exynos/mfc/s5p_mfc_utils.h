@@ -184,4 +184,23 @@ static inline void mfc_change_idle_mode(struct s5p_mfc_dev *dev,
 }
 void mfc_update_real_time(struct s5p_mfc_ctx *ctx);
 
+static inline int mfc_enc_get_ts_delta(struct s5p_mfc_ctx *ctx)
+{
+	struct s5p_mfc_enc *enc = ctx->enc_priv;
+	struct s5p_mfc_enc_params *p = &enc->params;
+	int ts_delta = 0;
+
+	if (!ctx->ts_last_interval) {
+		ts_delta = p->rc_framerate_res / p->rc_framerate;
+		mfc_debug(3, "[DFR] default delta: %d\n", ts_delta);
+	} else {
+		if (IS_H263_ENC(ctx))
+			ts_delta = (ctx->ts_last_interval / 100) / p->rc_framerate_res;
+		else
+			ts_delta = ctx->ts_last_interval / p->rc_framerate_res;
+	}
+	return ts_delta;
+}
+
+void mfc_update_real_time(struct s5p_mfc_ctx *ctx);
 #endif /* __S5P_MFC_UTILS_H */

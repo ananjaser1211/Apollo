@@ -930,6 +930,7 @@ static void mfc_parse_dt(struct device_node *np, struct s5p_mfc_dev *mfc)
 		mfc_parse_mfc_qos_platdata(np, node_name, &pdata->qos_table[i]);
 	}
 #endif
+	of_property_read_u32_array(np, "enc_ts_delta", &pdata->enc_ts_delta.support, 2);
 }
 
 static void *mfc_get_drv_data(struct platform_device *pdev);

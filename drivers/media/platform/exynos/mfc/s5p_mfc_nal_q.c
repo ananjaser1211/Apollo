@@ -527,6 +527,26 @@ static void mfc_nal_q_set_slice_mode(struct s5p_mfc_ctx *ctx, EncoderInputStr *p
 	}
 }
 
+static void mfc_nal_q_set_enc_ts_delta(struct s5p_mfc_ctx *ctx, EncoderInputStr *pInStr)
+{
+	struct s5p_mfc_enc *enc = ctx->enc_priv;
+	struct s5p_mfc_enc_params *p = &enc->params;
+	int ts_delta;
+
+	ts_delta = mfc_enc_get_ts_delta(ctx);
+
+	pInStr->TimeStampDelta &= ~(0xFFFF);
+	pInStr->TimeStampDelta |= (ts_delta & 0xFFFF);
+
+	if (ctx->ts_last_interval)
+		mfc_debug(3, "[NALQ][DFR] fps %d -> %ld, delta: %d, reg: %#x\n",
+				p->rc_framerate, USEC_PER_SEC / ctx->ts_last_interval,
+				ts_delta, pInStr->TimeStampDelta);
+	else
+		mfc_debug(3, "[NALQ][DFR] fps %d -> 0, delta: %d, reg: %#x\n",
+				p->rc_framerate, ts_delta, pInStr->TimeStampDelta);
+}
+
 static int mfc_nal_q_run_in_buf_enc(struct s5p_mfc_ctx *ctx, EncoderInputStr *pInStr)
 {
 	struct s5p_mfc_dev *dev;
@@ -609,6 +629,7 @@ static int mfc_nal_q_run_in_buf_enc(struct s5p_mfc_ctx *ctx, EncoderInputStr *pI
 			dst_mb->vb.vb2_buf.index);
 
 	mfc_nal_q_set_slice_mode(ctx, pInStr);
+	mfc_nal_q_set_enc_ts_delta(ctx, pInStr);
 
 	mfc_debug_leave();
 

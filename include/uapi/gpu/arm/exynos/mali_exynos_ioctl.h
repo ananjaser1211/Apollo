@@ -126,6 +126,20 @@ struct kbase_ioctl_slsi_singlebuffer_boost_flags {
 #define KBASE_IOCTL_SLSI_SINGLEBUFFER_BOOST_FLAGS \
 	_IOW(KBASE_IOCTL_TYPE, 46, struct kbase_ioctl_slsi_singlebuffer_boost_flags)
 
+/*
+ * struct mali_exynos_ioctl_ehmp_flags - Update the status of ehmp flag
+ * @flags: Flags for future expansion
+ */
+struct mali_exynos_ioctl_ehmp_flags {
+	__u32 flags;
+};
+
+#define EHMP_SET (512 + 41)
+#define EHMP_UNSET (512 + 42)
+
+#define MALI_EXYNOS_IOCTL_EHMP \
+	_IOW(KBASE_IOCTL_TYPE, 42, struct mali_exynos_ioctl_ehmp_flags)
+
 #ifdef __cpluscplus
 }
 #endif

@@ -273,6 +273,7 @@ static long hdcp_ioctl(struct file *filp, unsigned int cmd, unsigned long arg)
 		rval = 0;
 		return rval;
 	}
+#if defined(CONFIG_HDCP2_IIA_ENABLE)
 	case (uint32_t)HDCP_IOC_WRAP_KEY:
 	{
 		struct hdcp_wrapped_key key_info;
@@ -293,6 +294,7 @@ static long hdcp_ioctl(struct file *filp, unsigned int cmd, unsigned long arg)
 		}
 		break;
 	}
+#endif
 
 	default:
 		hdcp_err("HDCP: Invalid IOC num(%d)\n", cmd);

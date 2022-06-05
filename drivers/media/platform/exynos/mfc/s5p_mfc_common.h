@@ -42,6 +42,8 @@
 
 #define NUM_MPEG4_LF_BUF	2
 
+#define FRAME_RATE_RESOLUTION	1000
+
 #define DEFAULT_TAG		(0xE05)
 
 #define MFC_NO_INSTANCE_SET	-1
@@ -162,11 +164,14 @@
 #define	ENC_SET_COLOR_ASPECT		(1 << 9)
 #define	ENC_SET_HP_BITRATE_CONTROL	(1 << 10)
 #define	ENC_SET_STATIC_INFO		(1 << 11)
+#define	ENC_SET_DROP_CONTROL		(1 << 14)
 #define	ENC_SET_OPERATING_FPS		(1 << 18)
 #define	ENC_SET_PRIORITY		(1 << 23)
 
 #define MFC_VER_MAJOR(dev)	((s5p_mfc_version(dev) >> 8) & 0xFF)
 #define MFC_VER_MINOR(dev)	(s5p_mfc_version(dev) & 0xFF)
+
+#define MFC_FEATURE_SUPPORT(dev, f)     ((f).support && ((dev)->fw.date >= (f).version))
 
 /*
  * Version Description
@@ -178,7 +183,6 @@
 #define FROM_MFCV11X(dev)	(IS_MFCV11X(dev) || IS_MFCV12X(dev))
 #define FROM_MFCV10X(dev)	(IS_MFCV10X(dev) || IS_MFCV11X(dev) || \
 				IS_MFCV12X(dev))
-
 /* supported feature macros by F/W version */
 #define FW_HAS_CONCEAL_CONTROL(dev)	(FROM_MFCV10X(dev))
 #define FW_HAS_ROI_CONTROL(dev)		(FROM_MFCV10X(dev))

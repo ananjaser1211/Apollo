@@ -109,6 +109,7 @@ typedef struct _dt_info {
 	/* QOS */
 	u32 gpu_bts_support;
 	u32 gpu_mo_min_clock;
+	u32 gpu_boost_egl_min_lock;
 
 	/* DEBUG */
 	u32 gpu_debug_level;

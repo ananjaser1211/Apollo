@@ -1,4 +1,4 @@
-/* SPDX-License-Identifier: GPL-2.0 */
+// SPDX-License-Identifier: GPL-2.0
 
 /*
  * (C) COPYRIGHT 2021 Samsung Electronics Inc. All rights reserved.
@@ -18,26 +18,23 @@
  * http://www.gnu.org/licenses/gpl-2.0.html.
  */
 
-#ifndef _GPEXBE_QOS_H_
-#define _GPEXBE_QOS_H_
+#ifndef _GPEXWA_EHMP_H_
+#define _GPEXWA_EHMP_H_
 
+#if IS_ENABLED(CONFIG_MALI_EXYNOS_EHMP)
 #include <linux/types.h>
 
-typedef enum {
-	PMQOS_MIN = 1 << 0,
-	PMQOS_MAX = 1 << 1,
-	PMQOS_LITTLE = 1 << 2,
-	PMQOS_MIDDLE = 1 << 3,
-	PMQOS_BIG = 1 << 4,
-	PMQOS_MIF = 1 << 5,
-} mali_pmqos_flags;
+void gpexwa_ehmp_set(void);
+void gpexwa_ehmp_unset(void);
+bool gpexwa_ehmp_skip_ifpo_power_down(void);
+int gpexwa_ehmp_init(void);
+void gpexwa_ehmp_term(void);
+#else
+#define gpexwa_ehmp_set(...) (void)0
+#define gpexwa_ehmp_unset(...) (void)0
+#define gpexwa_ehmp_skip_ifpo_power_down(...) 0
+#define gpexwa_ehmp_init(...)
+#define gpexwa_ehmp_term(...) (void)0
+#endif
 
-int gpexbe_qos_init(void);
-void gpexbe_qos_term(void);
-void gpexbe_qos_request_add(mali_pmqos_flags type);
-void gpexbe_qos_request_remove(mali_pmqos_flags type);
-void gpexbe_qos_request_update(mali_pmqos_flags type, s32 clock);
-void gpexbe_qos_request_update_timeout(mali_pmqos_flags type, s32 clock, uint32_t timeout_us);
-void gpexbe_qos_request_unset(mali_pmqos_flags type);
-
-#endif /* _GPEXBE_QOS_H_ */
+#endif /* _GPEXWA_EHMP_H_ */

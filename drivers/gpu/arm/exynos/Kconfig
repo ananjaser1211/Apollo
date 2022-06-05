@@ -215,6 +215,13 @@ config MALI_SEC_G3D_PEAK_NOTI
     help
       Choose this option to enable SEC_G3D_PEAK_NOTI in the Mali tTRx DDK.
 
+config MALI_EXYNOS_EHMP
+    bool "Enable Mali EHMP support"
+	depends on MALI_EXYNOS_QOS
+    default y
+    help
+      Choose this option to for Mali EHMP support.
+
 # This is a legacy config that's unfortunately used by the other drivers... Need to find a better
 # place to put this.
 config EXYNOS_SOC_NAME
@@ -225,6 +232,6 @@ config EXYNOS_SOC_NAME
 
 config MALI_EXYNOS_UNIT_TESTS
     bool "Build unit tests for Mali Unified Driver vendor code"
-    default y
+    default n
     help
       Choose this option to build unit tests for Mali LSI vendor code

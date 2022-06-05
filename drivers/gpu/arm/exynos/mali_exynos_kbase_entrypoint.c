@@ -40,6 +40,7 @@
 #include <gpexbe_power_cycle_wa.h>
 #include <gpexbe_secure.h>
 #include <gpexbe_dmabuf.h>
+#include <gpexwa_ehmp.h>
 
 #include <mali_exynos_ioctl.h>
 
@@ -63,6 +64,17 @@ static int mali_exynos_ioctl_hcm_pmqos_fn(struct kbase_context *kctx,
 		gpex_gts_set_hcm_mode(pmqos->mode);
 		gpex_qos_set_from_clock(gpex_clock_get_cur_clock());
 	}
+
+	return 0;
+}
+
+static int mali_exynos_ioctl_ehmp_fn(struct kbase_context *kctx,
+					  struct mali_exynos_ioctl_ehmp_flags *state)
+{
+	if (state->flags == EHMP_SET)
+		gpexwa_ehmp_set();
+	else if (state->flags == EHMP_UNSET)
+		gpexwa_ehmp_unset();
 
 	return 0;
 }
@@ -163,6 +175,11 @@ int mali_exynos_ioctl(struct kbase_context *kctx, unsigned int cmd, unsigned lon
 		/* Deprecated IOCTL only used by legacy UMD */
 		KBASE_HANDLE_IOCTL_IN(cmd, kbase_api_singlebuffer_boost,
 				      struct kbase_ioctl_slsi_singlebuffer_boost_flags, kctx);
+		break;
+
+	case MALI_EXYNOS_IOCTL_EHMP:
+		KBASE_HANDLE_IOCTL_IN(cmd, mali_exynos_ioctl_ehmp_fn,
+				      struct mali_exynos_ioctl_ehmp_flags, kctx);
 		break;
 	}
 
@@ -366,6 +383,7 @@ static int mali_exynos_kbase_context_init(struct kbase_context *kctx)
 
 static void mali_exynos_kbase_context_term(struct kbase_context *kctx)
 {
+	gpexwa_ehmp_unset();
 	kfree(kctx->platform_data);
 }
 

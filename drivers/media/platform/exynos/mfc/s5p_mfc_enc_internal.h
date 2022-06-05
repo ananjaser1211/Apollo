@@ -558,7 +558,7 @@ static struct v4l2_queryctrl controls[] = {
 		.type = V4L2_CTRL_TYPE_INTEGER,
 		.name = "H264 Frame rate",
 		.minimum = 1,
-		.maximum = (1 << 16) - 1,
+		.maximum = FRAME_RATE_RESOLUTION,
 		.step = 1,
 		.default_value = 1,
 	},
@@ -2355,6 +2355,15 @@ static struct v4l2_queryctrl controls[] = {
 		.default_value = 0,
 	},
 	{
+		.id = V4L2_CID_MPEG_VIDEO_DROP_CONTROL,
+		.type = V4L2_CTRL_TYPE_INTEGER,
+		.name = "Drop control",
+		.minimum = INT_MIN,
+		.maximum = INT_MAX,
+		.step = 1,
+		.default_value = 0,
+	},
+	{
 		.id = V4L2_CID_MPEG_MFC51_VIDEO_FRAME_RATE,
 		.type = V4L2_CTRL_TYPE_INTEGER,
 		.name = "Frames per second in 1000x scale",
@@ -2371,7 +2380,7 @@ static struct v4l2_queryctrl controls[] = {
 		.maximum = INT_MAX,
 		.step = 1,
 		.default_value = 0,
-	},
+	}
 };
 
 #define NUM_CTRLS ARRAY_SIZE(controls)

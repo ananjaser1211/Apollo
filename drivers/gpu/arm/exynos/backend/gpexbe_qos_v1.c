@@ -58,10 +58,20 @@ void gpexbe_qos_request_update(mali_pmqos_flags type, s32 clock)
 
 	if (pmqos_flag_check(type, PMQOS_LITTLE | PMQOS_MIN))
 		pm_qos_update_request(&exynos5_g3d_cpu_cluster0_min_qos, clock);
+}
+
+void gpexbe_qos_request_update_timeout(mali_pmqos_flags type, s32 clock, uint32_t timeout_us)
+{
+	if (pmqos_flag_check(type, PMQOS_MIF | PMQOS_MIN))
+		pm_qos_update_request_timeout(&exynos5_g3d_mif_min_qos, clock, timeout_us);
+
+	if (pmqos_flag_check(type, PMQOS_LITTLE | PMQOS_MIN))
+		pm_qos_update_request_timeout(&exynos5_g3d_cpu_cluster0_min_qos, clock, timeout_us);
 
 	if (pmqos_flag_check(type, PMQOS_MIDDLE | PMQOS_MIN))
-		pm_qos_update_request(&exynos5_g3d_cpu_cluster1_min_qos, clock);
+		pm_qos_update_request_timeout(&exynos5_g3d_cpu_cluster1_min_qos, clock, timeout_us);
 }
+
 
 void gpexbe_qos_request_unset(mali_pmqos_flags type)
 {

@@ -258,6 +258,7 @@ static void read_from_dt(void)
 	/* QOS */
 	gpexbe_devicetree_read_u32("gpu_bts_support", &dt_info.gpu_bts_support);
 	gpexbe_devicetree_read_u32("gpu_mo_min_clock", &dt_info.gpu_mo_min_clock);
+	gpexbe_devicetree_read_u32("gpu_boost_egl_min_lock", &dt_info.gpu_boost_egl_min_lock);
 
 	/* UTILS */
 	gpexbe_devicetree_read_u32("gpu_debug_level", &dt_info.gpu_debug_level);

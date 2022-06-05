@@ -905,7 +905,7 @@ static int mfc_dec_ext_info(struct s5p_mfc_ctx *ctx)
 	val |= DEC_SET_DYNAMIC_DPB;
 	val |= DEC_SET_OPERATING_FPS;
 	val |= DEC_SET_PRIORITY;
-	
+
 	if (FW_SUPPORT_SKYPE(dev))
 		val |= DEC_SET_SKYPE_FLAG;
 
