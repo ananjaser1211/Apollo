@@ -10,7 +10,7 @@
         - to Build
                 $ export ANDROID_MAJOR_VERSION=q
                 $ export ARCH=arm64
-                $ make exynos9810-starlte_defconfig
+                $ make exynos9810-star2lte_defconfig
                 $ make
 
 2. Output files
