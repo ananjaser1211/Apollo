@@ -271,6 +271,9 @@ config USB_F_ACC
 config USB_F_CONN_GADGET
 	tristate
 
+config USB_F_SS_MON_GADGET
+	tristate
+
 # this first set of drivers all depend on bulk-capable hardware.
 
 choice
@@ -484,6 +487,13 @@ config USB_F_CONN_GADGET_NDOP
 	depends on ANDROID_MAJOR_VERSION >= "q"
     help
 		Next SideSync
+config USB_CONFIGFS_F_SS_MON_GADGET
+	bool "F_SAMSUNG gadget"
+	depends on USB_CONFIGFS
+	select USB_F_SS_MON_GADGET
+	help
+	 Driver for control to Samsung Usb device layer
+	 For Samung working scenario and saving debug log, etc
 
 config USB_CONFIGFS_F_ACC
 	boolean "Accessory gadget"
