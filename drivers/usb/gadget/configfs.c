@@ -523,6 +523,38 @@ static void gadget_config_attr_release(struct config_item *item)
 	kfree(cfg);
 }
 
+#ifdef CONFIG_USB_ANDROID_SAMSUNG_COMPOSITE
+static void set_unique_rndis_mac_address(
+	struct gadget_info *gi,
+	struct usb_function_instance *fi)
+{
+	static u8	   ethaddr[ETH_ALEN] = {0,};
+	int i;
+	char *src = NULL;
+	struct gadget_strings *gs;
+
+	list_for_each_entry(gs, &gi->string_list, list) {
+		src = gs->serialnumber;
+	}
+
+	if (src) {
+		for (i = 0; i < ETH_ALEN; i++)
+			ethaddr[i] = 0;
+		/*
+		 * create a fake MAC address from our serial number.
+		 * first byte is 0x02 to signify locally administered.
+		 */
+		ethaddr[0] = 0x02;
+		for (i = 0; (i < 256) && *src; i++) {
+			/* XOR the USB serial across the remaining bytes */
+			ethaddr[i % (ETH_ALEN - 1) + 1] ^= *src++;
+		}
+
+		fi->set_inst_eth_addr(fi, ethaddr);
+	}
+}
+#endif
+
 #ifdef CONFIG_USB_CONFIGFS_UEVENT
 static bool is_symboliclink_change_mode(struct config_usb_cfg *cfg)
 {
@@ -589,12 +621,6 @@ static int config_usb_cfg_link(
 			struct usb_function_instance, group);
 	struct usb_function_instance *a_fi;
 	struct usb_function *f;
-#ifdef CONFIG_USB_ANDROID_SAMSUNG_COMPOSITE
-	static u8      ethaddr[ETH_ALEN] = {0,};
-	int i;
-	char *src;
-	struct gadget_strings *gs;
-#endif
 
 	int ret;
 
@@ -643,24 +669,7 @@ static int config_usb_cfg_link(
 	/* usb tethering */
 #ifdef CONFIG_USB_ANDROID_SAMSUNG_COMPOSITE
 	if (fi->set_inst_eth_addr) {
-		list_for_each_entry(gs, &gi->string_list, list) {
-			src = gs->serialnumber;
-		}
-
-		if (src) {
-			for (i = 0; i < ETH_ALEN; i++)
-				ethaddr[i] = 0;
-			/* create a fake MAC address from our serial number.
-			 * first byte is 0x02 to signify locally administered.
-			 */
-			ethaddr[0] = 0x02;
-			for (i = 0; (i < 256) && *src; i++) {
-				/* XOR the USB serial across the remaining bytes */
-				ethaddr[i % (ETH_ALEN - 1) + 1] ^= *src++;
-			}
-
-			fi->set_inst_eth_addr(fi, ethaddr);
-		}
+		set_unique_rndis_mac_address(gi, fi);
 	}
 #endif
 #ifdef CONFIG_USB_CONFIGFS_UEVENT
