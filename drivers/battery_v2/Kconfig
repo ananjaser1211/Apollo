@@ -65,6 +65,11 @@ config STEP_CHARGING
 	help
 	 Say Y to include support for step charging
 
+config ENABLE_FULL_BY_SOC
+	bool "make full by soc 100%"
+	help
+	default n
+	 Say Y to include support to make full by soc 100%
 config UPDATE_BATTERY_DATA
 	bool "support for updating battery data"
 	default n

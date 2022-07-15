@@ -2139,6 +2139,16 @@ static bool sec_bat_check_fullcharged_condition(
 		break;
 	}
 
+#if defined(CONFIG_ENABLE_FULL_BY_SOC)
+	if (battery->capacity >= 100 &&
+		!battery->is_recharging) {
+		dev_info(battery->dev,
+			"%s: enough SOC (%d%%), skip other full_condition_type\n",
+			__func__, battery->capacity);
+		return true;
+	}
+#endif
+
 	if (battery->pdata->full_condition_type &
 		SEC_BATTERY_FULL_CONDITION_SOC) {
 		if (battery->capacity <
@@ -2459,6 +2469,17 @@ static bool sec_bat_check_fullcharged(
 			"%s: Invalid Full Check\n", __func__);
 		break;
 	}
+
+#if defined(CONFIG_ENABLE_FULL_BY_SOC)
+	if (battery->capacity >= 100 &&
+		battery->charging_mode == SEC_BATTERY_CHARGING_1ST &&
+		!battery->is_recharging) {
+		battery->full_check_cnt++;
+		dev_info(battery->dev,
+			"%s: enough SOC to make FULL(%d%%)\n",
+			__func__, battery->capacity);
+	}
+#endif
 
 	if (battery->full_check_cnt >=
 		battery->pdata->full_check_count) {
@@ -4057,6 +4078,14 @@ static void sec_bat_cable_work(struct work_struct *work)
 			goto end_of_cable_work;
 		} else if (!battery->is_sysovlo && !battery->is_vbatovlo && !battery->is_abnormal_temp &&
 				(!battery->charging_block || !battery->swelling_mode)) {
+#if defined(CONFIG_ENABLE_FULL_BY_SOC)
+			if (battery->capacity >= 100) {
+				sec_bat_do_fullcharged(battery, true);
+				dev_info(battery->dev,
+					"%s: charging start at full, do not turn on charging\n", __func__);
+			} else
+#endif
+
 			sec_bat_set_charge(battery, SEC_BAT_CHG_MODE_CHARGING);
 		}
 
