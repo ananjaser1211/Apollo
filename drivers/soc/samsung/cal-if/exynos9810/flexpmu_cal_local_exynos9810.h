@@ -481,6 +481,13 @@ struct pmucal_seq embedded_g3d_on[] = {
 };
 
 struct pmucal_seq embedded_g3d_save[] = {
+	PMUCAL_SEQ_DESC(PMUCAL_READ, "DBG_NFO_PCH_CON_LHM_AXI_G3DSFR_PCH", 0x17400000, 0x7000, 0xffffffff, 0, 0, 0, 0xffffffff, 0),
+	PMUCAL_SEQ_DESC(PMUCAL_READ, "DBG_NFO_PCH_CON_LHM_AXI_P_G3D_PCH", 0x17400000, 0x7004, 0xffffffff, 0, 0, 0, 0xffffffff, 0),
+	PMUCAL_SEQ_DESC(PMUCAL_READ, "DBG_NFO_PCH_CON_LHS_ACE_D0_G3D_PCH", 0x17400000, 0x7008, 0xffffffff, 0, 0, 0, 0xffffffff, 0),
+	PMUCAL_SEQ_DESC(PMUCAL_READ, "DBG_NFO_PCH_CON_LHS_ACE_D1_G3D_PCH", 0x17400000, 0x700C, 0xffffffff, 0, 0, 0, 0xffffffff, 0),
+	PMUCAL_SEQ_DESC(PMUCAL_READ, "DBG_NFO_PCH_CON_LHS_ACE_D2_G3D_PCH", 0x17400000, 0x7010, 0xffffffff, 0, 0, 0, 0xffffffff, 0),
+	PMUCAL_SEQ_DESC(PMUCAL_READ, "DBG_NFO_PCH_CON_LHS_ACE_D3_G3D_PCH", 0x17400000, 0x7014, 0xffffffff, 0, 0, 0, 0xffffffff, 0),
+	PMUCAL_SEQ_DESC(PMUCAL_READ, "DBG_NFO_PCH_CON_LHS_AXI_G3DSFR_PCH", 0x17400000, 0x7018, 0xffffffff, 0, 0, 0, 0xffffffff, 0),
 };
 
 struct pmucal_seq embedded_g3d_off[] = {
