@@ -18,15 +18,13 @@
  * http://www.gnu.org/licenses/gpl-2.0.html.
  */
 
-//#include <errno.h>
-
 #include <soc/samsung/cal-if.h>
-//#include <linux/of.h>
 
-//#include <gpex_utils.h>
 #include <gpexbe_devicetree.h>
 
 #include <gpexbe_clock.h>
+#include <gpex_utils.h>
+#include <gpex_debug.h>
 
 struct _clock_backend_info {
 	int boot_clock;
@@ -74,7 +72,21 @@ int gpexbe_clock_get_max_freq()
 
 int gpexbe_clock_set_rate(int clk)
 {
-	return cal_dfs_set_rate(cal_id, clk);
+	int ret = 0;
+
+	gpex_debug_new_record(HIST_CLOCK);
+	gpex_debug_record_prev_data(HIST_CLOCK, gpexbe_clock_get_rate());
+
+	ret = cal_dfs_set_rate(cal_id, clk);
+
+	gpex_debug_record_time(HIST_CLOCK);
+	gpex_debug_record_code(HIST_CLOCK, ret);
+	gpex_debug_record_new_data(HIST_CLOCK, clk);
+
+	if (ret)
+		gpex_debug_incr_error_cnt(HIST_CLOCK);
+
+	return ret;
 }
 
 int gpexbe_clock_get_rate()
@@ -93,6 +105,8 @@ int gpexbe_clock_init()
 
 	pm_info.boot_clock = cal_dfs_get_boot_freq(cal_id);
 	pm_info.max_clock_limit = (int)cal_dfs_get_max_freq(cal_id);
+
+	gpex_utils_get_exynos_context()->pm_info = &pm_info;
 
 	return 0;
 }

@@ -148,6 +148,7 @@ config MALI_EXYNOS_DEVICETREE
 config MALI_EXYNOS_LLC
     bool "Allocate Last Level Cache for Mali"
     depends on MALI_MIDGARD && MALI_EXYNOS_QOS
+    default y if SOC_EXYNOS2100
     default n
 
 config MALI_EXYNOS_CL_BOOST
@@ -222,6 +223,13 @@ config MALI_EXYNOS_EHMP
     help
       Choose this option to for Mali EHMP support.
 
+config MALI_EXYNOS_INTERACTIVE_BOOST
+    bool "Enable GPU Interactive boost"
+    default y if SOC_S5E8825
+    default n
+    help
+      Choose this option to for GPU interactive boost support.
+
 # This is a legacy config that's unfortunately used by the other drivers... Need to find a better
 # place to put this.
 config EXYNOS_SOC_NAME
@@ -235,3 +243,10 @@ config MALI_EXYNOS_UNIT_TESTS
     default n
     help
       Choose this option to build unit tests for Mali LSI vendor code
+
+config MALI_EXYNOS_DEBUG_FAULT_DUMP
+    bool "dump mali trace data on gpu fault"
+    depends on MALI_MIDGARD
+    default n
+    help
+      MALI_MIDGARD_ENABLE_TRACE must be enabled for more detailed logs

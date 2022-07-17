@@ -63,8 +63,27 @@ struct _tsg_info {
 	int governor_type_init;
 	int is_gov_set;
 
+	/* GPU Profiler */
+	int nr_q;
+	int lastshowidx;
+	ktime_t prev_swap_timestamp;
+	ktime_t first_job_timestamp;
+	ktime_t gpu_timestamps[3];
+	u32 js_occupy;
+	ktime_t lastjob_starttimestamp;
+	ktime_t sum_jobs_time;
+	ktime_t last_jobs_time;
+
+	int vsync_interval;
+	/* End for GPU Profiler */
+
 	raw_spinlock_t spinlock;
 	struct atomic_notifier_head frag_utils_change_notifier_list;
+};
+
+struct amigo_freq_estpower {
+	int freq;
+	int power;
 };
 
 int gpex_tsg_external_init(struct _tsg_info *_tsg_info);
@@ -72,5 +91,7 @@ int gpex_tsg_sysfs_init(struct _tsg_info *_tsg_info);
 
 int gpex_tsg_external_term(void);
 int gpex_tsg_sysfs_term(void);
+
+void gpex_tsg_inc_rtp_vsync_swapcall_counter(void);
 
 #endif

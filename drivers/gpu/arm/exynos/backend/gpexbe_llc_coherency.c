@@ -22,6 +22,7 @@
 #include <linux/device.h>
 #include <mali_kbase.h>
 #include <gpex_utils.h>
+#include <gpex_debug.h>
 #include <gpexbe_llc_coherency.h>
 
 #include <soc/samsung/exynos-sci.h>
@@ -181,6 +182,8 @@ int gpexbe_llc_coherency_init(struct device **dev)
 	spin_lock_init(&llc_coh_info.llc_spinlock);
 	llc_coh_info.cur_llc_ways = 0;
 
+	gpex_utils_get_exynos_context()->llc_coh_info = &llc_coh_info;
+
 	return 0;
 }
 
@@ -211,22 +214,28 @@ int gpexbe_llc_coherency_set_ways(int ways)
 	 *      0 -> 10 -> 0  -> 16 GOOD!!
 	 */
 	if (ways == 0 || llc_coh_info.cur_llc_ways > 0) {
+		gpex_debug_new_record(HIST_LLC);
 		ret = llc_region_alloc(LLC_REGION_GPU, 0, 0);
+		gpex_debug_record(HIST_LLC, llc_coh_info.cur_llc_ways, ways, ret);
 
 		if (ret)
 			goto llc_set_finish;
 	}
 
-	if (ways > 0)
+	if (ways > 0) {
+		gpex_debug_new_record(HIST_LLC);
 		ret = llc_region_alloc(LLC_REGION_GPU, 1, ways);
+		gpex_debug_record(HIST_LLC, 0, ways, ret);
+	}
 
 llc_set_finish:
 	spin_unlock_irqrestore(&llc_coh_info.llc_spinlock, flags);
 
-	if (ret)
+	if (ret) {
+		gpex_debug_incr_error_cnt(HIST_LLC);
 		GPU_LOG(MALI_EXYNOS_ERROR, "%s: failed to allocate llc: errno(%d)\n", __func__,
 			ret);
-	else {
+	} else {
 		llc_coh_info.cur_llc_ways = ways;
 		GPU_LOG(MALI_EXYNOS_DEBUG, "%s: llc set with way(%d) (1 way == 512 KB)\n", __func__,
 			ways);

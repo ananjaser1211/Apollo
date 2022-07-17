@@ -26,9 +26,14 @@
 
 #define PRE_FRAME 3
 #define WINDOW (4 * PRE_FRAME)
+#define EGP_QUEUE_SIZE 128
+#define VSYNC_HIST_SIZE 16
+#define IS_STC_DISABLED (rtp_shortterm_comb_ctrl_manual <= -2)
 
 #include <linux/slab.h>
 #include <linux/device.h>
+
+struct freq_table;
 
 enum queue_type {
 	GPEX_TSG_QUEUE_JOB,
@@ -45,6 +50,35 @@ enum gpex_tsg_atom_state {
 	GPEX_TSG_ATOM_STATE_IN_JS,
 	GPEX_TSG_ATOM_STATE_HW_COMPLETED,
 	GPEX_TSG_ATOM_STATE_COMPLETED
+};
+
+struct amigo_interframe_data {
+	unsigned int nrq;
+	ktime_t sw_vsync;
+	ktime_t sw_start;
+	ktime_t sw_end;
+	ktime_t sw_total;
+	ktime_t hw_vsync;
+	ktime_t hw_start;
+	ktime_t hw_end;
+	ktime_t hw_total;
+	ktime_t sum_pre;
+	ktime_t sum_cpu;
+	ktime_t sum_v2s;
+	ktime_t sum_gpu;
+	ktime_t sum_v2f;
+	ktime_t max_pre;
+	ktime_t max_cpu;
+	ktime_t max_v2s;
+	ktime_t max_gpu;
+	ktime_t max_v2f;
+	ktime_t vsync_interval;
+	int sdp_next_cpuid;
+	int sdp_cur_fcpu;
+	int sdp_cur_fgpu;
+	int sdp_next_fcpu;
+	int sdp_next_fgpu;
+	ktime_t cputime, gputime;
 };
 
 void gpex_tsg_set_migov_mode(int mode);
@@ -65,6 +99,7 @@ void gpex_tsg_set_queued_time_tick(int idx, ktime_t input);
 void gpex_tsg_set_queued_time(int idx, ktime_t input);
 void gpex_tsg_set_queued_last_updated(ktime_t input);
 void gpex_tsg_set_queue_nr(int type, int variation);
+void gpex_tsg_stats_set_vsync(ktime_t ktime_us);
 
 int gpex_tsg_get_migov_mode(void);
 int gpex_tsg_get_freq_margin(void);
@@ -87,12 +122,38 @@ ktime_t gpex_tsg_get_queued_last_updated(void);
 int gpex_tsg_get_queue_nr(int type);
 struct atomic_notifier_head *gpex_tsg_get_frag_utils_change_notifier_list(void);
 int gpex_tsg_notify_frag_utils_change(u32 js0_utils);
+void gpex_tsg_stats_get_run_times(u64 *times);
+void gpex_tsg_stats_get_pid_list(u16 *pidlist);
+void gpex_tsg_stats_get_frame_info(s32 *nrframe, u64 *nrvsync, u64 *delta_ms);
+
+void gpex_tsg_migov_set_targetframetime(int us);
+void gpex_tsg_migov_set_targettime_margin(int us);
+void gpex_tsg_migov_set_util_margin(int percentage);
+void gpex_tsg_migov_set_decon_time(int us);
+void gpex_tsg_migov_set_comb_ctrl(int enable);
 
 int gpex_tsg_spin_lock(void);
 void gpex_tsg_spin_unlock(void);
 
 int gpex_tsg_reset_count(int powered);
 int gpex_tsg_set_count(u32 status, bool stop);
+
+void gpex_tsg_update_firstjob_time(void);
+void gpex_tsg_update_lastjob_time(int slot_nr);
+void gpex_tsg_update_jobsubmit_time(void);
+void gpex_tsg_sum_jobs_time(int slot_nr);
+int gpex_tsg_amigo_shortterm(struct amigo_interframe_data *dst);
+int gpex_tsg_amigo_interframe_sw_update(ktime_t start, ktime_t end);
+int gpex_tsg_amigo_interframe_hw_update(void);
+int gpex_tsg_amigo_interframe_hw_update_eof(void);
+int gpex_tsg_amigo_get_target_frametime(void);
+struct amigo_interframe_data *gpex_tsg_amigo_get_next_frameinfo(void);
+
+void gpex_tsg_sdp_set_busy_domain(int id);
+void gpex_tsg_sdp_set_cur_freqlv(int id, int idx);
+void gpex_tsg_sdp_set_powertable(int id, int cnt, struct freq_table *table);
+int gpex_tsg_stc_config_show(int page_size, char *buf);
+int gpex_tsg_stc_config_store(const char *buf);
 
 int gpex_tsg_init(struct device **dev);
 int gpex_tsg_term(void);

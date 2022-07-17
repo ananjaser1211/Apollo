@@ -149,7 +149,7 @@ static ssize_t show_kernel_sysfs_gpu_temp(char *buf)
 }
 CREATE_SYSFS_KOBJECT_READ_FUNCTION(show_kernel_sysfs_gpu_temp);
 
-static void gpex_thermal_create_sysfs_file(void)
+static void gpex_thermal_create_sysfs_file()
 {
 	GPEX_UTILS_SYSFS_DEVICE_FILE_ADD(tmu, show_tmu, set_tmu_control);
 	GPEX_UTILS_SYSFS_KOBJECT_FILE_ADD_RO(gpu_tmu, show_kernel_sysfs_gpu_temp);
@@ -161,6 +161,8 @@ static void gpex_thermal_create_sysfs_file(void)
 int gpex_thermal_init()
 {
 	gpex_thermal_create_sysfs_file();
+
+	gpex_utils_get_exynos_context()->thermal = &thermal;
 
 	return 0;
 }

@@ -33,6 +33,7 @@
 #include <gpex_clock.h>
 #include <gpex_qos.h>
 #include <gpex_utils.h>
+#include <gpex_debug.h>
 #include <gpexbe_devicetree.h>
 #include <gpexbe_pm.h>
 #include <gpex_pm.h>
@@ -146,10 +147,14 @@ int gpex_pm_power_on(struct device *dev)
 	if (pm.state == GPEX_PM_STATE_RESUME_BEGIN && gpex_pm_get_status(false) > 0) {
 		pm.skip_auto_suspend = true;
 	} else {
+		gpex_debug_new_record(HIST_RTPM);
 		ret = pm_runtime_get_sync(dev);
+		gpex_debug_record(HIST_RTPM, 0, PM_RUNTIME_GET_SYNC, ret);
 	}
 #else
+	gpex_debug_new_record(HIST_RTPM);
 	ret = pm_runtime_get_sync(dev);
+	gpex_debug_record(HIST_RTPM, 0, PM_RUNTIME_GET_SYNC, ret);
 #endif
 
 	if (ret >= 0) {
@@ -157,6 +162,7 @@ int gpex_pm_power_on(struct device *dev)
 		GPU_LOG_DETAILED(MALI_EXYNOS_INFO, LSI_GPU_RPM_RESUME_API, ret, 0u, "power on\n");
 	} else {
 		GPU_LOG(MALI_EXYNOS_ERROR, "runtime pm returned %d\n", ret);
+		gpex_debug_incr_error_cnt(HIST_RTPM);
 	}
 
 	gpex_dvfs_start();
@@ -185,7 +191,13 @@ void gpex_pm_suspend(struct device *dev)
 
 	gpexwa_wakeup_clock_suspend();
 	gpex_qos_set_from_clock(0);
+
+	gpex_debug_new_record(HIST_SUSPEND);
 	ret = pm_runtime_suspend(dev);
+	gpex_debug_record(HIST_SUSPEND, 0, PM_RUNTIME_SUSPEND, ret);
+
+	if (ret < 0)
+		gpex_debug_incr_error_cnt(HIST_SUSPEND);
 
 	GPU_LOG_DETAILED(MALI_EXYNOS_INFO, LSI_SUSPEND_CALLBACK, ret, 0u, "power suspend\n");
 }
@@ -201,8 +213,7 @@ static void gpu_poweroff_delay_recovery_callback(struct work_struct *data)
 	pm_runtime_set_autosuspend_delay(pm.dev, pm.runtime_pm_delay_time);
 	device_unlock(pm.dev);
 
-	gpex_clock_set_user_min_lock_input(0);
-	gpex_clock_lock_clock(GPU_CLOCK_MIN_UNLOCK, SYSFS_LOCK, 0);
+	gpex_clock_lock_clock(GPU_CLOCK_MIN_UNLOCK, MM_LOCK, 0);
 	GPU_LOG(MALI_EXYNOS_DEBUG, "gpu poweroff delay recovery done & clock min unlock\n");
 
 	gpex_clboost_set_state(CLBOOST_ENABLE);
@@ -375,6 +386,8 @@ int gpex_pm_init(void)
 	pm.skip_auto_suspend = false;
 
 	pm.dev = gpex_utils_get_device();
+
+	gpex_utils_get_exynos_context()->pm = &pm;
 
 	return 0;
 }

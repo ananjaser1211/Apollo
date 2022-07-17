@@ -21,6 +21,7 @@
 #include <gpex_clock.h>
 #include <gpex_tsg.h>
 #include <gpex_gts.h>
+#include <gpex_utils.h>
 #include <gpexbe_utilization.h>
 #include <gpexbe_devicetree.h>
 
@@ -237,6 +238,8 @@ int gpex_gts_init(struct device **dev)
 	gts_info.heavy_compute_mode = 0;
 	gts_info.busy_js = 0;
 	gts_info.idle_js = 0;
+
+	gpex_utils_get_exynos_context()->gts_info = &gts_info;
 
 	return 0;
 }

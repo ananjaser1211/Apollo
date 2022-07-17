@@ -84,7 +84,7 @@ static int gpu_pmqos_max_notifier(struct notifier_block *nb, unsigned long val, 
 {
 	GPU_LOG(MALI_EXYNOS_DEBUG, "%s: GPU pmqos max lock %ld kHz\n", __func__, val);
 
-	if (val > 0)
+	if (val > 0 && val <= gpex_clock_get_max_clock_limit())
 		gpex_clock_lock_clock(GPU_CLOCK_MAX_LOCK, PMQOS_LOCK, val);
 	else
 		gpex_clock_lock_clock(GPU_CLOCK_MAX_UNLOCK, PMQOS_LOCK, 0);

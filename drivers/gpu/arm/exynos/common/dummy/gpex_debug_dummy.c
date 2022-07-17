@@ -1,4 +1,4 @@
-/* SPDX-License-Identifier: GPL-2.0 */
+// SPDX-License-Identifier: GPL-2.0
 
 /*
  * (C) COPYRIGHT 2021 Samsung Electronics Inc. All rights reserved.
@@ -18,41 +18,55 @@
  * http://www.gnu.org/licenses/gpl-2.0.html.
  */
 
-#include <linux/device.h>
-#include <soc/samsung/bts.h>
+/* Implements */
+#include <gpex_debug.h>
 
-#include <gpexbe_bts.h>
-
-#include <gpex_utils.h>
-
-struct _bts_backend_info {
-	unsigned int bts_scen_idx;
-};
-
-static struct _bts_backend_info bts_info;
-
-int gpexbe_bts_set_bts_mo(int val)
+int gpex_debug_init(struct device **dev)
 {
-	int ret = 0;
-
-	if (val > 0)
-		ret = bts_add_scenario(bts_info.bts_scen_idx);
-	else
-		ret = bts_del_scenario(bts_info.bts_scen_idx);
-
-	return ret;
-}
-
-int gpexbe_bts_init()
-{
-	bts_info.bts_scen_idx = bts_get_scenindex("g3d_performance");
-
-	gpex_utils_get_exynos_context()->bts_info = &bts_info;
-
 	return 0;
 }
 
-void gpexbe_bts_term()
+void gpex_debug_dump_hist(enum hist_type ht)
 {
-	bts_info.bts_scen_idx = -1;
+	return;
+}
+
+void gpex_debug_new_record(enum hist_type ht)
+{
+	return;
+}
+
+void gpex_debug_record_time(enum hist_type ht)
+{
+	return;
+}
+
+void gpex_debug_record_prev_data(enum hist_type ht, int prev_data)
+{
+	return;
+}
+
+void gpex_debug_record_new_data(enum hist_type ht, int new_data)
+{
+	return;
+}
+
+void gpex_debug_record_code(enum hist_type ht, int code)
+{
+	return;
+}
+
+void gpex_debug_record(enum hist_type ht, int prev_data, int new_data, int code)
+{
+	return;
+}
+
+void gpex_debug_incr_error_cnt(enum hist_type ht)
+{
+	return;
+}
+
+void gpex_debug_dump_error_cnt(void)
+{
+	return;
 }

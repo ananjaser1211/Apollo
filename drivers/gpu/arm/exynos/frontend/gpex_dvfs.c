@@ -33,7 +33,7 @@
 #include "gpu_dvfs_governor.h"
 #include "gpex_dvfs_internal.h"
 
-struct dvfs_info dvfs;
+static struct dvfs_info dvfs;
 
 static int gpu_dvfs_handler_init(void);
 static int gpu_dvfs_handler_deinit(void);
@@ -85,7 +85,7 @@ static void gpex_dvfs_context_init(struct device **dev)
 	dvfs.polling_speed = gpexbe_devicetree_get_int(gpu_dvfs_polling_time);
 }
 
-static int gpu_dvfs_calculate_env_data(void)
+static int gpu_dvfs_calculate_env_data()
 {
 	unsigned long flags;
 	static int polling_period;
@@ -254,7 +254,7 @@ static int gpu_dvfs_handler_deinit()
 	return 0;
 }
 
-static int gpu_pm_metrics_init(void)
+static int gpu_pm_metrics_init()
 {
 	INIT_DELAYED_WORK(&dvfs.dvfs_work, dvfs_callback);
 	dvfs.dvfs_wq = create_workqueue("g3d_dvfs");
@@ -265,7 +265,7 @@ static int gpu_pm_metrics_init(void)
 	return 0;
 }
 
-static void gpu_pm_metrics_term(void)
+static void gpu_pm_metrics_term()
 {
 	cancel_delayed_work(&dvfs.dvfs_work);
 	flush_workqueue(dvfs.dvfs_wq);
@@ -289,6 +289,8 @@ int gpex_dvfs_init(struct device **dev)
 	gpex_dvfs_sysfs_init(&dvfs);
 
 	gpex_dvfs_external_init(&dvfs);
+
+	gpex_utils_get_exynos_context()->dvfs = &dvfs;
 
 	return 0;
 }

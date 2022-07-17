@@ -23,26 +23,30 @@
 
 /* Uses */
 #include <mali_kbase.h>
+#include <debug/mali_kbase_debug_ktrace.h>
 
-#include <gpex_common.h>
 #include <gpex_platform.h>
 #include <gpex_utils.h>
+#include <gpex_debug.h>
 #include <gpex_pm.h>
 #include <gpex_qos.h>
 #include <gpex_clock.h>
 #include <gpex_gts.h>
 #include <gpex_tsg.h>
 #include <gpex_cmar_boost.h>
+#include <gpex_cmar_sched.h>
 
 #include <gpexbe_llc_coherency.h>
 #include <gpexbe_utilization.h>
 #include <gpexbe_pm.h>
-#include <gpexbe_power_cycle_wa.h>
 #include <gpexbe_secure.h>
 #include <gpexbe_dmabuf.h>
+#include <gpexwa_interactive_boost.h>
 #include <gpexwa_ehmp.h>
 
 #include <mali_exynos_ioctl.h>
+
+#include <gpexbe_clock.h>
 
 static int mali_exynos_ioctl_amigo_flags_fn(struct kbase_context *kctx,
 					    struct mali_exynos_ioctl_amigo_flags *flags)
@@ -66,6 +70,12 @@ static int mali_exynos_ioctl_hcm_pmqos_fn(struct kbase_context *kctx,
 	}
 
 	return 0;
+}
+
+static int mali_exynos_ioctl_interactive_boost_fn(struct kbase_context *kctx,
+					  struct mali_exynos_ioctl_interactive_boost *dur)
+{
+	return gpexwa_interactive_boost_set(dur->duration);
 }
 
 static int mali_exynos_ioctl_ehmp_fn(struct kbase_context *kctx,
@@ -110,6 +120,47 @@ static int kbase_api_singlebuffer_boost(struct kbase_context *kctx,
 	}
 
 	return -EINVAL;
+}
+
+/* GPU Profiler */
+static int kbase_api_egp(struct kbase_context *kctx,
+		struct kbase_ioctl_slsi_egp *data)
+{
+#if LINUX_VERSION_CODE >= KERNEL_VERSION(4, 10, 0)
+	gpex_tsg_amigo_interframe_sw_update(data->start_timestamp, data->end_timestamp);
+#endif
+
+	return 0;
+}
+
+void mali_exynos_update_firstjob_time(void)
+{
+	gpex_tsg_update_firstjob_time();
+}
+
+void mali_exynos_update_lastjob_time(int slot_nr)
+{
+	gpex_tsg_update_lastjob_time(slot_nr);
+}
+
+void mali_exynos_update_jobsubmit_time(void)
+{
+	gpex_tsg_update_jobsubmit_time();
+}
+
+void mali_exynos_sum_jobs_time(int slot_nr)
+{
+	gpex_tsg_sum_jobs_time(slot_nr);
+}
+
+void mali_exynos_amigo_interframe_hw_update_eof(void)
+{
+	gpex_tsg_amigo_interframe_hw_update_eof();
+}
+
+void mali_exynos_amigo_interframe_hw_update(void)
+{
+	gpex_tsg_amigo_interframe_hw_update();
 }
 
 #define KBASE_HANDLE_IOCTL_IN(cmd, function, type, arg)                                            \
@@ -177,6 +228,16 @@ int mali_exynos_ioctl(struct kbase_context *kctx, unsigned int cmd, unsigned lon
 				      struct kbase_ioctl_slsi_singlebuffer_boost_flags, kctx);
 		break;
 
+	case KBASE_IOCTL_SLSI_EGP:
+		KBASE_HANDLE_IOCTL_IN(KBASE_IOCTL_SLSI_EGP, kbase_api_egp,
+					struct kbase_ioctl_slsi_egp, kctx);
+		break;
+
+	case MALI_EXYNOS_IOCTL_INTERACTIVE_BOOST:
+		KBASE_HANDLE_IOCTL_IN(cmd, mali_exynos_ioctl_interactive_boost_fn,
+				      struct mali_exynos_ioctl_interactive_boost, kctx);
+		break;
+
 	case MALI_EXYNOS_IOCTL_EHMP:
 		KBASE_HANDLE_IOCTL_IN(cmd, mali_exynos_ioctl_ehmp_fn,
 				      struct mali_exynos_ioctl_ehmp_flags, kctx);
@@ -189,6 +250,11 @@ int mali_exynos_ioctl(struct kbase_context *kctx, unsigned int cmd, unsigned lon
 void mali_exynos_set_thread_priority(struct kbase_context *kctx)
 {
 	gpex_cmar_boost_set_thread_priority(kctx->platform_data);
+}
+
+void mali_exynos_set_thread_affinity(void)
+{
+	gpex_cmar_sched_set_affinity();
 }
 
 void mali_exynos_coherency_reg_map()
@@ -356,9 +422,36 @@ bool mali_exynos_dmabuf_is_cached(struct dma_buf *dmabuf)
 	return gpexbe_dmabuf_is_cached(dmabuf);
 }
 
+void mali_exynos_debug_print_info(struct kbase_device *kbdev)
+{
+	static ktime_t current_time;
+	static ktime_t prev_time;
+	s64 diff;
+
+	current_time = ktime_get_boottime();
+
+	diff = ktime_to_ns(ktime_sub(current_time, prev_time));
+
+#define ONESEC_IN_NS (1000 * 1000 * 1000)
+#define INTERVAL_IN_SEC 10
+
+	if (diff > (s64)ONESEC_IN_NS * INTERVAL_IN_SEC) {
+		prev_time = current_time;
+
+		KBASE_KTRACE_DUMP(kbdev);
+
+		gpex_debug_dump_hist(HIST_CLOCK);
+		gpex_debug_dump_hist(HIST_BTS);
+		gpex_debug_dump_hist(HIST_LLC);
+		gpex_debug_dump_hist(HIST_RTPM);
+		gpex_debug_dump_hist(HIST_SUSPEND);
+	}
+}
+
 static int mali_exynos_kbase_entrypoint_init(struct kbase_device *kbdev)
 {
-	kbdev->platform_context = (void *)gpex_platform_init(&kbdev->dev);
+	gpex_platform_init(&kbdev->dev);
+	kbdev->platform_context = (void *)gpex_utils_get_exynos_context();
 
 	return 0;
 }
@@ -372,9 +465,13 @@ static void mali_exynos_kbase_entrypoint_term(struct kbase_device *kbdev)
 static int mali_exynos_kbase_context_init(struct kbase_context *kctx)
 {
 	struct platform_context *pctx = kcalloc(1, sizeof(struct platform_context), GFP_KERNEL);
+	char current_name[sizeof(current->comm)];
 
 	pctx->cmar_boost = CMAR_BOOST_DEFAULT;
 	pctx->pid = kctx->pid;
+
+	get_task_comm(current_name, current);
+	strncpy((char *)(&pctx->name), current_name, sizeof(current->comm));
 
 	kctx->platform_data = pctx;
 

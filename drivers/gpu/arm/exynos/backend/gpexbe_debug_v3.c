@@ -22,6 +22,8 @@
 
 #include <gpexbe_debug.h>
 
+#include <gpex_utils.h>
+
 struct _debug_backend_info {
 	int dss_freq_id;
 };
@@ -48,6 +50,8 @@ void gpexbe_debug_dbg_snapshot_freq_out(int freq_before, int freq_after)
 int gpexbe_debug_init()
 {
 	dbg_info.dss_freq_id = dbg_snapshot_get_freq_idx("G3D");
+
+	gpex_utils_get_exynos_context()->dbg_info = &dbg_info;
 
 	return 0;
 }

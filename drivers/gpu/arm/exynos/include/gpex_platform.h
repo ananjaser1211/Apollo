@@ -24,21 +24,19 @@
 #include <linux/device.h>
 #include <linux/types.h>
 
-typedef struct ifpo_info *ifpo_info_ptr;
+/**
+ * gpex_platform_init() - initializes gpex_platform which initializes all other modules
+ *
+ * This function is called when mali driver is first loaded and it initializes all other
+ * mali integration layer modules (gpex, gpexbe and gpexwa) that are enabled on the system.
+ *
+ * Return: 0 on success
+ */
+int gpex_platform_init(struct device **dev);
 
 /**
- * struct exynos_context - contains pointers to each module's private structure
- *
- * @kbdev: pointer to Mali kbase_device structure
- * @ifpo: pointer to IFPO module's private structure
+ * gpex_platform_term() - terminates gpex_platform
  */
-struct exynos_context {
-	ifpo_info_ptr ifpo;
-};
-
-struct exynos_context *gpex_platform_get_context(void);
-
-struct exynos_context *gpex_platform_init(struct device **dev);
 void gpex_platform_term(void);
 
 #endif /* _MALI_EXYNOS_PLATFORM_H_ */

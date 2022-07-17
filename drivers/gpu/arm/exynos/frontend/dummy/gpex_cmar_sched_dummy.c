@@ -1,4 +1,4 @@
-/* SPDX-License-Identifier: GPL-2.0 */
+// SPDX-License-Identifier: GPL-2.0
 
 /*
  * (C) COPYRIGHT 2021 Samsung Electronics Inc. All rights reserved.
@@ -18,41 +18,25 @@
  * http://www.gnu.org/licenses/gpl-2.0.html.
  */
 
-#include <linux/device.h>
-#include <soc/samsung/bts.h>
+/* Implements */
+#include <gpex_cmar_sched.h>
 
-#include <gpexbe_bts.h>
-
-#include <gpex_utils.h>
-
-struct _bts_backend_info {
-	unsigned int bts_scen_idx;
-};
-
-static struct _bts_backend_info bts_info;
-
-int gpexbe_bts_set_bts_mo(int val)
+int gpex_cmar_sched_set_forced_sched(int mode)
 {
-	int ret = 0;
-
-	if (val > 0)
-		ret = bts_add_scenario(bts_info.bts_scen_idx);
-	else
-		ret = bts_del_scenario(bts_info.bts_scen_idx);
-
-	return ret;
-}
-
-int gpexbe_bts_init()
-{
-	bts_info.bts_scen_idx = bts_get_scenindex("g3d_performance");
-
-	gpex_utils_get_exynos_context()->bts_info = &bts_info;
-
 	return 0;
 }
 
-void gpexbe_bts_term()
+int gpex_cmar_sched_set_affinity(void)
 {
-	bts_info.bts_scen_idx = -1;
+	return 0;
+}
+
+int gpex_cmar_sched_init(void)
+{
+	return 0;
+}
+
+void gpex_cmar_sched_term(void)
+{
+	return;
 }
