@@ -80,7 +80,7 @@ u64 gpex_clock_get_time_busy(int level)
 /*******************************************
  * static helper functions
  ******************************************/
-static int gpex_clock_update_config_data_from_dt()
+static int gpex_clock_update_config_data_from_dt(void)
 {
 	int ret = 0;
 	struct freq_volt *fv_array;

@@ -85,7 +85,7 @@ static void gpex_dvfs_context_init(struct device **dev)
 	dvfs.polling_speed = gpexbe_devicetree_get_int(gpu_dvfs_polling_time);
 }
 
-static int gpu_dvfs_calculate_env_data()
+static int gpu_dvfs_calculate_env_data(void)
 {
 	unsigned long flags;
 	static int polling_period;
@@ -254,7 +254,7 @@ static int gpu_dvfs_handler_deinit()
 	return 0;
 }
 
-static int gpu_pm_metrics_init()
+static int gpu_pm_metrics_init(void)
 {
 	INIT_DELAYED_WORK(&dvfs.dvfs_work, dvfs_callback);
 	dvfs.dvfs_wq = create_workqueue("g3d_dvfs");
@@ -265,7 +265,7 @@ static int gpu_pm_metrics_init()
 	return 0;
 }
 
-static void gpu_pm_metrics_term()
+static void gpu_pm_metrics_term(void)
 {
 	cancel_delayed_work(&dvfs.dvfs_work);
 	flush_workqueue(dvfs.dvfs_wq);
