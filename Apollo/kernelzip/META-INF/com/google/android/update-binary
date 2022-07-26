@@ -1,0 +1,89 @@
+#!/sbin/sh
+# Copyright 2020-2022 © corsicanu
+# Licensed under CC BY-NC-SA 4.0
+# https://creativecommons.org/licenses/by-nc-sa/4.0/legalcode
+
+device=$(cat /proc/cmdline | sed 's/ /\n/g' | grep "androidboot.bootloader")
+if [ ! $device ] ; then
+    device=$1
+fi
+
+if [[ $2 = 0 ]]; then
+    OUTFD="/dev/null"
+else
+    OUTFD="/proc/self/fd/$2"
+fi
+ZIP=$3
+
+ui_print() {
+        echo -n -e "ui_print $1\n" > $OUTFD
+        echo -n -e "ui_print\n" > $OUTFD
+}
+
+
+if echo $device | grep '[GN]96[05][FN]'; then
+    # Cleanup
+    cd /tmp
+    rm -rf floyd
+    unzip -o "$ZIP"
+    chmod 755 /tmp/floyd/tools/*
+    cd /tmp/floyd
+
+    bb=/tmp/floyd/tools/busybox
+    boot=$($bb find /dev/block/platform -iname boot)
+
+    
+    ui_print " "
+    ui_print "FloydKernel fkv Installer"
+    ui_print " "
+
+    ui_print "Detecting device..."
+    if echo $device | grep 'G960[FN]'; then
+        ui_print "- S9 detected"
+        mv starlte_kernel kernel
+        mv starlte_extra extra
+        sleep 1
+    elif echo $device | grep 'G965[FN]'; then
+        ui_print "- S9+ detected"
+        ./tools/bsdiff starlte_kernel kernel star2lte_kernel
+        ./tools/bsdiff starlte_extra extra star2lte_extra
+        sleep 1
+    elif echo $device | grep 'N960[FN]'; then
+        ui_print "- Note9 detected"
+        ./tools/bsdiff starlte_kernel kernel crownlte_kernel
+        ./tools/bsdiff starlte_extra extra crownlte_extra
+        sleep 1
+    else
+        ui_print "! Device is not supported"
+        ui_print "Aborting..."
+        sleep 1
+        exit
+    fi
+
+    ui_print "- Installing floydKernel"
+    cd /tmp/floyd && rm -rf /tmp/floydKernel && mkdir -p /tmp/floydKernel && cd /tmp/floydKernel
+    cp /tmp/floyd/tools/magiskboot imgtool && chmod 777 imgtool
+    dd if=$boot of=/tmp/floydKernel/old-boot.img bs=4096
+    ./imgtool unpack old-boot.img
+    rm -rf kernel && cp /tmp/floyd/kernel kernel
+    rm -rf extra && cp /tmp/floyd/extra extra
+    ./imgtool repack -n old-boot.img
+    cp new-boot.img /tmp/floyd/boot.img
+    dd if=/tmp/floyd/boot.img of=$boot bs=4096
+    sleep 1
+
+    ui_print "- Cleaning leftovers.."
+    sleep 1
+    rm -rf /tmp/floyd
+    ui_print " "
+    ui_print "FloydKernel fkv Installed"
+    ui_print "Reboot and enjoy!"
+    ui_print " "
+    sync
+else
+    ui_print " "
+    ui_print "!! Device is not supported, aborting..."
+    ui_print " "
+    exit 1
+fi
+
