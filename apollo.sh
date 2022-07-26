@@ -67,7 +67,7 @@ CR_CONFIG_SPLIT=NULL
 CR_CONFIG_APOLLO=apollo_defconfig
 CR_CONFIG_INTL=eur_defconfig
 CR_CONFIG_KOR=kor_defconfig
-CR_PERMISSIVE="0"
+CR_SELINUX="1"
 # Compiler Paths
 CR_GCC11=~/Android/Toolchains/aarch64-linux-gnu-11.x/bin/aarch64-linux-gnu-
 CR_GCC9=~/Android/Toolchains/aarch64-linux-gnu-9.x/bin/aarch64-linux-gnu-
@@ -131,7 +131,6 @@ if [ $CR_CLEAN = "n" ]; then
 fi
 }
 
-
 # Kernel Name Function
 
 BUILD_IMAGE_NAME()
@@ -169,7 +168,7 @@ BUILD_GENERATE_CONFIG()
   echo " Copy $CR_CONFIG_APOLLO "
   cat $CR_DIR/arch/$CR_ARCH/configs/$CR_CONFIG_APOLLO >> $CR_DIR/arch/$CR_ARCH/configs/tmp_defconfig
   # Selinux Never Enforce all targets
-  if [ $CR_PERMISSIVE = "1" ]; then
+  if [ $CR_SELINUX = "1" ]; then
     echo " Building Permissive Kernel"
     echo "CONFIG_ALWAYS_PERMISSIVE=y" >> $CR_DIR/arch/$CR_ARCH/configs/tmp_defconfig
   fi
@@ -325,7 +324,6 @@ BUILD()
 		export "CONFIG_MACH_EXYNOS9810_CROWNLTE_KOR=y"
 	fi	
 	CR_CONFIG=$CR_CONFIG_9810
-	CR_PERMISSIVE="0"
 	BUILD_COMPILER
 	BUILD_CLEAN
 	BUILD_IMAGE_NAME
@@ -380,6 +378,11 @@ echo "3) $CR_GCC11 (GCC 11.x)"
 echo "4) $CR_GCC9 (GCC 9.x)" 
 echo " "
 read -p "Please select your compiler (1-4) > " CR_COMPILER
+echo " "
+echo "1) Selinux Permissive " "2) Selinux Enforcing"
+echo " "
+read -p "Please select your SElinux mode (1-2) > " CR_SELINUX
+echo " "
 if [ "$CR_TARGET" = "8" ]; then
 echo "Build Aborted"
 exit
