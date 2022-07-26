@@ -1,0 +1,10 @@
+#
+#
+# International Defconfig
+#
+#
+CONFIG_WLAN_REGION_CODE=100
+# CONFIG_MEDIA_RADIO_SUPPORT is not set
+# CONFIG_TDMB is not set
+# CONFIG_TDMB_NOTIFIER is not set
+

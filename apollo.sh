@@ -51,17 +51,22 @@ export $CR_ARCH
 ##########################################
 # Device specific Variables [SM-G960X]
 CR_CONFIG_G960=starlte_defconfig
-CR_VARIANT_G960=G960X
+CR_VARIANT_G960F=G960F
+CR_VARIANT_G960N=G960N
 # Device specific Variables [SM-G965X]
 CR_CONFIG_G965=star2lte_defconfig
-CR_VARIANT_G965=G965X
+CR_VARIANT_G965F=G965F
+CR_VARIANT_G965N=G965N
 # Device specific Variables [SM-N960X]
 CR_CONFIG_N960=crownlte_defconfig
-CR_VARIANT_N960=N960F
+CR_VARIANT_N960F=N960F
+CR_VARIANT_N960N=N960N
 # Common configs
 CR_CONFIG_9810=exynos9810_defconfig
 CR_CONFIG_SPLIT=NULL
 CR_CONFIG_APOLLO=apollo_defconfig
+CR_CONFIG_INTL=eur_defconfig
+CR_CONFIG_KOR=kor_defconfig
 CR_PERMISSIVE="0"
 # Compiler Paths
 CR_GCC11=~/Android/Toolchains/aarch64-linux-gnu-11.x/bin/aarch64-linux-gnu-
@@ -157,6 +162,9 @@ BUILD_GENERATE_CONFIG()
     echo " Copy $CR_CONFIG_SPLIT "
     cat $CR_DIR/arch/$CR_ARCH/configs/$CR_CONFIG_SPLIT >> $CR_DIR/arch/$CR_ARCH/configs/tmp_defconfig
   fi
+  # Regional Config
+  echo " Copy $CR_CONFIG_REGION "
+  cat $CR_DIR/arch/$CR_ARCH/configs/$CR_CONFIG_REGION >> $CR_DIR/arch/$CR_ARCH/configs/tmp_defconfig
   # Apollo Custom defconfig
   echo " Copy $CR_CONFIG_APOLLO "
   cat $CR_DIR/arch/$CR_ARCH/configs/$CR_CONFIG_APOLLO >> $CR_DIR/arch/$CR_ARCH/configs/tmp_defconfig
@@ -273,21 +281,43 @@ PACK_BOOT_IMG()
 BUILD()
 {
 	if [ "$CR_TARGET" = "1" ]; then
-		echo " Galaxy S9 "
+		echo " Galaxy S9 INTL"
 		CR_CONFIG_SPLIT=$CR_CONFIG_G960
-		CR_VARIANT=$CR_VARIANT_G960
+        CR_CONFIG_REGION=$CR_CONFIG_INTL
+		CR_VARIANT=$CR_VARIANT_G960F
 	fi
 	if [ "$CR_TARGET" = "2" ]; then
-		echo " Galaxy S9+ "
+		echo " Galaxy S9+ INTL"
 		CR_CONFIG_SPLIT=$CR_CONFIG_G965
-		CR_VARIANT=$CR_VARIANT_G965
+        CR_CONFIG_REGION=$CR_CONFIG_INTL
+		CR_VARIANT=$CR_VARIANT_G965F
 	fi
 	if [ "$CR_TARGET" = "3" ]
 	then
-		echo " Galaxy Note 9 "
+		echo " Galaxy Note 9 INTL"
 		CR_CONFIG_SPLIT=$CR_CONFIG_N960
-		CR_VARIANT=$CR_VARIANT_N960
+        CR_CONFIG_REGION=$CR_CONFIG_INTL
+		CR_VARIANT=$CR_VARIANT_N960F
 	fi
+	if [ "$CR_TARGET" = "4" ]; then
+		echo " Galaxy S9 KOR"
+		CR_CONFIG_SPLIT=$CR_CONFIG_G960
+        CR_CONFIG_REGION=$CR_CONFIG_KOR
+		CR_VARIANT=$CR_VARIANT_G960N
+	fi
+	if [ "$CR_TARGET" = "5" ]; then
+		echo " Galaxy S9+ KOR"
+		CR_CONFIG_SPLIT=$CR_CONFIG_G965
+        CR_CONFIG_REGION=$CR_CONFIG_KOR
+		CR_VARIANT=$CR_VARIANT_G965N
+	fi
+	if [ "$CR_TARGET" = "6" ]
+	then
+		echo " Galaxy Note 9 KOR"
+		CR_CONFIG_SPLIT=$CR_CONFIG_N960
+        CR_CONFIG_REGION=$CR_CONFIG_KOR
+		CR_VARIANT=$CR_VARIANT_N960N
+	fi	
 	CR_CONFIG=$CR_CONFIG_9810
 	CR_PERMISSIVE="0"
 	BUILD_COMPILER
@@ -310,6 +340,12 @@ CR_TARGET=2
 BUILD
 CR_TARGET=3
 BUILD
+CR_TARGET=4
+BUILD
+CR_TARGET=5
+BUILD
+CR_TARGET=6
+BUILD
 }
 
 # Main Menu
@@ -318,9 +354,12 @@ echo "----------------------------------------------"
 echo "$CR_NAME $CR_VERSION Build Script $CR_DATE"
 echo " "
 echo " "
-echo "1) starlte" "2) star2lte" "3) crownlte" "4) All" "5) Abort"
+echo "1) starlte" "   2) star2lte" "   3) crownlte"
+echo "4) starltekor" "5) star2ltekor" "6) crownltekor"
+echo  ""
+echo "7) Build All"                   "8) Abort"
 echo "----------------------------------------------"
-read -p "Please select your build target (1-4) > " CR_TARGET
+read -p "Please select your build target (1-8) > " CR_TARGET
 echo "----------------------------------------------"
 echo " "
 echo "1) $CR_GCC4 (GCC 4.9)"
@@ -329,7 +368,7 @@ echo "3) $CR_GCC11 (GCC 11.x)"
 echo "4) $CR_GCC9 (GCC 9.x)" 
 echo " "
 read -p "Please select your compiler (1-4) > " CR_COMPILER
-if [ "$CR_TARGET" = "5" ]; then
+if [ "$CR_TARGET" = "8" ]; then
 echo "Build Aborted"
 exit
 fi
@@ -337,7 +376,7 @@ echo " "
 read -p "Clean Builds? (y/n) > " CR_CLEAN
 echo " "
 # Call functions
-if [ "$CR_TARGET" = "4" ]; then
+if [ "$CR_TARGET" = "7" ]; then
 BUILD_ALL
 else
 BUILD
