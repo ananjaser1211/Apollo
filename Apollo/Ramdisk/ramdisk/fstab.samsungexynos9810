@@ -5,7 +5,7 @@
 
 #/dev/block/platform/11120000.ufs/by-name/SYSTEM        /system     ext4    ro,errors=panic                                             wait
 /dev/block/platform/11120000.ufs/by-name/CACHE	/cache	ext4	noatime,nosuid,nodev,noauto_da_alloc,discard,journal_checksum,data=ordered,errors=panic	wait,check
-/dev/block/platform/11120000.ufs/by-name/USERDATA	/data	ext4	noatime,nosuid,nodev,noauto_da_alloc,discard,journal_checksum,data=ordered,errors=panic	wait,check,forceencrypt=footer,quota,reservedsize=128M,length=-20480
+/dev/block/platform/11120000.ufs/by-name/USERDATA	/data	ext4	noatime,nosuid,nodev,noauto_da_alloc,discard,journal_checksum,data=ordered,errors=panic	wait,check,encryptable=footer,quota,reservedsize=128M,length=-20480
 /dev/block/platform/11120000.ufs/by-name/EFS	/mnt/vendor/efs	ext4	noatime,nosuid,nodev,noauto_da_alloc,discard,journal_checksum,data=ordered,errors=panic	wait,check
 /dev/block/platform/11120000.ufs/by-name/CPEFS	/mnt/vendor/cpefs	ext4	noatime,nosuid,nodev,noauto_da_alloc,discard,journal_checksum,data=ordered,errors=panic	wait,check,nofail
 /dev/block/platform/11120000.ufs/by-name/MISC           /misc       emmc    defaults                                                                                      defaults
