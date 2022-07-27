@@ -1,9 +1,9 @@
 #!/bin/bash
 #
-# Apollo Build Script V1.0
+# Apollo Build Script V2.0
 # For Exynos9810
 # Forked from Exynos8890 Script
-# Coded by AnanJaser1211 @ 2019-2021
+# Coded by AnanJaser1211 @ 2019-2022
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
 # You may obtain a copy of the License at
@@ -11,12 +11,10 @@
 #      http://www.apache.org/licenses/LICENSE-2.0
 #
 # Unless required by applicable law or agreed to in writing, software
-
 # distributed under the License is distributed on an "AS IS" BASIS,
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
-
 # Main Dir
 CR_DIR=$(pwd)
 # Define proper arch and dir for dts files
@@ -24,6 +22,9 @@ CR_DTS=arch/arm64/boot/dts/exynos
 # Define boot.img out dir
 CR_OUT=$CR_DIR/Apollo/Out
 CR_PRODUCT=$CR_DIR/Apollo/Product
+# Kernel Zip Package
+CR_ZIP=$CR_DIR/Apollo/kernelzip
+CR_OUTZIP=$CR_OUT/kernelzip
 # Presistant A.I.K Location
 CR_AIK=$CR_DIR/Apollo/A.I.K
 # Main Ramdisk Location
@@ -330,8 +331,13 @@ BUILD()
 	BUILD_GENERATE_CONFIG
 	BUILD_ZIMAGE
 	BUILD_DTB
+	if [ "$CR_MKZIP" = "y" ]; then # Allow Zip Package for mass compile only
+	echo " Start Build ZIP Process "
+	PACK_KERNEL_ZIP
+	else
 	PACK_BOOT_IMG
 	BUILD_OUT
+	fi
 }
 
 # Multi-Target Build Function
@@ -358,6 +364,84 @@ BUILD
 export -n "CONFIG_MACH_EXYNOS9810_CROWNLTE_KOR"
 }
 
+# Pack All Images into ZIP
+PACK_KERNEL_ZIP(){
+echo "----------------------------------------------"
+echo " Packing ZIP "
+
+# Variables
+CR_BASE_KERNEL=$CR_OUTZIP/floyd/G960F-kernel
+CR_BASE_DTB=$CR_OUTZIP/floyd/G960F-dtb
+
+# Check packages
+if ! dpkg-query -W -f='${Status}' bsdiff  | grep "ok installed"; then 
+	echo " bsdiff is missing, please install with sudo apt install bsdiff" 
+	exit 0; 
+fi
+
+# Initalize with base image (Starlte)
+if [ "$CR_TARGET" = "1" ]; then # Always must run ONCE during BUILD_ALL otherwise fail. Setup directories
+	echo " "
+	echo " Kernel Zip Packager "
+	echo " Base Target "
+	echo " Clean Out directory "
+	echo " "
+	rm -rf $CR_OUTZIP
+	cp -r $CR_ZIP $CR_OUTZIP
+	echo " "
+	echo " Copying $CR_BASE_KERNEL "
+	echo " Copying $CR_BASE_DTB "
+	echo " "
+	if [ ! -e $CR_KERNEL ] || [ ! -e $CR_DTB ]; then
+        exit 0;
+        echo " Kernel not found!"
+        echo " Abort "
+	else
+        cp $CR_KERNEL $CR_BASE_KERNEL
+        cp $CR_DTB $CR_BASE_DTB
+	fi
+	# Set kernel version
+fi
+if [ ! "$CR_TARGET" = "1" ]; then # Generate patch files for non starlte kernels
+	echo " "
+	echo " Kernel Zip Packager "
+	echo " "
+	echo " Generating Patch kernel for $CR_VARIANT "
+	echo " "
+	if [ ! -e $CR_KERNEL ] || [ ! -e $CR_DTB ]; then
+        echo " Kernel not found! "
+        echo " Abort "
+        exit 0;
+	else
+		bsdiff $CR_BASE_KERNEL $CR_KERNEL $CR_OUTZIP/floyd/$CR_VARIANT-kernel
+		if [ ! -e $CR_OUTZIP/floyd/$CR_VARIANT-kernel ]; then
+			echo "ERROR: bsdiff $CR_BASE_KERNEL $CR_KERNEL $CR_OUTZIP/floyd/$CR_VARIANT-kernel Failed!"
+			exit 0;
+		fi
+		bsdiff $CR_BASE_DTB $CR_DTB $CR_OUTZIP/floyd/$CR_VARIANT-dtb
+		if [ ! -e $CR_OUTZIP/floyd/$CR_VARIANT-kernel ]; then
+			echo "ERROR: bsdiff $CR_BASE_KERNEL $CR_DTB $CR_OUTZIP/floyd/$CR_VARIANT-dtb Failed!"
+			exit 0;
+		fi
+	fi
+fi
+if [ "$CR_TARGET" = "6" ]; then # Final kernel build
+	echo " Generating ZIP Package for $CR_NAME-$CR_VERSION-$CR_DATE"
+	sed -i "s/fkv/$CR_NAME-$CR_VERSION-$CR_DATE/g" $CR_OUTZIP/META-INF/com/google/android/update-binary
+	cd $CR_OUTZIP && zip -r $CR_PRODUCT/$CR_NAME-$CR_VERSION-$CR_DATE.zip * && cd $CR_DIR
+	du -k "$CR_PRODUCT/$CR_NAME-$CR_VERSION-$CR_DATE.zip" | cut -f1 >sizdz
+	sizdz=$(head -n 1 sizdz)
+	rm -rf sizdz
+	echo " "
+	echo "----------------------------------------------"
+	echo "$CR_NAME kernel build finished."
+	echo "Compiled Package Size = $sizdz Kb"
+	echo "$CR_NAME-$CR_VERSION-$CR_DATE.zip Ready"
+	echo "Press Any key to end the script"
+	echo "----------------------------------------------"
+fi
+}
+
 # Main Menu
 clear
 echo "----------------------------------------------"
@@ -366,8 +450,8 @@ echo " "
 echo " "
 echo "1) starlte" "   2) star2lte" "   3) crownlte"
 echo "4) starltekor" "5) star2ltekor" "6) crownltekor"
-echo  ""
-echo "7) Build All"                   "8) Abort"
+echo  " "
+echo "7) Build All/ZIP"               "8) Abort"
 echo "----------------------------------------------"
 read -p "Please select your build target (1-8) > " CR_TARGET
 echo "----------------------------------------------"
@@ -392,6 +476,9 @@ read -p "Clean Builds? (y/n) > " CR_CLEAN
 echo " "
 # Call functions
 if [ "$CR_TARGET" = "7" ]; then
+echo " "
+read -p "Build Flashable ZIP ? (y/n) > " CR_MKZIP
+echo " "
 BUILD_ALL
 else
 BUILD
