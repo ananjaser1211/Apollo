@@ -34,39 +34,39 @@ if echo $device | grep '[GN]96[05][FN]'; then
 
     
     ui_print " "
-    ui_print "FloydKernel fkv Installer"
+    ui_print "fkv Installer"
     ui_print " "
 
     ui_print "Detecting device..."
     if echo $device | grep 'G960[F]'; then
         ui_print "- S9 G960F detected"
-        mv starlte_kernel kernel
-        mv starlte_extra extra
+        mv G960F-kernel kernel
+        mv G960F-dtb extra
         sleep 1
     elif echo $device | grep 'G965[F]'; then
         ui_print "- S9+ G965F detected"
-        ./tools/bsdiff starlte_kernel kernel star2lte_kernel
-        ./tools/bsdiff starlte_extra extra star2lte_extra
+        ./tools/bsdiff G960F-kernel kernel G965F-kernel
+        ./tools/bsdiff G960F-dtb extra G965F-dtb
         sleep 1
     elif echo $device | grep 'N960[F]'; then
         ui_print "- Note9 N960F detected"
-        ./tools/bsdiff starlte_kernel kernel crownlte_kernel
-        ./tools/bsdiff starlte_extra extra crownlte_extra
+        ./tools/bsdiff G960F-kernel kernel N960F-kernel
+        ./tools/bsdiff G960F-dtb extra N960F-dtb
         sleep 1
     elif echo $device | grep 'G960[N]'; then
         ui_print "- S9 G960N detected"
-        ./tools/bsdiff starlte_kernel kernel starltekor_kernel
-        ./tools/bsdiff starlte_extra extra starltekor_extra
+        ./tools/bsdiff G960F-kernel kernel G960N-kernel
+        ./tools/bsdiff G960F-dtb extra G960N-dtb
         sleep 1
     elif echo $device | grep 'G965[N]'; then
         ui_print "- S9+ G965N detected"
-        ./tools/bsdiff starlte_kernel kernel star2ltekor_kernel
-        ./tools/bsdiff starlte_extra extra star2ltekor_extra
+        ./tools/bsdiff G960F-kernel kernel G965N-kernel
+        ./tools/bsdiff G960F-dtb extra G965N-dtb
         sleep 1
     elif echo $device | grep 'N960[N]'; then
         ui_print "- Note9 N960N detected"
-        ./tools/bsdiff starlte_kernel kernel crownltekor_kernel
-        ./tools/bsdiff starlte_extra extra crownltekor_extra
+        ./tools/bsdiff G960F-kernel kernel N960N-kernel
+        ./tools/bsdiff G960F-dtb extra N960N-dtb
         sleep 1
     else
         ui_print "! Device is not supported"
@@ -75,7 +75,7 @@ if echo $device | grep '[GN]96[05][FN]'; then
         exit
     fi
 
-    ui_print "- Installing FloydKernel"
+    ui_print "- Installing ApolloKernel"
     cd /tmp/floyd && rm -rf /tmp/floydKernel && mkdir -p /tmp/floydKernel && cd /tmp/floydKernel
     cp /tmp/floyd/tools/magiskboot imgtool && chmod 777 imgtool
     dd if=$boot of=/tmp/floydKernel/old-boot.img bs=4096
@@ -91,7 +91,7 @@ if echo $device | grep '[GN]96[05][FN]'; then
     sleep 1
     rm -rf /tmp/floyd
     ui_print " "
-    ui_print "FloydKernel fkv Installed"
+    ui_print "fkv Installed"
     ui_print "Reboot and enjoy!"
     ui_print " "
     sync
