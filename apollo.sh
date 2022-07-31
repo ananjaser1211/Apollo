@@ -366,6 +366,28 @@ BUILD
 export -n "CONFIG_MACH_EXYNOS9810_CROWNLTE_KOR"
 }
 
+# Preconfigured Debug build
+BUILD_DEBUG(){
+echo "----------------------------------------------"
+echo " DEBUG : Debug build initiated "
+CR_TARGET=5
+CR_COMPILER=1
+CR_SELINUX=1
+CR_CLEAN="n"
+echo " DEBUG : Set Build options "
+echo " DEBUG : Variant  : $CR_VARIANT_G965N"
+echo " DEBUG : Compiler : $CR_GCC4"
+echo " DEBUG : Selinux  : $CR_SELINUX Permissive"
+echo " DEBUG : Clean    : $CR_CLEAN"
+echo "----------------------------------------------"
+BUILD
+echo "----------------------------------------------"
+echo " DEBUG : build completed "
+echo "----------------------------------------------"
+exit 0;
+}
+
+
 # Pack All Images into ZIP
 PACK_KERNEL_ZIP(){
 echo "----------------------------------------------"
@@ -448,6 +470,9 @@ fi
 clear
 echo "----------------------------------------------"
 echo "$CR_NAME $CR_VERSION Build Script $CR_DATE"
+if [ "$1" = "-d" ]; then
+BUILD_DEBUG
+fi
 echo " "
 echo " "
 echo "1) starlte" "   2) star2lte" "   3) crownlte"
