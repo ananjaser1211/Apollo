@@ -10505,7 +10505,7 @@
 			sibling-cpus = "4-7";
 			cal-id = <0xb040003>;
 			dm-type = <0x1>;
-			min-freq = <0x9eb10>;
+			min-freq = <0xd1790>;
 			max-freq = <0x1b5fd0>;
 			policy-max = <0x1b5fd0>;
 			pm_qos-min-class = <0x5>;
