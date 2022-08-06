@@ -1,6 +1,6 @@
 #!/bin/bash
 #
-# Apollo Build Script V2.0
+# Apollo Build Script V3.0
 # For Exynos9810
 # Forked from Exynos8890 Script
 # Coded by AnanJaser1211 @ 2019-2022
@@ -34,7 +34,7 @@ CR_KERNEL=$CR_DIR/arch/arm64/boot/Image
 # Compiled dtb by dtbtool
 CR_DTB=$CR_DIR/arch/arm64/boot/dtb.img
 # Kernel Name and Version
-CR_VERSION=V2.0
+CR_VERSION=V3.0
 CR_NAME=Apollo
 # Thread count
 CR_JOBS=$(nproc --all)
@@ -139,6 +139,8 @@ fi
 BUILD_IMAGE_NAME()
 {
 	CR_IMAGE_NAME=$CR_NAME-$CR_VERSION-$CR_VARIANT-$CR_DATE
+	zver=$CR_NAME-$CR_VERSION-$CR_DATE
+    
 }
 
 # Config Generation Function
@@ -174,6 +176,8 @@ BUILD_GENERATE_CONFIG()
   if [ $CR_SELINUX = "1" ]; then
     echo " Building Permissive Kernel"
     echo "CONFIG_ALWAYS_PERMISSIVE=y" >> $CR_DIR/arch/$CR_ARCH/configs/tmp_defconfig
+    CR_IMAGE_NAME=$CR_IMAGE_NAME-Permissive
+    zver=$zver-Permissive
   fi
   echo " Set $CR_VARIANT to generated config "
   CR_CONFIG=tmp_defconfig
@@ -371,12 +375,12 @@ BUILD_DEBUG(){
 echo "----------------------------------------------"
 echo " DEBUG : Debug build initiated "
 CR_TARGET=5
-CR_COMPILER=1
+CR_COMPILER=4
 CR_SELINUX=1
 CR_CLEAN="n"
 echo " DEBUG : Set Build options "
 echo " DEBUG : Variant  : $CR_VARIANT_G965N"
-echo " DEBUG : Compiler : $CR_GCC4"
+echo " DEBUG : Compiler : $CR_GCC9"
 echo " DEBUG : Selinux  : $CR_SELINUX Permissive"
 echo " DEBUG : Clean    : $CR_CLEAN"
 echo "----------------------------------------------"
@@ -389,7 +393,7 @@ exit 0;
 
 
 # Pack All Images into ZIP
-PACK_KERNEL_ZIP(){
+PACK_KERNEL_ZIP() {
 echo "----------------------------------------------"
 echo " Packing ZIP "
 
@@ -451,9 +455,9 @@ if [ ! "$CR_TARGET" = "1" ]; then # Generate patch files for non starlte kernels
 fi
 if [ "$CR_TARGET" = "6" ]; then # Final kernel build
 	echo " Generating ZIP Package for $CR_NAME-$CR_VERSION-$CR_DATE"
-	sed -i "s/fkv/$CR_NAME-$CR_VERSION-$CR_DATE/g" $CR_OUTZIP/META-INF/com/google/android/update-binary
-	cd $CR_OUTZIP && zip -r $CR_PRODUCT/$CR_NAME-$CR_VERSION-$CR_DATE.zip * && cd $CR_DIR
-	du -k "$CR_PRODUCT/$CR_NAME-$CR_VERSION-$CR_DATE.zip" | cut -f1 >sizdz
+	sed -i "s/fkv/$zver/g" $CR_OUTZIP/META-INF/com/google/android/update-binary
+	cd $CR_OUTZIP && zip -r $CR_PRODUCT/$zver.zip * && cd $CR_DIR
+	du -k "$CR_PRODUCT/$zver.zip" | cut -f1 >sizdz
 	sizdz=$(head -n 1 sizdz)
 	rm -rf sizdz
 	echo " "
