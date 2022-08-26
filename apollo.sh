@@ -34,7 +34,7 @@ CR_KERNEL=$CR_DIR/arch/arm64/boot/Image
 # Compiled dtb by dtbtool
 CR_DTB=$CR_DIR/arch/arm64/boot/dtb.img
 # Kernel Name and Version
-CR_VERSION=V3.0
+CR_VERSION=V3.1
 CR_NAME=Apollo
 # Thread count
 CR_JOBS=$(nproc --all)
@@ -70,10 +70,11 @@ CR_CONFIG_INTL=eur_defconfig
 CR_CONFIG_KOR=kor_defconfig
 CR_SELINUX="1"
 # Compiler Paths
-CR_GCC11=~/Android/Toolchains/aarch64-linux-gnu-11.x/bin/aarch64-linux-gnu-
-CR_GCC9=~/Android/Toolchains/aarch64-linux-gnu-9.x/bin/aarch64-linux-gnu-
-CR_CLANG=~/Android/Toolchains/clang-r353983c/bin
 CR_GCC4=~/Android/Toolchains/aarch64-linux-android-4.9/bin/aarch64-linux-android-
+CR_GCC9=~/Android/Toolchains/aarch64-linux-gnu-9.x/bin/aarch64-linux-gnu-
+CR_GCC12=~/Android/Toolchains/aarch64-linux-gnu-12.x/bin/aarch64-linux-gnu-
+CR_GCC13=~/Android/Toolchains/aarch64-linux-gnu-13.x/bin/aarch64-linux-gnu-
+CR_CLANG=~/Android/Toolchains/clang-r353983c/bin
 #####################################################
 
 # Compiler Selection
@@ -85,22 +86,27 @@ compile="make"
 CR_COMPILER="$CR_GCC4"
 fi
 if [ $CR_COMPILER = "2" ]; then
+export CROSS_COMPILE=$CR_GCC9
+compile="make"
+CR_COMPILER="$CR_GCC9"
+fi
+if [ $CR_COMPILER = "3" ]; then
+export CROSS_COMPILE=$CR_GCC12
+compile="make"
+CR_COMPILER="$CR_GCC12"
+fi
+if [ $CR_COMPILER = "4" ]; then
+export CROSS_COMPILE=$CR_GCC13
+compile="make"
+CR_COMPILER="$CR_GCC13"
+fi
+if [ $CR_COMPILER = "5" ]; then
 export CLANG_PATH=$CR_CLANG
-export CROSS_COMPILE=$CR_GCC11
+export CROSS_COMPILE=$CR_GCC4
 export CLANG_TRIPLE=aarch64-linux-gnu-
 compile="make CC=clang ARCH=arm64"
 export PATH=${CLANG_PATH}:${PATH}
 CR_COMPILER="$CR_CLANG"
-fi
-if [ $CR_COMPILER = "3" ]; then
-export CROSS_COMPILE=$CR_GCC11
-compile="make"
-CR_COMPILER="$CR_GCC11"
-fi
-if [ $CR_COMPILER = "4" ]; then
-export CROSS_COMPILE=$CR_GCC9
-compile="make"
-CR_COMPILER="$CR_GCC9"
 fi
 }
 
@@ -375,7 +381,7 @@ BUILD_DEBUG(){
 echo "----------------------------------------------"
 echo " DEBUG : Debug build initiated "
 CR_TARGET=5
-CR_COMPILER=4
+CR_COMPILER=2
 CR_SELINUX=1
 CR_CLEAN="n"
 echo " DEBUG : Set Build options "
@@ -488,11 +494,12 @@ read -p "Please select your build target (1-8) > " CR_TARGET
 echo "----------------------------------------------"
 echo " "
 echo "1) $CR_GCC4 (GCC 4.9)"
-echo "2) $CR_CLANG (CLANG)" 
-echo "3) $CR_GCC11 (GCC 11.x)" 
-echo "4) $CR_GCC9 (GCC 9.x)" 
+echo "2) $CR_GCC9 (GCC 9.x)" 
+echo "3) $CR_GCC12 (GCC 12.x)" 
+echo "4) $CR_GCC13 (GCC 13.x)" 
+echo "5) $CR_CLANG (CLANG)" 
 echo " "
-read -p "Please select your compiler (1-4) > " CR_COMPILER
+read -p "Please select your compiler (1-5) > " CR_COMPILER
 echo " "
 echo "1) Selinux Permissive " "2) Selinux Enforcing"
 echo " "
