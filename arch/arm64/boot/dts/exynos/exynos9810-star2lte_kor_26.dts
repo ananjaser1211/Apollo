@@ -10506,7 +10506,7 @@
 			dm-type = <0x1>;
 			min-freq = <0xd1790>;
 			max-freq = <0x1b5fd0>;
-			policy-max = <0x294280>;
+			policy-max = <0x1b5fd0>;
 			pm_qos-min-class = <0x5>;
 			pm_qos-max-class = <0x6>;
 			pm_qos-booting = <0x1b5fd0>;
