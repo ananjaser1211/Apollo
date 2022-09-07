@@ -72,6 +72,7 @@ enum power_supply_ext_property {
 	POWER_SUPPLY_EXT_PROP_JIG_GPIO,
 	POWER_SUPPLY_EXT_PROP_WPC_EN,
 	POWER_SUPPLY_EXT_PROP_WPC_EN_MST,
+	POWER_SUPPLY_EXT_PROP_TTF_FULL_CAPACITY,
 };
 
 enum sec_battery_usb_conf {
