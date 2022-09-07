@@ -1366,7 +1366,7 @@ static void max77865_set_full_value(struct max77865_fuelgauge_data *fuelgauge,
 #endif
 
 #define FULL_CAPACITY 850
-static int calc_ttf_to_full_capacity(struct max77705_fuelgauge_data *fuelgauge,
+static int calc_ttf_to_full_capacity(struct max77865_fuelgauge_data *fuelgauge,
 		    union power_supply_propval *val)
 {
 	struct cv_slope *cv_data = fuelgauge->cv_data;
@@ -1379,13 +1379,13 @@ static int calc_ttf_to_full_capacity(struct max77705_fuelgauge_data *fuelgauge,
 		pr_info("%s: no cv_data or val: %d\n", __func__, val->intval);
 		return -1;
 	}
-	for (i = 0; i < fuelgauge->cv_data_length; i++) {
+	for (i = 0; i < fuelgauge->cv_data_lenth; i++) {
 		if (charge_current >= cv_data[i].fg_current)
 			break;
 	}
-	i = i >= fuelgauge->cv_data_length ? fuelgauge->cv_data_length - 1 : i;
+	i = i >= fuelgauge->cv_data_lenth ? fuelgauge->cv_data_lenth - 1 : i;
 	if (cv_data[i].soc < soc) {
-		for (i = 0; i < fuelgauge->cv_data_length; i++) {
+		for (i = 0; i < fuelgauge->cv_data_lenth; i++) {
 			if (soc <= cv_data[i].soc)
 				break;
 		}
