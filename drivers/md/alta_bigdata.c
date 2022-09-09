@@ -3,10 +3,11 @@
 #include <linux/init.h>
 #include <linux/proc_fs.h>
 #include <linux/highmem.h>
-#include "dm-verity-debug.h"
 #include <linux/kdev_t.h>
 #include<linux/sysfs.h> 
 #include<linux/kobject.h>
+
+#include "dm-verity-debug.h"
 
 #define ALTA_BUF_SIZE    4096
 char* alta_buf;
