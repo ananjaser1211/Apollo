@@ -2260,6 +2260,10 @@ static irqreturn_t s2mu106_muic_detach_isr(int irq, void *data)
 	muic_core_handle_detach(muic_data->pdata);
 #endif
 
+#if IS_ENABLED(CONFIG_LEDS_S2MU106_FLASH)
+	muic_data->is_requested_step_down = false;
+#endif
+
 detach_skip:
 	pr_info("%s done(%s)\n", __func__, dev_to_str(muic_pdata->attached_dev));
 

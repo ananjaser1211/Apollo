@@ -355,7 +355,7 @@ static bool _s2mu106_hv_muic_check_afc_enabled(struct s2mu106_muic_data *muic_da
 #endif
 #if defined(CONFIG_LEDS_S2MU106_FLASH)
 	} else if (muic_data->is_requested_step_down == true) {
-		str = "Flash from CAM";
+		str = "requested step down";
 #endif
 	}
 

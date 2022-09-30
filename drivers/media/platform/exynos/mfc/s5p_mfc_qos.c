@@ -419,7 +419,7 @@ void s5p_mfc_qos_on(struct s5p_mfc_ctx *ctx)
 	}
 
 	start_qos_step = pdata->num_qos_steps;
-	if (enc_found)
+	if (enc_found && (dev->num_inst == 1))
 		start_qos_step = pdata->max_qos_steps;
 
 	/* search the suitable qos table */
@@ -469,8 +469,10 @@ void s5p_mfc_qos_off(struct s5p_mfc_ctx *ctx)
 		return;
 	}
 
-	if (ON_RES_CHANGE(ctx))
+	if (ON_RES_CHANGE(ctx)) {
+		mutex_unlock(&dev->qos_mutex);
 		return;
+	}
 
 	mfc_bw.peak = 0;
 	mfc_bw.read = 0;
@@ -496,7 +498,7 @@ void s5p_mfc_qos_off(struct s5p_mfc_ctx *ctx)
 		list_del(&ctx->qos_list);
 
 	start_qos_step = pdata->num_qos_steps;
-	if (enc_found)
+	if (enc_found && (dev->num_inst == 1))
 		start_qos_step = pdata->max_qos_steps;
 
 	/* search the suitable qos table */
