@@ -10468,8 +10468,8 @@
 		skip_lit_enabled = <0x0>;
 		cl_busy_ratio = <0x41>;
 		dual_freq = <0x234f10>;
-		triple_freq = <0x1D5BA0>;
-		quad_freq = <0x1D5BA0>;
+		triple_freq = <0x234F10>;
+		quad_freq = <0x234F10>;
 		cal-id = <0xb040003>;
 	};
 
