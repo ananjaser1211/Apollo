@@ -3205,6 +3205,10 @@ static int sec_ts_input_open(struct input_dev *dev)
 		dt2w_switch = dt2w_switch_temp;
 		dt2w_switch_changed = false;
 	}
+	if (dt2w_custom_tap_changed) {
+		dt2w_custom_tap = dt2w_custom_tap_temp;
+		dt2w_custom_tap_changed = false;
+	}
 	if (s2w_switch_changed) {
 		s2w_switch = s2w_switch_temp;
 		s2w_switch_changed = false;
