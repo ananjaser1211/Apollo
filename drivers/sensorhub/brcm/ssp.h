@@ -121,6 +121,7 @@
 #define SSP_HALL_IC_OFF			"SSP:HALL_IC=0"
 
 #define SSP_AUTO_ROTATION_ORIENTATION "SSP:AUTO_ROTATION_ORIENTATION="
+#define SSP_SAR_BACKOFF_MOTION_NOTI "SSP:SAR_BACKOFF_MOTION_NOTI="
 
 extern bool ssp_debug_time_flag;
 
@@ -204,6 +205,7 @@ enum {
 #define MSG2SSP_AP_STATUS_RESET		0xD5
 #define MSG2SSP_AP_STATUS_POW_CONNECTED	0xD6
 #define MSG2SSP_AP_STATUS_POW_DISCONNECTED	0xD7
+#define MSG2SSP_AP_SAR_BACKOFF_MOTION_NOTI	0x9B
 #define MSG2SSP_AP_TEMPHUMIDITY_CAL_DONE	0xDA
 #define MSG2SSP_AP_MCU_SET_DUMPMODE		0xDB
 #define MSG2SSP_AP_MCU_DUMP_CHECK		0xDC
@@ -545,6 +547,7 @@ struct sensor_value {
 		u8 move_detect;
 		u8 led_cover_event;
 		u8 auto_rotation_event;
+		u8 sar_backoff_motion_event;
 		u8 scontext_buf[SCONTEXT_DATA_SIZE];
 		struct {
 			u8 proximity_pocket_detect;
@@ -1125,6 +1128,7 @@ void report_call_gesture_data(struct ssp_data *data, struct sensor_value *call_g
 void report_move_detector_data(struct ssp_data *data, struct sensor_value *move_detector_data);
 void report_led_cover_event_data(struct ssp_data *data, struct sensor_value *led_cover_event_data);
 void report_pocket_mode_lite_data(struct ssp_data *data, struct sensor_value *pocket_mode_lite_data);
+void report_sar_backoff_motion_data(struct ssp_data *data, struct sensor_value *sar_backoff_motion_data);
 
 unsigned int get_module_rev(struct ssp_data *data);
 void reset_mcu(struct ssp_data *data);

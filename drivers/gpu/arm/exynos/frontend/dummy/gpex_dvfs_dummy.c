@@ -135,6 +135,18 @@ int gpu_dvfs_get_max_freq(void)
 }
 EXPORT_SYMBOL_GPL(gpu_dvfs_get_max_freq);
 
+int gpu_dvfs_get_min_locked_freq(void)
+{
+	return 0;
+}
+EXPORT_SYMBOL_GPL(gpu_dvfs_get_min_locked_freq);
+
+int gpu_dvfs_get_max_locked_freq(void)
+{
+	return 0;
+}
+EXPORT_SYMBOL_GPL(gpu_dvfs_get_max_locked_freq);
+
 int gpu_dvfs_get_sustainable_info_array(int index)
 {
 	return 0;

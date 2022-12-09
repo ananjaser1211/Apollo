@@ -407,6 +407,8 @@ int gpex_tsg_init(struct device **dev)
 	gpex_tsg_external_init(&tsg);
 	gpex_tsg_sysfs_init(&tsg);
 
+	gpex_utils_get_exynos_context()->tsg = &tsg;
+
 	return 0;
 }
 
@@ -416,5 +418,41 @@ int gpex_tsg_term(void)
 	gpex_tsg_external_term();
 	tsg.kbdev = NULL;
 
+	return 0;
+}
+
+void gpex_tsg_update_firstjob_time(void)
+{
+}
+
+void gpex_tsg_update_lastjob_time(int slot_nr)
+{
+	CSTD_UNUSED(slot_nr);
+}
+
+void gpex_tsg_update_jobsubmit_time(void)
+{
+}
+
+void gpex_tsg_sum_jobs_time(int slot_nr)
+{
+	CSTD_UNUSED(slot_nr);
+}
+
+int gpex_tsg_amigo_interframe_sw_update(ktime_t start, ktime_t end)
+{
+	CSTD_UNUSED(start);
+	CSTD_UNUSED(end);
+
+	return 0;
+}
+
+int gpex_tsg_amigo_interframe_hw_update_eof(void)
+{
+	return 0;
+}
+
+int gpex_tsg_amigo_interframe_hw_update(void)
+{
 	return 0;
 }

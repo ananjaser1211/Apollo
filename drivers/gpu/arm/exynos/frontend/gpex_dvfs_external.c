@@ -84,6 +84,36 @@ int gpu_dvfs_get_max_freq(void)
 }
 EXPORT_SYMBOL_GPL(gpu_dvfs_get_max_freq);
 
+int gpu_dvfs_get_max_locked_freq(void)
+{
+	unsigned long flags;
+	int locked_clock = -1;
+
+	gpex_dvfs_spin_lock(&flags);
+	locked_clock = gpex_clock_get_max_lock();
+	if (locked_clock <= 0)
+		locked_clock = gpex_clock_get_max_clock();
+	gpex_dvfs_spin_unlock(&flags);
+
+	return locked_clock;
+}
+EXPORT_SYMBOL(gpu_dvfs_get_max_locked_freq);
+
+int gpu_dvfs_get_min_locked_freq(void)
+{
+	unsigned long flags;
+	int locked_clock = -1;
+
+	gpex_dvfs_spin_lock(&flags);
+	locked_clock = gpex_clock_get_min_lock();
+	if (locked_clock <= 0)
+		locked_clock = gpex_clock_get_min_clock();
+	gpex_dvfs_spin_unlock(&flags);
+
+	return locked_clock;
+}
+EXPORT_SYMBOL(gpu_dvfs_get_min_locked_freq);
+
 /* TODO: make a stub version for when dvfs is disabled */
 /* Needed by 9830 as SUSTAINABLE_OPT feature */
 int gpu_dvfs_get_sustainable_info_array(int index)

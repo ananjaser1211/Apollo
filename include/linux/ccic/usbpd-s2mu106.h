@@ -18,6 +18,9 @@
 #include <linux/usb/typec.h>
 #endif
 #include <linux/power_supply.h>
+#if defined(CONFIG_S2MU106_PDIC_TRY_SNK)
+#include <linux/alarmtimer.h>
+#endif
 
 #ifndef __USBPD_S2MU106_H__
 #define __USBPD_S2MU106_H__
@@ -203,7 +206,10 @@
 #define S2MU106_REG_PLUG_CTRL_CC2_MANUAL_EN_SHIFT    (6)
 
 #define S2MU106_REG_PLUG_CTRL_FSM_MANUAL_INPUT_MASK    (0xf)
+#define S2MU106_REG_PLUG_CTRL_FSM_UNATTACHED_SNK        (0)
+#define S2MU106_REG_PLUG_CTRL_FSM_ATTACHWAIT_SNK        (1)
 #define S2MU106_REG_PLUG_CTRL_FSM_ATTACHED_SNK        (2)
+#define S2MU106_REG_PLUG_CTRL_FSM_UNATTACHED_SRC        (4)
 #define S2MU106_REG_PLUG_CTRL_FSM_ATTACHED_SRC        (6)
 #define S2MU106_REG_PLUG_CTRL_CC_MANUAL_EN \
         (0x1 << S2MU106_REG_PLUG_CTRL_CC_MANUAL_EN_SHIFT) /* 0x10 */
@@ -700,6 +706,12 @@ struct s2mu106_usbpd_data {
 	int cc_instead_of_vbus;
     struct regulator *regulator;
 	int rprd_mode;
+#if defined(CONFIG_S2MU106_PDIC_TRY_SNK)
+	struct alarm srcdet_alarm;
+	struct alarm snkdet_alarm;
+	bool srcdet_expired;
+	bool snkdet_expired;
+#endif
 };
 
 extern int s2mu106_usbpd_get_adc(void);

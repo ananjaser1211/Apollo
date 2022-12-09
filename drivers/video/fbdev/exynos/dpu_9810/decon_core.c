@@ -1431,6 +1431,13 @@ static int decon_import_buffer(struct decon_device *decon, int idx,
 
 	for (i = 0; i < regs->plane_cnt[idx]; ++i) {
 		dma_buf_data = &regs->dma_buf_data[idx][i];
+		buf = dma_buf_get(config->fd_idma[i]);
+		if (IS_ERR_OR_NULL(buf)) {
+			decon_err("failed to get dma_buf:%ld\n", PTR_ERR(buf));
+			ret = PTR_ERR(buf);
+			goto fail;
+		}
+
 		handle = ion_import_dma_buf_fd(decon->ion_client,
 				config->fd_idma[i]);
 		if (IS_ERR(handle)) {
@@ -1439,12 +1446,6 @@ static int decon_import_buffer(struct decon_device *decon, int idx,
 			goto fail;
 		}
 
-		buf = dma_buf_get(config->fd_idma[i]);
-		if (IS_ERR_OR_NULL(buf)) {
-			decon_err("failed to get dma_buf:%ld\n", PTR_ERR(buf));
-			ret = PTR_ERR(buf);
-			goto fail;
-		}
 		if (decon->dt.out_type == DECON_OUT_DP) {
 			displayport = v4l2_get_subdevdata(decon->out_sd[0]);
 			dev = displayport->dev;

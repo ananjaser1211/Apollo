@@ -23,6 +23,8 @@
 #include <gpexbe_debug.h>
 #include <gpexbe_devicetree.h>
 
+#include <gpex_utils.h>
+
 struct _debug_backend_info {
 	int dss_freq_id;
 };
@@ -51,6 +53,8 @@ int gpexbe_debug_init(void)
 	/* this value is 0 for 9830 + also 9610 */
 	/* TODO: find out what's going on with 9830. dbg snapshot was never used? */
 	dbg_info.dss_freq_id = gpexbe_devicetree_get_int(gpu_ess_id_type);
+
+	gpex_utils_get_exynos_context()->dbg_info = &dbg_info;
 
 	return 0;
 }

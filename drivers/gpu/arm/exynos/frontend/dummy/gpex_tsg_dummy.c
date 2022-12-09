@@ -390,3 +390,39 @@ void gpex_tsg_reset_acc_count(void)
 {
 	return;
 }
+
+void gpex_tsg_update_firstjob_time(void)
+{
+}
+
+void gpex_tsg_update_lastjob_time(int slot_nr)
+{
+	CSTD_UNUSED(slot_nr);
+}
+
+void gpex_tsg_update_jobsubmit_time(void)
+{
+}
+
+void gpex_tsg_sum_jobs_time(int slot_nr)
+{
+	CSTD_UNUSED(slot_nr);
+}
+
+int gpex_tsg_amigo_interframe_sw_update(ktime_t start, ktime_t end)
+{
+	CSTD_UNUSED(start);
+	CSTD_UNUSED(end);
+
+	return 0;
+}
+
+int gpex_tsg_amigo_interframe_hw_update_eof(void)
+{
+	return 0;
+}
+
+int gpex_tsg_amigo_interframe_hw_update(void)
+{
+	return 0;
+}

@@ -127,6 +127,8 @@ int gpexbe_smc_init(void)
 	spin_lock_init(&smc_info.lock);
 	smc_info.protection_enabled = false;
 
+	gpex_utils_get_exynos_context()->smc_info = &smc_info;
+
 	return 0;
 }
 

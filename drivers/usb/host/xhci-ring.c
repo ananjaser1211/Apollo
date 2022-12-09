@@ -70,6 +70,10 @@
 #include "xhci.h"
 #include "xhci-trace.h"
 #include "xhci-mtk.h"
+#if defined(CONFIG_USB_HOST_RELOAD_FTDI)
+#include <linux/usb/quirks.h>
+#include <linux/usb_notify.h>
+#endif
 
 /*
  * Returns zero if the TRB isn't in this segment, otherwise it returns the DMA
@@ -936,6 +940,10 @@ void xhci_stop_endpoint_command_watchdog(unsigned long arg)
 	struct xhci_virt_ep *ep;
 	int ret, i, j;
 	unsigned long flags;
+#if defined(CONFIG_USB_HOST_RELOAD_FTDI)
+	struct otg_notify *o_notify = get_otg_notify();
+	bool need_recovery = false;
+#endif
 
 	ep = (struct xhci_virt_ep *) arg;
 	xhci = ep->xhci;
@@ -980,6 +988,19 @@ void xhci_stop_endpoint_command_watchdog(unsigned long arg)
 		 * doesn't touch the memory.
 		 */
 	}
+#if defined(CONFIG_USB_HOST_RELOAD_FTDI)
+	for (i = 0; i < MAX_HC_SLOTS; i++) {
+		struct usb_device *udev;
+
+		if (!xhci->devs[i] || !xhci->devs[i]->udev)
+			continue;
+		udev = xhci->devs[i]->udev;
+		if (udev->quirks & USB_FTDI_DEVICE_RECOVERY) {
+			need_recovery = true;
+			break;
+		}
+	}
+#endif
 	for (i = 0; i < MAX_HC_SLOTS; i++) {
 		if (!xhci->devs[i])
 			continue;
@@ -992,6 +1013,12 @@ void xhci_stop_endpoint_command_watchdog(unsigned long arg)
 	usb_hc_died(xhci_to_hcd(xhci));
 	xhci_dbg_trace(xhci, trace_xhci_dbg_cancel_urb,
 			"xHCI host controller is dead.");
+#if defined(CONFIG_USB_HOST_RELOAD_FTDI)
+	if (need_recovery) {
+		xhci_info(xhci, "USB host driver need recovery");
+		send_otg_notify(o_notify, NOTIFY_EVENT_HOST_RELOAD, 1);
+	}
+#endif
 }
 
 

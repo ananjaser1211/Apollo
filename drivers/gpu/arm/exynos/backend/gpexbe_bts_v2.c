@@ -23,6 +23,8 @@
 
 #include <gpexbe_bts.h>
 
+#include <gpex_utils.h>
+
 struct _bts_backend_info {
 	unsigned int bts_scen_idx;
 };
@@ -44,6 +46,8 @@ int gpexbe_bts_set_bts_mo(int val)
 int gpexbe_bts_init()
 {
 	bts_info.bts_scen_idx = bts_get_scenindex("g3d_performance");
+
+	gpex_utils_get_exynos_context()->bts_info = &bts_info;
 
 	return 0;
 }

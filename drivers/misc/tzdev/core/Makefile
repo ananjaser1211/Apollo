@@ -12,6 +12,7 @@ obj-$(CONFIG_TZDEV)		+= notifier.o
 obj-$(CONFIG_TZDEV)		+= ree_time.o
 obj-$(CONFIG_TZDEV)		+= sysdep.o
 obj-$(CONFIG_TZDEV)		+= tzdev.o
+obj-$(CONFIG_TZDEV)		+= umem.o
 obj-$(CONFIG_TZDEV)		+= uiwsock.o
 obj-$(CONFIG_TZLOG)		+= iwlog.o
 

@@ -97,13 +97,6 @@ config TZTUI
 	help
 	  Enable Trusted user interface support for Samsung Secure OS.
 
-config TZDEV_PAGE_MIGRATION
-	bool "Page migration"
-	depends on MIGRATION && CMA
-	default n
-	help
-	  Enable Page migration functionality for CMA Migration.
-
 config TZDEV_HOTPLUG
 	bool "Core hotplug"
 	depends on HOTPLUG_CPU

@@ -25,8 +25,6 @@
 #include "core/wait.h"
 
 #define PTR_ALIGN_PGDN(p)	((typeof(p))(((uintptr_t)(p)) & PAGE_MASK))
-#define OFFSET_IN_PAGE(x)	((x) & (~PAGE_MASK))
-#define NUM_PAGES(size)		(((size) >> PAGE_SHIFT) + !!OFFSET_IN_PAGE(size))
 
 static void tzdev_teec_release_shared_memory(void *data)
 {

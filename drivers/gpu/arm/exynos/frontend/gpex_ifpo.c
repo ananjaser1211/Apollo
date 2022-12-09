@@ -24,6 +24,7 @@
 #include <gpex_clock.h>
 #include <gpexbe_devicetree.h>
 #include <gpexbe_pm.h>
+#include <gpexwa_ehmp.h>
 
 struct ifpo_info {
 	ifpo_mode mode;

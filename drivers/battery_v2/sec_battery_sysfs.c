@@ -899,7 +899,7 @@ ssize_t sec_bat_show_attrs(struct device *dev,
             } else if (battery->current_event & SEC_BAT_CURRENT_EVENT_LOW_TEMP_MODE) {
               /* float voltage - 150mV */
               recharging_voltage = (battery->pdata->chg_float_voltage / battery->pdata->chg_float_voltage_conv) \
-                                   - 150;
+                                   - battery->pdata->swelling_low_rechg_thr;
             }
 
 		psy_do_property(battery->pdata->charger_name, get,

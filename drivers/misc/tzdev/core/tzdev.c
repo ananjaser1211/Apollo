@@ -57,7 +57,6 @@
 #include "core/sysdep.h"
 #include "debug/iw_boot_log.h"
 #include "debug/panic_dump.h"
-#include "debug/pmf.h"
 #include "extensions/boost.h"
 
 MODULE_AUTHOR("Jaemin Ryu <jm77.ryu@samsung.com>");
@@ -77,18 +76,9 @@ enum tzdev_iwi_id {
 	TZDEV_IWI_PANIC
 };
 
-struct tzdev_shmem {
-	struct list_head link;
-	unsigned int id;
-};
-
 struct tzdev_fd_data {
-	struct list_head shmem_list;
-	spinlock_t shmem_list_lock;
-
 	unsigned int boost_state;
 	struct mutex mutex;
-
 	void *platform_data;
 };
 
@@ -154,65 +144,6 @@ static int tzdev_check_version(void)
 	return ret;
 }
 
-static int tzdev_register_shared_memory(struct file *filp, unsigned long arg)
-{
-	int ret;
-	struct tzdev_shmem *shmem;
-	struct tzdev_fd_data *data = filp->private_data;
-	struct tzio_mem_register __user *argp = (struct tzio_mem_register __user *)arg;
-	struct tzio_mem_register s;
-
-	if (copy_from_user(&s, argp, sizeof(struct tzio_mem_register)))
-		return -EFAULT;
-
-	shmem = kzalloc(sizeof(struct tzdev_shmem), GFP_KERNEL);
-	if (!shmem) {
-		log_error(tzdev, "Failed to allocate shmem structure\n");
-		return -ENOMEM;
-	}
-
-	tzdev_pmf_stamp(PMF_TZDEV_MEM_REGISTER);
-	ret = tzdev_mem_register_user(UINT_PTR(s.ptr), s.size, s.write);
-	tzdev_pmf_stamp(PMF_TZDEV_MEM_REGISTER_STOP);
-	if (ret < 0) {
-		kfree(shmem);
-		return ret;
-	}
-
-	INIT_LIST_HEAD(&shmem->link);
-	shmem->id = ret;
-
-	spin_lock(&data->shmem_list_lock);
-	list_add(&shmem->link, &data->shmem_list);
-	spin_unlock(&data->shmem_list_lock);
-
-	return shmem->id;
-}
-
-static int tzdev_release_shared_memory(struct file *filp, unsigned int id)
-{
-	struct tzdev_shmem *shmem;
-	struct tzdev_fd_data *data = filp->private_data;
-	unsigned int found = 0;
-
-	spin_lock(&data->shmem_list_lock);
-	list_for_each_entry(shmem, &data->shmem_list, link) {
-		if (shmem->id == id) {
-			list_del(&shmem->link);
-			found = 1;
-			break;
-		}
-	}
-	spin_unlock(&data->shmem_list_lock);
-
-	if (!found)
-		return -EINVAL;
-
-	kfree(shmem);
-
-	return tzdev_mem_release_user(id);
-}
-
 static long tzdev_boost_control(struct file *filp, unsigned int state)
 {
 	int ret = 0;
@@ -261,8 +192,6 @@ static int tzdev_open(struct inode *inode, struct file *filp)
 		return -ENOMEM;
 	}
 
-	INIT_LIST_HEAD(&data->shmem_list);
-	spin_lock_init(&data->shmem_list_lock);
 	mutex_init(&data->mutex);
 
 	data->platform_data = tzdev_platform_open();
@@ -283,16 +212,9 @@ release:
 
 static int tzdev_release(struct inode *inode, struct file *filp)
 {
-	struct tzdev_shmem *shmem, *tmp;
 	struct tzdev_fd_data *data = filp->private_data;
 
 	tzdev_platform_release(data->platform_data);
-
-	list_for_each_entry_safe(shmem, tmp, &data->shmem_list, link) {
-		list_del(&shmem->link);
-		tzdev_mem_release_user(shmem->id);
-		kfree(shmem);
-	}
 
 	tzdev_boost_control(filp, TZIO_BOOST_OFF);
 
@@ -310,10 +232,6 @@ static long tzdev_ioctl(struct file *filp, unsigned int cmd, unsigned long arg)
 	switch (cmd) {
 	case TZIO_GET_SYSCONF:
 		return tzdev_get_sysconf(filp, arg);
-	case TZIO_MEM_REGISTER:
-		return tzdev_register_shared_memory(filp, arg);
-	case TZIO_MEM_RELEASE:
-		return tzdev_release_shared_memory(filp, arg);
 	case TZIO_BOOST_CONTROL:
 		return tzdev_boost_control(filp, arg);
 	}
@@ -341,6 +259,8 @@ static unsigned int tzdev_virq_to_hwirq(unsigned int virq)
 {
 	struct irq_desc *desc = irq_to_desc(virq);
 	struct irq_data *data = irq_desc_get_irq_data(desc);
+
+	data = data->parent_data ? : data;
 
 	return irqd_to_hwirq(data);
 }

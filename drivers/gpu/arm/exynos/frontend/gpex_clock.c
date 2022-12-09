@@ -69,10 +69,6 @@ int gpex_clock_get_clock(int level)
 {
 	return clk_info.table[level].clock;
 }
-u64 gpex_clock_get_time(int level)
-{
-	return clk_info.table[level].time;
-}
 u64 gpex_clock_get_time_busy(int level)
 {
 	return clk_info.table[level].time_busy;
@@ -200,27 +196,32 @@ int gpex_get_valid_gpu_clock(int clock, bool is_round_up)
 int gpex_clock_update_time_in_state(int clock)
 {
 	u64 current_time;
-	static u64 prev_time;
 	int level = gpex_clock_get_table_idx(clock);
 
-	if (prev_time == 0)
-		prev_time = get_jiffies_64();
+	if (clk_info.prev_time_in_state_time == 0)
+		clk_info.prev_time_in_state_time = get_jiffies_64();
 
 	current_time = get_jiffies_64();
 	if ((level >= gpex_clock_get_table_idx(clk_info.gpu_max_clock)) &&
 	    (level <= gpex_clock_get_table_idx(clk_info.gpu_min_clock))) {
-		clk_info.table[level].time += current_time - prev_time;
+		clk_info.table[level].time += current_time - clk_info.prev_time_in_state_time;
 		clk_info.table[level].time_busy +=
-			(u64)((current_time - prev_time) * gpexbe_utilization_get_utilization());
+			(u64)((current_time - clk_info.prev_time_in_state_time)
+					* gpexbe_utilization_get_utilization());
 		GPU_LOG(MALI_EXYNOS_DEBUG,
 			"%s: util = %d cur_clock[%d] = %d time_busy[%d] = %llu(%llu)\n", __func__,
 			gpexbe_utilization_get_utilization(), level, clock, level,
 			clk_info.table[level].time_busy / 100, clk_info.table[level].time);
 	}
 
-	prev_time = current_time;
+	clk_info.prev_time_in_state_time = current_time;
 
 	return 0;
+}
+
+u64 gpex_clock_get_time_in_state_last_update(void)
+{
+	return clk_info.prev_time_in_state_time;
 }
 
 static int gpex_clock_set_helper(int clock)
@@ -323,6 +324,8 @@ int gpex_clock_init(struct device **dev)
 	gpex_clock_update_config_data_from_dt();
 	gpex_clock_init_time_in_state();
 	gpex_clock_sysfs_init(&clk_info);
+
+	gpex_utils_get_exynos_context()->clk_info = &clk_info;
 
 	/* TODO: return proper error when error */
 	return 0;
@@ -575,9 +578,4 @@ int gpex_clock_get_voltage(int clk)
 		/* TODO: print error msg */
 		return -EINVAL;
 	}
-}
-
-void gpex_clock_set_user_min_lock_input(int clock)
-{
-	clk_info.user_min_lock_input = clock;
 }

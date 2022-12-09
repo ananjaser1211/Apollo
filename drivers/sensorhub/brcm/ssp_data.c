@@ -422,7 +422,12 @@ static void get_auto_rotation_data(char *pchRcvDataFrame, int *iDataIdx,
 	memcpy(sensorsdata, pchRcvDataFrame + *iDataIdx, 1);
 	*iDataIdx += 1;
 }
-
+static void get_sar_backoff_motion_data(char *pchRcvDataFrame, int *iDataIdx,
+	struct sensor_value *sensorsdata)
+{
+	memcpy(sensorsdata, pchRcvDataFrame + *iDataIdx, 1);
+	*iDataIdx += 1;
+}
 #ifdef CONFIG_SENSORS_SSP_HIFI_BATCHING // HIFI batch
 
 /*
@@ -951,6 +956,7 @@ void initialize_function_pointer(struct ssp_data *data)
     data->get_sensor_data[MOVE_DETECTOR] = get_move_detector_sensordata;
 	data->get_sensor_data[LED_COVER_EVENT_SENSOR] = get_led_cover_event_sensordata;
 	data->get_sensor_data[AUTO_ROTATION_SENSOR] = get_auto_rotation_data;
+	data->get_sensor_data[SAR_BACKOFF_MOTION] = get_sar_backoff_motion_data;
 	data->get_sensor_data[POCKET_MODE_LITE] = get_pocket_mode_lite_sensordata;
 
 	data->get_sensor_data[BULK_SENSOR] = NULL;
@@ -1005,6 +1011,7 @@ void initialize_function_pointer(struct ssp_data *data)
 	data->report_sensor_data[MOVE_DETECTOR] = report_move_detector_data;
 	data->report_sensor_data[LED_COVER_EVENT_SENSOR] = report_led_cover_event_data;
 	data->report_sensor_data[AUTO_ROTATION_SENSOR] = report_auto_rotation_data;
+	data->report_sensor_data[SAR_BACKOFF_MOTION] = report_sar_backoff_motion_data;
 	data->report_sensor_data[POCKET_MODE_LITE] = report_pocket_mode_lite_data;
 
 	data->ssp_big_task[BIG_TYPE_DUMP] = ssp_dump_task;

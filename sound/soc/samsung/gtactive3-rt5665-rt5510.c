@@ -619,7 +619,7 @@ static struct snd_soc_dai_link exynos9810_dai[] = {
 	},
 };
 
-static int r7_headsetmic(struct snd_soc_dapm_widget *w,
+static int gtactive3_headsetmic(struct snd_soc_dapm_widget *w,
 		struct snd_kcontrol *kcontrol, int event)
 {
 	struct snd_soc_card *card = w->dapm->card;
@@ -632,7 +632,7 @@ static int r7_headsetmic(struct snd_soc_dapm_widget *w,
 	return 0;
 }
 
-static int r7_mainmic(struct snd_soc_dapm_widget *w,
+static int gtactive3_mainmic(struct snd_soc_dapm_widget *w,
 		struct snd_kcontrol *kcontrol, int event)
 {
 	struct snd_soc_card *card = w->dapm->card;
@@ -642,7 +642,7 @@ static int r7_mainmic(struct snd_soc_dapm_widget *w,
 	return 0;
 }
 
-static int r7_submic(struct snd_soc_dapm_widget *w,
+static int gtactive3_submic(struct snd_soc_dapm_widget *w,
 		struct snd_kcontrol *kcontrol, int event)
 {
 	struct snd_soc_card *card = w->dapm->card;
@@ -652,7 +652,7 @@ static int r7_submic(struct snd_soc_dapm_widget *w,
 	return 0;
 }
 
-static int r7_fm(struct snd_soc_dapm_widget *w,
+static int gtactive3_fm(struct snd_soc_dapm_widget *w,
 		struct snd_kcontrol *kcontrol, int event)
 {
 	struct snd_soc_card *card = w->dapm->card;
@@ -662,7 +662,7 @@ static int r7_fm(struct snd_soc_dapm_widget *w,
 	return 0;
 }
 
-static int r7_receiver(struct snd_soc_dapm_widget *w,
+static int gtactive3_receiver(struct snd_soc_dapm_widget *w,
 		struct snd_kcontrol *kcontrol, int event)
 {
 	struct snd_soc_card *card = w->dapm->card;
@@ -672,7 +672,7 @@ static int r7_receiver(struct snd_soc_dapm_widget *w,
 	return 0;
 }
 
-static int r7_headphone(struct snd_soc_dapm_widget *w,
+static int gtactive3_headphone(struct snd_soc_dapm_widget *w,
 		struct snd_kcontrol *kcontrol, int event)
 {
 	struct snd_soc_card *card = w->dapm->card;
@@ -685,7 +685,7 @@ static int r7_headphone(struct snd_soc_dapm_widget *w,
 	return 0;
 }
 
-static int r7_speaker(struct snd_soc_dapm_widget *w,
+static int gtactive3_speaker(struct snd_soc_dapm_widget *w,
 		struct snd_kcontrol *kcontrol, int event)
 {
 	struct snd_soc_card *card = w->dapm->card;
@@ -725,13 +725,13 @@ static struct snd_soc_dapm_widget exynos9810_widgets[] = {
 	SND_SOC_DAPM_INPUT("VINPUT2"),
 	SND_SOC_DAPM_OUTPUT("VOUTPUTCALL"),
 	SND_SOC_DAPM_INPUT("VINPUTCALL"),
-	SND_SOC_DAPM_MIC("HEADSETMIC", r7_headsetmic),
-	SND_SOC_DAPM_MIC("MAINMIC", r7_mainmic),
-	SND_SOC_DAPM_MIC("SUBMIC", r7_submic),
-	SND_SOC_DAPM_MIC("FM", r7_fm),
-	SND_SOC_DAPM_SPK("RECEIVER", r7_receiver),
-	SND_SOC_DAPM_HP("HEADPHONE", r7_headphone),
-	SND_SOC_DAPM_SPK("SPEAKER", r7_speaker),
+	SND_SOC_DAPM_MIC("HEADSETMIC", gtactive3_headsetmic),
+	SND_SOC_DAPM_MIC("MAINMIC", gtactive3_mainmic),
+	SND_SOC_DAPM_MIC("SUBMIC", gtactive3_submic),
+	SND_SOC_DAPM_MIC("FM", gtactive3_fm),
+	SND_SOC_DAPM_SPK("RECEIVER", gtactive3_receiver),
+	SND_SOC_DAPM_HP("HEADPHONE", gtactive3_headphone),
+	SND_SOC_DAPM_SPK("SPEAKER", gtactive3_speaker),
 	SND_SOC_DAPM_MIC("BLUETOOTH MIC", NULL),
 	SND_SOC_DAPM_SPK("BLUETOOTH SPK", NULL),
 #if defined(CONFIG_SND_SOC_SAMSUNG_VTS)
@@ -829,7 +829,7 @@ static void exynos9810_mic_always_on(struct platform_device *pdev)
 
 	dev_info(&pdev->dev, "%s\n", __func__);
 
-	if (of_find_property(pdev->dev.of_node, "mic-always-on", NULL) != NULL){
+	if (of_find_property(pdev->dev.of_node, "mic-always-on", NULL) != NULL) {
 		snd_soc_dapm_force_enable_pin(dapm, "MICBIAS2");
 		snd_soc_dapm_sync(dapm);
 	} else {

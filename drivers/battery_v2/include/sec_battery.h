@@ -158,6 +158,8 @@ enum misc_battery_health {
 #define SIOP_APDO_CHARGING_LIMIT_CURRENT			2000
 #endif
 
+#define SELECT_PDO_INPUT_CURRENT 1000
+
 #define WIRELESS_OTG_INPUT_CURRENT 900
 
 #define SEC_INPUT_VOLTAGE_0V	0

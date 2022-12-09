@@ -122,3 +122,13 @@ config CCIC_AUTO_PPS
 	help
 	  If you say yes here you will get support for
 	  sending pps message automatically
+
+config S2MU106_PDIC_TRY_SNK
+  bool "Using Type-C try.SNK"
+  depends on I2C && (MFD_S2MU106 || PM_S2MU106)
+  default n
+  help
+    If you say yes here you will get support for
+    the S2MU106 Type-C try.SNK.
+    The device prefer to work with snk.
+    This feature is in typec specificaion.

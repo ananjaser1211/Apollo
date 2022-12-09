@@ -2992,6 +2992,181 @@ static void s2mu106_usbpd_notify_detach(struct s2mu106_usbpd_data *pdic_data)
 #endif
 }
 
+#if defined(CONFIG_S2MU106_PDIC_TRY_SNK)
+static enum alarmtimer_restart s2mu106_usbpd_try_snk_alarm_srcdet(struct alarm *alarm, ktime_t now)
+{
+	struct s2mu106_usbpd_data *pdic_data = container_of(alarm, struct s2mu106_usbpd_data, srcdet_alarm);
+
+	pr_info("%s, ++\n", __func__);
+	pdic_data->srcdet_expired = 1;
+
+	return ALARMTIMER_NORESTART;
+}
+
+static enum alarmtimer_restart s2mu106_usbpd_try_snk_alarm_snkdet(struct alarm *alarm, ktime_t now)
+{
+	struct s2mu106_usbpd_data *pdic_data = container_of(alarm, struct s2mu106_usbpd_data, snkdet_alarm);
+
+	pr_info("%s, ++\n", __func__);
+	pdic_data->snkdet_expired = 1;
+
+	return ALARMTIMER_NORESTART;
+}
+
+static void s2mu106_usbpd_try_snk(struct s2mu106_usbpd_data *pdic_data)
+{
+	struct i2c_client *i2c = pdic_data->i2c;
+	struct device *dev = &i2c->dev;
+	struct usbpd_data *pd_data = dev_get_drvdata(dev);
+
+	u8 intr[S2MU106_MAX_NUM_INT_STATUS] = {0, };
+
+	bool is_src_detected = 0;
+	bool is_snk_detected = 0;
+	bool vbus_detected = 0;
+	int vbus;
+	bool power_role;
+	u8 manual, fsm, val;
+	u8 cc1, cc2;
+
+	ktime_t sec, msec;
+	s64 start = 0, duration = 0;
+
+	pr_info("%s, ++\n", __func__);
+
+	s2mu106_usbpd_read_reg(i2c, S2MU106_REG_PLUG_CTRL_CC12, &fsm);
+	fsm &= ~S2MU106_REG_PLUG_CTRL_FSM_MANUAL_INPUT_MASK;
+	fsm |= S2MU106_REG_PLUG_CTRL_FSM_ATTACHED_SNK;
+	s2mu106_usbpd_write_reg(i2c, S2MU106_REG_PLUG_CTRL_CC12, fsm);
+
+	s2mu106_usbpd_read_reg(i2c, S2MU106_REG_PLUG_CTRL_RpRd, &manual);
+	manual |= S2MU106_REG_PLUG_CTRL_FSM_MANUAL_EN;
+	s2mu106_usbpd_write_reg(i2c, S2MU106_REG_PLUG_CTRL_RpRd, manual);
+
+	usbpd_timer1_start(pd_data);
+
+	pdic_data->snkdet_expired = 0;
+	pdic_data->srcdet_expired = 0;
+
+	start = ktime_to_us(ktime_get());
+
+	usleep_range(20000, 21000);
+
+	while (1) {
+		duration = ktime_to_us(ktime_get()) - start;
+
+		s2mu106_usbpd_get_pmeter_volt(pdic_data);
+		/* vbus is over 4000 or fail to get_prop */
+		vbus = pdic_data->pm_chgin;
+		vbus_detected = (vbus < 0) ? true : ((vbus >= 4000) ? true : false);
+
+		/* Source not Detected for tTryCCDebounce after tDRPTry */
+		if (is_snk_detected && pdic_data->snkdet_expired  && (duration > tDRPtry * USEC_PER_MSEC)) {
+			pr_info("%s, sink not detected, goto TryWait.SRC\n", __func__);
+			power_role = 1;
+			break;
+		}
+
+		/* Source Detected for tTryCCDebounce and VBUS Detected */
+		if ((is_src_detected && pdic_data->srcdet_expired && vbus_detected)
+				|| (duration > 1500 * USEC_PER_MSEC)) {
+			pr_info("%s, sink detected, goto Attached.SNK\n", __func__);
+			power_role = 0;
+			break;
+		}
+
+		s2mu106_usbpd_read_reg(i2c, S2MU106_REG_PLUG_MON1, &val);
+		cc1 = (val & S2MU106_REG_CTRL_MON_CC1_MASK) >> S2MU106_REG_CTRL_MON_CC1_SHIFT;
+		cc2 = (val & S2MU106_REG_CTRL_MON_CC2_MASK) >> S2MU106_REG_CTRL_MON_CC2_SHIFT;
+
+		if ((cc1 == USBPD_Rd) || (cc2 == USBPD_Rd)) {
+			//Src detected
+			if (!is_src_detected) {
+				is_src_detected = 1;
+				alarm_cancel(&pdic_data->srcdet_alarm);
+				pdic_data->srcdet_expired = 0;
+				sec = ktime_get_boottime();
+				msec = ktime_set(0, tTryCCDebounce * NSEC_PER_MSEC);
+				alarm_start(&pdic_data->srcdet_alarm, ktime_add(sec, msec));
+			}
+			is_snk_detected = 0;
+			alarm_cancel(&pdic_data->snkdet_alarm);
+		} else {
+			//Src not detected
+			if ((duration > tDRPtry * USEC_PER_MSEC) && !is_snk_detected) {
+				is_snk_detected = 1;
+				alarm_cancel(&pdic_data->snkdet_alarm);
+				pdic_data->snkdet_expired = 0;
+				sec = ktime_get_boottime();
+				msec = ktime_set(0, tTryCCDebounce * NSEC_PER_MSEC);
+				alarm_start(&pdic_data->snkdet_alarm, ktime_add(sec, msec));
+			}
+			is_src_detected = 0;
+			alarm_cancel(&pdic_data->srcdet_alarm);
+
+		}
+		usleep_range(1000, 1100);
+	}
+
+	s2mu106_usbpd_read_reg(i2c, S2MU106_REG_PLUG_CTRL_CC12, &fsm);
+	fsm &= ~S2MU106_REG_PLUG_CTRL_FSM_MANUAL_INPUT_MASK;
+	if (power_role)
+		/* goto TryWait.SRC */
+		fsm |= S2MU106_REG_PLUG_CTRL_FSM_ATTACHED_SRC;
+	else
+		/* goto Attached.SNK */
+		fsm |= S2MU106_REG_PLUG_CTRL_FSM_ATTACHED_SNK;
+	s2mu106_usbpd_write_reg(i2c, S2MU106_REG_PLUG_CTRL_CC12, fsm);
+
+	if (power_role)
+		start = ktime_to_us(ktime_get());
+
+	usleep_range(3000, 3100);
+
+	if (power_role) {
+		is_snk_detected = 0;
+		while (1) {
+			duration = ktime_to_us(ktime_get()) - start;
+
+			s2mu106_usbpd_read_reg(i2c, S2MU106_REG_PLUG_MON1, &val);
+			cc1 = (val & S2MU106_REG_CTRL_MON_CC1_MASK) >> S2MU106_REG_CTRL_MON_CC1_SHIFT;
+			cc2 = (val & S2MU106_REG_CTRL_MON_CC2_MASK) >> S2MU106_REG_CTRL_MON_CC2_SHIFT;
+
+			if ((cc1 == USBPD_Rd) || (cc2 == USBPD_Rd)) {
+				/* Snk detected */
+				if (duration > tTryCCDebounce * USEC_PER_MSEC) {
+					pr_info("%s, goto Attached.SRC\n", __func__);
+					fsm |= S2MU106_REG_PLUG_CTRL_FSM_ATTACHED_SRC;
+					s2mu106_usbpd_write_reg(i2c, S2MU106_REG_PLUG_CTRL_CC12, fsm);
+					s2mu106_usbpd_read_reg(i2c, S2MU106_REG_PLUG_CTRL_RpRd, &manual);
+					manual &= ~S2MU106_REG_PLUG_CTRL_FSM_MANUAL_EN;
+					s2mu106_usbpd_write_reg(i2c, S2MU106_REG_PLUG_CTRL_RpRd, manual);
+					/* Snk Detected for tTryCCDebounce */
+					/* Attached.SRC -> Attach */
+					break;
+				}
+			} else {
+				/* Snk Not Detected */
+				/* Attached.SRC -> need Detach */
+				pr_info("%s, goto Unattached.SNK\n", __func__);
+				fsm |= S2MU106_REG_PLUG_CTRL_FSM_UNATTACHED_SNK;
+				s2mu106_usbpd_write_reg(i2c, S2MU106_REG_PLUG_CTRL_CC12, fsm);
+				s2mu106_usbpd_read_reg(i2c, S2MU106_REG_PLUG_CTRL_RpRd, &manual);
+				manual &= ~S2MU106_REG_PLUG_CTRL_FSM_MANUAL_EN;
+				s2mu106_usbpd_write_reg(i2c, S2MU106_REG_PLUG_CTRL_RpRd, manual);
+				msleep(20);
+				return;
+			}
+			usleep_range(1000, 1100);
+		}
+	}
+	usleep_range(1000, 1100);
+
+	s2mu106_usbpd_bulk_read(i2c, S2MU106_REG_INT_STATUS0, S2MU106_MAX_NUM_INT_STATUS, intr);
+	pr_info("%s, intr[0x%x, 0x%x, 0x%x, 0x%x, 0x%x, 0x%x, 0x%x]\n", __func__,
+			intr[0], intr[1], intr[2], intr[3], intr[4], intr[5], intr[6]);
+}
+#endif
 static void s2mu106_usbpd_check_host(struct s2mu106_usbpd_data *pdic_data,
 							CCIC_HOST_REASON host)
 {
@@ -3070,6 +3245,13 @@ static int s2mu106_check_port_detect(struct s2mu106_usbpd_data *pdic_data)
 	dev_info(dev, "%s, attach cc pin check cc1_val(%x), cc2_val(%x)\n",
 					__func__, cc1_val, cc2_val);
 
+#if defined(CONFIG_S2MU106_PDIC_TRY_SNK)
+	if ((data & S2MU106_PR_MASK) == S2MU106_PDIC_SOURCE) {
+		s2mu106_usbpd_try_snk(pdic_data);
+		s2mu106_usbpd_read_reg(i2c, S2MU106_REG_PLUG_MON2, &data);
+		pr_info("%s, after try.snk data = %x\n", __func__, data);
+	}
+#endif
 	if ((data & S2MU106_PR_MASK) == S2MU106_PDIC_SINK) {
 		dev_info(dev, "SINK\n");
 		manager->pn_flag = false;
@@ -3113,7 +3295,8 @@ static int s2mu106_check_port_detect(struct s2mu106_usbpd_data *pdic_data)
 		ret = s2mu106_usbpd_check_abnormal_attach(pdic_data);
 		if (ret == false) {
 			dev_err(&i2c->dev, "%s, abnormal attach\n", __func__);
-			return -1;
+			ret = -1;
+			goto out;
 		}
 		s2mu106_usbpd_set_threshold(pdic_data, PLUG_CTRL_RP,
 											S2MU106_THRESHOLD_MAX);
@@ -3121,7 +3304,8 @@ static int s2mu106_check_port_detect(struct s2mu106_usbpd_data *pdic_data)
 		ret = s2mu106_usbpd_check_accessory(pdic_data);
 		if (ret < 0) {
 			dev_info(&i2c->dev, "%s attach accessory\n", __func__);
-			return -1;
+			ret = -1;
+			goto out;
 		}
 		manager->pn_flag = false;
 		pdic_data->detach_valid = false;
@@ -3150,13 +3334,20 @@ static int s2mu106_check_port_detect(struct s2mu106_usbpd_data *pdic_data)
 		msleep(100); /* dont over 310~620ms(tTypeCSinkWaitCap) */
 	} else {
 		dev_err(dev, "%s, PLUG Error\n", __func__);
-		return -1;
+		ret = -1;
+		goto out;
 	}
 
 	pdic_data->detach_valid = false;
 
 	s2mu106_set_irq_enable(pdic_data, ENABLED_INT_0, ENABLED_INT_1,
 				ENABLED_INT_2, ENABLED_INT_3, ENABLED_INT_4, ENABLED_INT_5);
+out:
+#if defined(CONFIG_S2MU106_PDIC_TRY_SNK)
+	s2mu106_usbpd_read_reg(i2c, S2MU106_REG_PLUG_CTRL_RpRd, &val);
+	val &= ~S2MU106_REG_PLUG_CTRL_FSM_MANUAL_EN;
+	s2mu106_usbpd_write_reg(i2c, S2MU106_REG_PLUG_CTRL_RpRd, val);
+#endif
 
 	return ret;
 }
@@ -3649,6 +3840,10 @@ static int s2mu106_usbpd_probe(struct i2c_client *i2c,
 	mutex_init(&pdic_data->cc_mutex);
 	mutex_init(&pdic_data->water_mutex);
 
+#if defined(CONFIG_S2MU106_PDIC_TRY_SNK)
+	alarm_init(&pdic_data->srcdet_alarm, ALARM_BOOTTIME, s2mu106_usbpd_try_snk_alarm_srcdet);
+	alarm_init(&pdic_data->snkdet_alarm, ALARM_BOOTTIME, s2mu106_usbpd_try_snk_alarm_snkdet);
+#endif
 	s2mu106_usbpd_reg_init(pdic_data);
 	s2mu106_usbpd_init_configure(pdic_data);
 	s2mu106_usbpd_pdic_data_init(pdic_data);

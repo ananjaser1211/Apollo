@@ -24,6 +24,11 @@
 #define MODEL_NAME	"A96T3X6_WIFI"
 #define MODULE_NAME	"grip_sensor_wifi"
 
+#define NOTI_MODULE_NAME        "grip_notifier"
+
+#define UNKNOWN_ON  1
+#define UNKNOWN_OFF 2
+
 #define NOTIFY_CABLE_USB_FAST	0x01
 #define NOTIFY_CABLE_OTG	0x03
 #define NOTIFY_CABLE_USB_NORMAL	0x04
@@ -102,6 +107,7 @@
 #define GRIP_ALWAYS_ACTIVE_READY	0x21
 
 /* command */
+#define RESET_SKIP		0
 #define CMD_ON			0x20
 #define CMD_OFF			0x10
 #define CMD_SW_RESET		0x10
@@ -141,6 +147,11 @@
 enum {
 	BUILT_IN = 0,
 	SDCARD,
+};
+
+enum {
+	OFF = 0,
+	ON,
 };
 
 #define GRIP_ERR(fmt, ...) pr_err("[GRIP_WIFI] %s: "fmt, __func__, ##__VA_ARGS__)

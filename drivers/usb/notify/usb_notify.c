@@ -91,6 +91,7 @@ struct usb_notify {
 	int c_status;
 	int sec_whitelist_enable;
 	int reserve_vbus_booster;
+	int disable_state;
 #if defined(CONFIG_USB_HW_PARAM)
 	unsigned long long hw_param[USB_CCIC_HW_PARAM_MAX];
 #endif
@@ -147,6 +148,10 @@ static int check_event_type(enum otg_notify_events event)
 	case NOTIFY_EVENT_POGO:
 		ret |= (NOTIFY_EVENT_STATE | NOTIFY_EVENT_DELAY
 				| NOTIFY_EVENT_NEED_HOST);
+		break;
+	case NOTIFY_EVENT_HOST_RELOAD:
+		ret |= (NOTIFY_EVENT_STATE | NOTIFY_EVENT_NEED_HOST
+				| NOTIFY_EVENT_NOSAVE);
 		break;
 	case NOTIFY_EVENT_ALL_DISABLE:
 	case NOTIFY_EVENT_HOST_DISABLE:
@@ -215,6 +220,8 @@ const char *event_string(enum otg_notify_events event)
 		return virt ? "gamepad(virtual)" : "gamepad";
 	case NOTIFY_EVENT_POGO:
 		return virt ? "pogo(virtual)" : "pogo";
+	case NOTIFY_EVENT_HOST_RELOAD:
+		return "host_reload";
 	case NOTIFY_EVENT_DRIVE_VBUS:
 		return "drive_vbus";
 	case NOTIFY_EVENT_ALL_DISABLE:
@@ -730,8 +737,16 @@ int set_notify_disable(struct usb_notify_dev *udev, int disable)
 		goto skip;
 	}
 
-	pr_info("%s disable=%s(%d)\n", __func__,
+	pr_info("%s prev=%s(%d) => disable=%s(%d)\n", __func__,
+			block_string(u_notify->disable_state), u_notify->disable_state,
 			block_string(disable), disable);
+
+	if (u_notify->disable_state == disable) {
+		pr_err("%s duplicated state\n", __func__);
+		goto skip;
+	}
+
+	u_notify->disable_state = disable;
 
 	switch (disable) {
 	case NOTIFY_BLOCK_TYPE_ALL:
@@ -1339,6 +1354,21 @@ static void otg_notify_state(struct otg_notify *n,
 				wake_unlock(&u_notify->wlock);
 		}
 		break;
+	case NOTIFY_EVENT_HOST_RELOAD:
+		if (u_notify->ndev.mode != NOTIFY_HOST_MODE) {
+			pr_err("mode is not host. skip host reload.\n");
+			goto no_save_event;
+		}
+		if (n->unsupport_host) {
+			pr_err("This model doesn't support usb host\n");
+			goto no_save_event;
+		}
+		if (n->set_host) {
+			n->set_host(false);
+			msleep(100);
+			n->set_host(true);
+		}
+		goto no_save_event;
 	case NOTIFY_EVENT_DRIVE_VBUS:
 		if (n->unsupport_host) {
 			pr_err("This model doesn't support usb host\n");

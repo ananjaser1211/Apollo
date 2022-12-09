@@ -301,6 +301,10 @@ static const struct usb_device_id usb_quirk_list[] = {
 
 	/* Realtek r8153 Lan dongle */
 	{ USB_DEVICE(0x0bda, 0x8153), .driver_info = USB_QUIRK_NO_LPM },
+#if defined(CONFIG_USB_HOST_RELOAD_FTDI)
+	/* FTDI USB2Serial device */
+	{ USB_DEVICE(0x0403, 0x6015), .driver_info = USB_FTDI_DEVICE_RECOVERY },
+#endif
 	{ }  /* terminating entry must be last */
 };
 

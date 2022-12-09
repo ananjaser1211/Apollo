@@ -128,18 +128,18 @@ extern void rkp_free_security(unsigned long tsec);
 u8 rkp_ro_page(unsigned long addr);
 static inline unsigned int cmp_sec_integrity(const struct cred *cred,struct mm_struct *mm)
 {
-	return ((cred->bp_task != current) || 
-			(mm && (!( in_interrupt() || in_softirq())) && 
+	return ((cred->bp_task != current) ||
+			(mm && (!( in_interrupt() || in_softirq())) &&
 			(cred->bp_pgd != swapper_pg_dir) &&
 			(mm->pgd != cred->bp_pgd)));
-			
+
 }
 extern struct cred init_cred;
 static inline unsigned int rkp_is_valid_cred_sp(u64 cred,u64 sp)
 {
 		struct task_security_struct *tsec = (struct task_security_struct *)sp;
 
-		if((cred == (u64)&init_cred) && 
+		if((cred == (u64)&init_cred) &&
 			( sp == (u64)&init_sec)){
 			return 0;
 		}
@@ -170,7 +170,7 @@ inline void rkp_print_debug(void)
 /* Main function to verify cred security context of a process */
 int security_integrity_current(void)
 {
-	if ( rkp_cred_enable && 
+	if ( rkp_cred_enable &&
 		(rkp_is_valid_cred_sp((u64)current_cred(),(u64)current_cred()->security)||
 		cmp_sec_integrity(current_cred(),current->mm)||
 		cmp_ns_integrity())) {
@@ -964,7 +964,8 @@ static int selinux_set_mnt_opts(struct super_block *sb,
 	if (!strcmp(sb->s_type->name, "debugfs") ||
 	    !strcmp(sb->s_type->name, "tracefs") ||
 	    !strcmp(sb->s_type->name, "sysfs") ||
-	    !strcmp(sb->s_type->name, "pstore"))
+	    !strcmp(sb->s_type->name, "pstore") ||
+	    !strcmp(sb->s_type->name, "bpf"))
 		sbsec->flags |= SE_SBGENFS;
 
 	if (!sbsec->behavior) {
@@ -3114,7 +3115,7 @@ static int selinux_sb_kern_mount(struct super_block *sb, int flags, void *data)
 	struct common_audit_data ad;
 	int rc;
 
-#ifdef CONFIG_RKP_KDP	
+#ifdef CONFIG_RKP_KDP
 	if ((rc = security_integrity_current()))
 		return rc;
 #endif  /* CONFIG_RKP_KDP */
@@ -4232,7 +4233,7 @@ static void selinux_file_set_fowner(struct file *file)
 #ifdef CONFIG_RKP_KDP
 	int rc;
 	if ((rc = security_integrity_current()))
-		return; 
+		return;
 #endif  /* CONFIG_RKP_KDP */
 	fsec = file->f_security;
 	fsec->fown_sid = current_sid();
@@ -5410,7 +5411,7 @@ static int selinux_socket_unix_may_send(struct socket *sock,
 	struct lsm_network_audit net = {0,};
 #ifdef CONFIG_RKP_KDP
 	int rc;
-	
+
 	if ((rc = security_integrity_current()))
 		return rc;
 #endif  /* CONFIG_RKP_KDP */
@@ -5684,7 +5685,7 @@ static void selinux_sk_clone_security(const struct sock *sk, struct sock *newsk)
 
 static void selinux_sk_getsecid(struct sock *sk, u32 *secid)
 {
-	
+
 #ifdef CONFIG_RKP_KDP
 	int rc;
 
@@ -6472,7 +6473,7 @@ static void selinux_msg_queue_free_security(struct msg_queue *msq)
 	if ((rc = security_integrity_current()))
 		return;
 #endif  /* CONFIG_RKP_KDP */
- 
+
 	ipc_free_security(&msq->q_perm);
 }
 
@@ -6643,7 +6644,7 @@ static void selinux_shm_free_security(struct shmid_kernel *shp)
 	if ((rc = security_integrity_current()))
 		return;
 #endif  /* CONFIG_RKP_KDP */
- 
+
 	ipc_free_security(&shp->shm_perm);
 }
 
@@ -7397,6 +7398,67 @@ static void selinux_bpf_prog_free(struct bpf_prog_aux *aux)
 }
 #endif
 
+#ifdef CONFIG_PERF_EVENTS
+static int selinux_perf_event_open(struct perf_event_attr *attr, int type)
+{
+	u32 requested, sid = current_sid();
+
+	if (type == PERF_SECURITY_OPEN)
+		requested = PERF_EVENT__OPEN;
+	else if (type == PERF_SECURITY_CPU)
+		requested = PERF_EVENT__CPU;
+	else if (type == PERF_SECURITY_KERNEL)
+		requested = PERF_EVENT__KERNEL;
+	else if (type == PERF_SECURITY_TRACEPOINT)
+		requested = PERF_EVENT__TRACEPOINT;
+	else
+		return -EINVAL;
+
+	return avc_has_perm(sid, sid, SECCLASS_PERF_EVENT,
+			    requested, NULL);
+}
+
+static int selinux_perf_event_alloc(struct perf_event *event)
+{
+	struct perf_event_security_struct *perfsec;
+
+	perfsec = kzalloc(sizeof(*perfsec), GFP_KERNEL);
+	if (!perfsec)
+		return -ENOMEM;
+
+	perfsec->sid = current_sid();
+	event->security = perfsec;
+
+	return 0;
+}
+
+static void selinux_perf_event_free(struct perf_event *event)
+{
+	struct perf_event_security_struct *perfsec = event->security;
+
+	event->security = NULL;
+	kfree(perfsec);
+}
+
+static int selinux_perf_event_read(struct perf_event *event)
+{
+	struct perf_event_security_struct *perfsec = event->security;
+	u32 sid = current_sid();
+
+	return avc_has_perm(sid, perfsec->sid,
+			    SECCLASS_PERF_EVENT, PERF_EVENT__READ, NULL);
+}
+
+static int selinux_perf_event_write(struct perf_event *event)
+{
+	struct perf_event_security_struct *perfsec = event->security;
+	u32 sid = current_sid();
+
+	return avc_has_perm(sid, perfsec->sid,
+			    SECCLASS_PERF_EVENT, PERF_EVENT__WRITE, NULL);
+}
+#endif
+
 #ifdef CONFIG_RKP_KDP
 RKP_RO_AREA static struct security_hook_list selinux_hooks[] = {
 #else
@@ -7624,6 +7686,14 @@ static struct security_hook_list selinux_hooks[] = {
 	LSM_HOOK_INIT(bpf_prog_alloc_security, selinux_bpf_prog_alloc),
 	LSM_HOOK_INIT(bpf_map_free_security, selinux_bpf_map_free),
 	LSM_HOOK_INIT(bpf_prog_free_security, selinux_bpf_prog_free),
+#endif
+
+#ifdef CONFIG_PERF_EVENTS
+	LSM_HOOK_INIT(perf_event_open, selinux_perf_event_open),
+	LSM_HOOK_INIT(perf_event_alloc, selinux_perf_event_alloc),
+	LSM_HOOK_INIT(perf_event_free, selinux_perf_event_free),
+	LSM_HOOK_INIT(perf_event_read, selinux_perf_event_read),
+	LSM_HOOK_INIT(perf_event_write, selinux_perf_event_write),
 #endif
 };
 

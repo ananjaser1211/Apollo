@@ -49,6 +49,8 @@ struct _clock_info {
 	int user_min_lock[NUMBER_LOCK];
 	int user_max_lock_input;
 	int user_min_lock_input;
+
+	u64 prev_time_in_state_time;
 };
 
 int gpex_clock_sysfs_init(struct _clock_info *_clk_info);

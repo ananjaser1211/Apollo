@@ -51,6 +51,8 @@
 #define tTypeCSendSourceCap (100) /* 100~200ms */
 #define tSrcRecover (880) /* 660~1000ms */
 #define tNoResponse (5500) /* 660~1000ms */
+#define tDRPtry (75) /* 75~150ms */
+#define tTryCCDebounce (15) /* 10~20ms */
 
 /* Protocol States */
 typedef enum {

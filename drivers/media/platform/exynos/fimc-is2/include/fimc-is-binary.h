@@ -140,7 +140,11 @@
 #endif
 
 #ifdef USE_BINARY_PADDING_DATA_ADDED
-#define IS_SIGNATURE_LEN  	272
+#ifdef CONFIG_CAMERA_ATT_V03
+#define IS_SIGNATURE_LEN	275
+#else 
+#define IS_SIGNATURE_LEN	272
+#endif
 #else
 #define IS_SIGNATURE_LEN	0
 #endif

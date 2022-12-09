@@ -25,6 +25,7 @@
 
 #include <gpexbe_devicetree.h>
 #include <gpex_utils.h>
+#include <gpex_debug.h>
 #include <gpex_qos.h>
 #include <gpex_clock.h>
 #include <gpex_tsg.h>
@@ -171,6 +172,10 @@ int gpex_qos_init()
 
 	qos_info.is_pm_qos_init = true;
 
+	gpex_utils_get_exynos_context()->qos_info = &qos_info;
+	gpex_utils_get_exynos_context()->qos_table = qos_table;
+	gpex_utils_get_exynos_context()->clqos_table = clqos_table;
+
 	return 0;
 }
 
@@ -199,15 +204,26 @@ int gpex_qos_set_bts_mo(int clock)
 	spin_lock_irqsave(&qos_info.bts_spinlock, flags);
 
 	if (clock >= qos_info.mo_min_clock && !qos_info.is_set_bts) {
+		gpex_debug_new_record(HIST_BTS);
+
 		ret = gpexbe_bts_set_bts_mo(1);
+		gpex_debug_record(HIST_BTS, qos_info.is_set_bts, 1, ret);
+
 		if (ret) {
-			/* TODO: print error */
+			GPU_LOG(MALI_EXYNOS_WARNING, "BTS MO could not be set to gpu performance");
+			gpex_debug_incr_error_cnt(HIST_BTS);
 		} else
 			qos_info.is_set_bts = 1;
+
 	} else if ((clock == 0 || clock < qos_info.mo_min_clock) && qos_info.is_set_bts) {
+		gpex_debug_new_record(HIST_BTS);
+
 		ret = gpexbe_bts_set_bts_mo(0);
+		gpex_debug_record(HIST_BTS, qos_info.is_set_bts, 0, ret);
+
 		if (ret) {
-			/* TODO: print error */
+			GPU_LOG(MALI_EXYNOS_WARNING, "BTS MO could not be unset from gpu performance");
+			gpex_debug_incr_error_cnt(HIST_BTS);
 		} else
 			qos_info.is_set_bts = 0;
 	}

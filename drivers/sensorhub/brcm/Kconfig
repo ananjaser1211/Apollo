@@ -752,6 +752,12 @@ config SENSORS_A96T365IF
 	  ABOV a96t365IF device driver.
 	  Say N here if you do not use a96t365IF.
 
+config SENSORS_TABLET_CONCEPT
+	bool "Grip sensonr tablet model concept"
+	default n
+	help
+	  Say Y here if you use the tablet model concept.
+
 config SENSORS_SSP_VCNL36811S
 	bool "vcnl36811s proximity sensor"
 	default n

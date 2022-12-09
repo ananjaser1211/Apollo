@@ -423,14 +423,14 @@ static int release_dwp_onoff(void)
 static int set_nfc_pid(unsigned long arg)
 {
 	pid_t pid = arg;
-	struct task_struct *task;
+	struct task_struct *task = NULL;
 
 	pn547_dev->nfc_service_pid = arg;
 
 	if (arg == 0)
 		goto done;
 
-	task = pid_task(find_vpid(pid), PIDTYPE_PID);
+	task = get_pid_task(find_vpid(pid), PIDTYPE_PID);
 	if (task) {
 		NFC_LOG_INFO("task->comm: %s\n", task->comm);
 		if (!strncmp(task->comm, "com.android.nfc", 15)) {
@@ -443,6 +443,9 @@ static int set_nfc_pid(unsigned long arg)
 
 	pn547_dev->nfc_service_pid = 0;
 done:
+	if (task)
+		put_task_struct(task);
+
 	NFC_LOG_INFO("The NFC Service PID is %ld\n", pn547_dev->nfc_service_pid);
 
 	return 0;
@@ -481,7 +484,7 @@ static int signal_handler(int state, long nfc_pid)
 {
 	struct siginfo sinfo;
 	pid_t pid;
-	struct task_struct *task;
+	struct task_struct *task = NULL;
 	int sigret = 0;
 	int ret = 0;
 
@@ -497,7 +500,7 @@ static int signal_handler(int state, long nfc_pid)
 	sinfo.si_int = state;
 	pid = nfc_pid;
 
-	task = pid_task(find_vpid(pid), PIDTYPE_PID);
+	task = get_pid_task(find_vpid(pid), PIDTYPE_PID);
 	if (task) {
 		NFC_LOG_INFO("task->comm: %s.\n", task->comm);
 		sigret = send_sig_info(SIG_NFC, &sinfo, task);
@@ -505,6 +508,8 @@ static int signal_handler(int state, long nfc_pid)
 			NFC_LOG_ERR("send_sig_info failed.. %d.\n", sigret);
 			ret = -EPERM;
 		}
+
+		put_task_struct(task);
 	} else {
 		NFC_LOG_ERR("finding task from PID failed\n");
 		ret = -EPERM;

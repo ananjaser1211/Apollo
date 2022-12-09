@@ -489,6 +489,10 @@ static void print_sensordata(struct ssp_data *data, unsigned int uSensor)
 			data->buf[uSensor].auto_rotation_event,
 			get_msdelay(data->adDelayBuf[uSensor]));
 		break;
+	case SAR_BACKOFF_MOTION:
+		ssp_dbg("[SSP] %u : %d (%ums)\n", uSensor,
+			data->buf[uSensor].sar_backoff_motion_event,
+			get_msdelay(data->adDelayBuf[uSensor]));
 	case POCKET_MODE_LITE:
 		ssp_dbg("[SSP] %u : %d %d(%ums)\n", uSensor,
 		data->buf[uSensor].pocket_mode_lite_t.prox,

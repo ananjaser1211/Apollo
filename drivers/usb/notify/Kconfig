@@ -123,3 +123,12 @@ config USB_AUDIO_ENHANCED_DETECT_TIME
 	 uevent includes path, card number, vid, pid
 	 The usb framework gets this uevent.
 	 It is made by samsung.
+
+config USB_HOST_RELOAD_FTDI
+	bool "USB Host reload For FTDI"
+	depends on USB
+	help
+	 USB Host driver Reload Feature for FTDI.
+	 This feature is for GTA3 FTDI stuck issue.
+	 If host driver has stuck issue by FTDI,
+	 please use this feature,

@@ -1008,7 +1008,7 @@ static void sec_bat_check_pdic_temp(struct sec_battery_info *battery, int *input
 static int sec_bat_check_pd_input_current(struct sec_battery_info *battery, int input_current)
 {
 	if (battery->current_event & SEC_BAT_CURRENT_EVENT_SELECT_PDO) {
-		input_current = battery->input_current;
+		input_current = SELECT_PDO_INPUT_CURRENT;
 		pr_info("%s: change input_current(%d), cable_type(%d)\n", __func__, input_current, battery->cable_type);
 	}
 
@@ -1118,10 +1118,8 @@ int sec_bat_set_charging_current(struct sec_battery_info *battery)
 				sec_bat_check_wpc_temp(battery, &input_current, &charging_current);
 #if defined(CONFIG_CCIC_NOTIFIER)
 			else if (battery->cable_type == SEC_BATTERY_CABLE_PDIC) {
-				if (!sec_bat_change_vbus_pd(battery, &input_current)) {
+				if (!sec_bat_change_vbus_pd(battery, &input_current))
 					sec_bat_check_pdic_temp(battery, &input_current, &charging_current);
-					input_current = sec_bat_check_pd_input_current(battery, input_current);
-				}
 			}
 #endif
 #if defined(CONFIG_DIRECT_CHARGING)
@@ -1135,7 +1133,11 @@ int sec_bat_set_charging_current(struct sec_battery_info *battery)
 			}
 		}
 #endif
-
+#if defined(CONFIG_CCIC_NOTIFIER)
+		/* check select pdo current */
+		if (battery->cable_type == SEC_BATTERY_CABLE_PDIC)
+			input_current = sec_bat_check_pd_input_current(battery, input_current);
+#endif
 		/* set limited charging current during wireless power sharing with cable charging */
 		if (battery->pdata->charging_limit_by_tx_check &&
 			battery->wc_tx_enable &&

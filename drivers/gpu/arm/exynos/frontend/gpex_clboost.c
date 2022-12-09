@@ -114,6 +114,8 @@ int gpex_clboost_init(void)
 					  set_clboost_disable);
 	GPEX_UTILS_SYSFS_KOBJECT_FILE_ADD_RO(gpu_cl_boost_state, show_clboost_state);
 
+	gpex_utils_get_exynos_context()->clboost_info = &clboost_info;
+
 	return 0;
 }
 

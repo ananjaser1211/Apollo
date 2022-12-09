@@ -162,6 +162,8 @@ int gpex_thermal_init()
 {
 	gpex_thermal_create_sysfs_file();
 
+	gpex_utils_get_exynos_context()->thermal = &thermal;
+
 	return 0;
 }
 
