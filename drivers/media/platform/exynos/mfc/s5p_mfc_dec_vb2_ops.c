@@ -361,6 +361,7 @@ static int s5p_mfc_dec_start_streaming(struct vb2_queue *q, unsigned int count)
 		mfc_err_dev("no mfc device to run\n");
 		return -EINVAL;
 	}
+	mfc_update_real_time(ctx);
 
 	/* If context is ready then dev = work->data;schedule it to run */
 	if (s5p_mfc_dec_ctx_ready(ctx)) {

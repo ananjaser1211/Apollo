@@ -297,18 +297,27 @@ static void mfc_display_state(struct s5p_mfc_dev *dev)
 			dev->hwlock.bits, dev->hwlock.dev,
 			dev->curr_ctx, dev->curr_ctx_is_drm,
 			dev->preempt_ctx, s5p_mfc_get_bits(&dev->work_bits));
-	pr_err("NAL-Q state:%d, exception:%d, in_exe_cnt: %d, out_exe_cnt: %d\n",
+	if (nal_q_handle)
+		pr_err("NAL-Q state:%d, exception:%d, in_exe_cnt: %d, out_exe_cnt: %d\n",
 			nal_q_handle->nal_q_state, nal_q_handle->nal_q_exception,
 			nal_q_handle->nal_q_in_handle->in_exe_count,
 			nal_q_handle->nal_q_out_handle->out_exe_count);
 
 	for (i = 0; i < MFC_NUM_CONTEXTS; i++)
-		if (dev->ctx[i])
-			pr_err("MFC ctx[%d] %s(%d) state:%d, queue_cnt(src:%d, dst:%d, ref:%d, qsrc:%d, qdst:%d),"
-				" interrupt(cond:%d, type:%d, err:%d)\n",
-				dev->ctx[i]->num,
-				dev->ctx[i]->type == MFCINST_DECODER ? "DEC" : "ENC",
-				dev->ctx[i]->codec_mode, dev->ctx[i]->state,
+		if (dev->ctx[i]) {
+			pr_err("- MFC ctx[%d] %s %s%s, %s, %s, size: %dx%d@%ldfps(op: %ldfps), state:%d\n",
+					dev->ctx[i]->num,
+					dev->ctx[i]->type == MFCINST_DECODER ? "DEC" : "ENC",
+					dev->ctx[i]->is_drm ? "Secure" : "Normal",
+					dev->curr_ctx == i ? "(curr_ctx!)" : "",
+					dev->ctx[i]->state > MFCINST_INIT ? dev->ctx[i]->src_fmt->name : "undefined src fmt",
+					dev->ctx[i]->state > MFCINST_INIT ? dev->ctx[i]->dst_fmt->name : "undefined dst fmt",
+					dev->ctx[i]->img_width, dev->ctx[i]->img_height,
+					dev->ctx[i]->last_framerate / 1000,
+					dev->ctx[i]->operating_framerate,
+					dev->ctx[i]->state);
+			pr_err("	prio %d, rt %d, queue_cnt(src:%d, dst:%d, ref:%d, qsrc:%d, qdst:%d), interrupt(cond:%d, type:%d, err:%d)\n",
+				dev->ctx[i]->prio, dev->ctx[i]->rt,
 				s5p_mfc_get_queue_count(&dev->ctx[i]->buf_queue_lock, &dev->ctx[i]->src_buf_queue),
 				s5p_mfc_get_queue_count(&dev->ctx[i]->buf_queue_lock, &dev->ctx[i]->dst_buf_queue),
 				s5p_mfc_get_queue_count(&dev->ctx[i]->buf_queue_lock, &dev->ctx[i]->ref_buf_queue),
@@ -316,6 +325,7 @@ static void mfc_display_state(struct s5p_mfc_dev *dev)
 				s5p_mfc_get_queue_count(&dev->ctx[i]->buf_queue_lock, &dev->ctx[i]->dst_buf_nal_queue),
 				dev->ctx[i]->int_condition, dev->ctx[i]->int_reason,
 				dev->ctx[i]->int_err);
+		}
 }
 
 static void mfc_print_trace(struct s5p_mfc_dev *dev)

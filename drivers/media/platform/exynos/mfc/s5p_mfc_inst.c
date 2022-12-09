@@ -389,6 +389,7 @@ int s5p_mfc_encode_one_frame(struct s5p_mfc_ctx *ctx, int last_frame)
 		mfc_h264_set_aso_slice_order(ctx);
 
 	s5p_mfc_set_slice_mode(ctx);
+	s5p_mfc_set_enc_ts_delta(ctx);
 
 	if (ctx->enc_drc_flag) {
 		ctx->enc_res_change = mfc_start_change_resol_enc(ctx);

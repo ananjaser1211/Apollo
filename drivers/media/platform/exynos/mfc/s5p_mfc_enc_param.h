@@ -16,6 +16,7 @@
 #include "s5p_mfc_common.h"
 
 void s5p_mfc_set_slice_mode(struct s5p_mfc_ctx *ctx);
+void s5p_mfc_set_enc_ts_delta(struct s5p_mfc_ctx *ctx);
 void s5p_mfc_set_enc_params_h264(struct s5p_mfc_ctx *ctx);
 void s5p_mfc_set_enc_params_mpeg4(struct s5p_mfc_ctx *ctx);
 void s5p_mfc_set_enc_params_h263(struct s5p_mfc_ctx *ctx);

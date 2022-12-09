@@ -291,6 +291,8 @@ static int s5p_mfc_enc_start_streaming(struct vb2_queue *q, unsigned int count)
 	struct s5p_mfc_ctx *ctx = q->drv_priv;
 	struct s5p_mfc_dev *dev = ctx->dev;
 
+	mfc_update_real_time(ctx);
+
 	/* If context is ready then dev = work->data;schedule it to run */
 	if (s5p_mfc_enc_ctx_ready(ctx)) {
 		s5p_mfc_set_bit(ctx->num, &dev->work_bits);

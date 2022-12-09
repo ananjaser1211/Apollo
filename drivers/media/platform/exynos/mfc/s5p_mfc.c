@@ -165,8 +165,8 @@ static int mfc_init_dec_ctx(struct s5p_mfc_ctx *ctx)
 	mutex_init(&dec->dpb_mutex);
 
 	dec->sh_handle.fd = -1;
-	dec->ref_info = kzalloc(
-		(sizeof(struct dec_dpb_ref_info) * MFC_MAX_DPBS), GFP_KERNEL);
+	dec->sh_handle.data_size = sizeof(struct dec_dpb_ref_info) * MFC_MAX_DPBS;
+	dec->ref_info = kzalloc(dec->sh_handle.data_size, GFP_KERNEL);
 	if (!dec->ref_info) {
 		mfc_err_dev("failed to allocate decoder information data\n");
 		ret = -ENOMEM;
@@ -278,6 +278,8 @@ static int mfc_init_enc_ctx(struct s5p_mfc_ctx *ctx)
 
 	enc->sh_handle_svc.fd = -1;
 	enc->sh_handle_roi.fd = -1;
+	enc->sh_handle_svc.data_size = sizeof(struct temporal_layer_info);
+	enc->sh_handle_roi.data_size = sizeof(struct mfc_enc_roi_info);
 
 	/* Init videobuf2 queue for OUTPUT */
 	ctx->vq_src.type = V4L2_BUF_TYPE_VIDEO_OUTPUT_MPLANE;
@@ -441,12 +443,12 @@ static int s5p_mfc_open(struct file *file)
 	enum s5p_mfc_node_type node;
 	struct video_device *vdev = NULL;
 
-	mfc_debug(2, "mfc driver open called\n");
-
 	if (!dev) {
 		mfc_err_dev("no mfc device to run\n");
 		goto err_no_device;
 	}
+
+	mfc_info_dev("mfc driver open called\n");
 
 	if (mutex_lock_interruptible(&dev->mfc_mutex))
 		return -ERESTARTSYS;
@@ -928,6 +930,7 @@ static void mfc_parse_dt(struct device_node *np, struct s5p_mfc_dev *mfc)
 		mfc_parse_mfc_qos_platdata(np, node_name, &pdata->qos_table[i]);
 	}
 #endif
+	of_property_read_u32_array(np, "enc_ts_delta", &pdata->enc_ts_delta.support, 2);
 }
 
 static void *mfc_get_drv_data(struct platform_device *pdev);
