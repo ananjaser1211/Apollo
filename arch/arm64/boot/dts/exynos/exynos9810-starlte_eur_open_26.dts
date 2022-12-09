@@ -8400,6 +8400,7 @@
 		ip_ver = <0x11>;
 		clock_rate = <0x17d78400>;
 		min_rate = <0x186a0>;
+		enc_ts_delta = <0x1 0x211208>;
 		num_qos_steps = <0x8>;
 		max_qos_steps = <0x9>;
 		max_mb = <0x489732>;
