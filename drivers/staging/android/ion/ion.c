@@ -40,6 +40,9 @@
 #include <linux/exynos_iovmm.h>
 #include <linux/exynos_ion.h>
 #include <linux/highmem.h>
+#if IS_ENABLED(CONFIG_PROC_FS)
+#include <linux/proc_fs.h>
+#endif
 
 #include "ion.h"
 #include <asm/cacheflush.h>
@@ -1001,6 +1004,20 @@ static const struct file_operations debug_client_fops = {
 	.release = single_release,
 };
 
+#if IS_ENABLED(CONFIG_PROC_FS)
+static int ion_proc_client_open(struct inode *inode, struct file *file)
+{
+	return single_open(file, ion_debug_client_show, PDE_DATA(inode));
+}
+
+static const struct file_operations proc_client_fops = {
+	.open = ion_proc_client_open,
+	.read = seq_read,
+	.llseek = seq_lseek,
+	.release = single_release,
+};
+#endif
+
 static int ion_get_client_serial(const struct rb_root *root,
 				 const unsigned char *name)
 {
@@ -1094,6 +1111,17 @@ struct ion_client *ion_client_create(struct ion_device *dev,
 		       path, client->display_name);
 	}
 
+#if IS_ENABLED(CONFIG_PROC_FS)
+	client->proc_root = proc_create_data(client->display_name,
+					     S_IFREG | 0664,
+					     dev->clients_proc_root,
+					     &proc_client_fops,
+					     client);
+	if (!client->proc_root)
+		pr_err("Failed to create client procfs at /proc/ion/clients/%s\n",
+			client->display_name);
+#endif
+
 	up_write(&dev->lock);
 
 	return client;
@@ -1116,7 +1144,9 @@ void ion_client_destroy(struct ion_client *client)
 
 	pr_debug("%s: %d\n", __func__, __LINE__);
 	debugfs_remove_recursive(client->debug_root);
-
+#if IS_ENABLED(CONFIG_PROC_FS)
+	proc_remove(client->proc_root);
+#endif
 	mutex_lock(&debugfs_mutex);
 	while ((n = rb_first(&client->handles))) {
 		struct ion_handle *handle = rb_entry(n, struct ion_handle,
@@ -1959,9 +1989,45 @@ static int debug_shrink_get(void *data, u64 *val)
 DEFINE_SIMPLE_ATTRIBUTE(debug_shrink_fops, debug_shrink_get,
 			debug_shrink_set, "%llu\n");
 
+#if IS_ENABLED(CONFIG_PROC_FS)
+static int ion_proc_heap_open(struct inode *inode, struct file *file)
+{
+	return single_open(file, ion_debug_heap_show, PDE_DATA(inode));
+}
+
+static const struct file_operations proc_heap_fops = {
+	.open = ion_proc_heap_open,
+	.read = seq_read,
+	.llseek = seq_lseek,
+	.release = single_release,
+};
+
+static int proc_shrink_fops_open(struct inode *inode, struct file *file)
+{
+	struct inode local_inode = *inode;
+
+	local_inode.i_private = PDE_DATA(inode);
+
+	return simple_attr_open(&local_inode, file, debug_shrink_get,
+				debug_shrink_set, "%llu\n");
+}
+
+static const struct file_operations proc_shrink_fops = {
+	.owner	 = THIS_MODULE,
+	.open	 = proc_shrink_fops_open,
+	.release = simple_attr_release,
+	.read	 = simple_attr_read,
+	.write	 = simple_attr_write,
+	.llseek	 = generic_file_llseek,
+};
+#endif
+
 void ion_device_add_heap(struct ion_device *dev, struct ion_heap *heap)
 {
 	struct dentry *debug_file;
+#if IS_ENABLED(CONFIG_PROC_FS)
+	struct proc_dir_entry *proc_file;
+#endif
 
 	if (!heap->ops->allocate || !heap->ops->free)
 		pr_err("%s: can not add heap with invalid ops struct.\n",
@@ -2011,6 +2077,36 @@ void ion_device_add_heap(struct ion_device *dev, struct ion_heap *heap)
 			       path, debug_name);
 		}
 	}
+
+#if IS_ENABLED(CONFIG_PROC_FS)
+	proc_file = proc_create_data(heap->name,
+				     S_IFREG | 0644,
+				     dev->heaps_proc_root,
+				     &proc_heap_fops,
+				     heap);
+
+	if (!proc_file)
+		pr_err("Failed to create heap procfs at /proc/ion/heaps/%s\n",
+		       heap->name);
+
+	if (heap->shrinker.count_objects && heap->shrinker.scan_objects) {
+		char debug_name[64];
+		int name_length = 0;
+
+		name_length = snprintf(debug_name, 64, "%s_shrink", heap->name);
+		if (name_length <= 0)
+			pr_err("%s set debug name error, heap %s\n",
+			       __func__, heap->name);
+		proc_file = proc_create_data(debug_name,
+					     S_IFREG | 0644,
+					     dev->heaps_proc_root,
+					     &proc_shrink_fops,
+					     heap);
+		if (!proc_file)
+			pr_info("Failed to create heap shrinker procfs at /proc/ion/heaps/%s\n",
+				 debug_name);
+	}
+#endif
 
 	dev->heap_cnt++;
 	up_write(&dev->lock);
@@ -2307,6 +2403,23 @@ struct ion_device *ion_device_create(long (*custom_ioctl)
 
 debugfs_done:
 
+#if IS_ENABLED(CONFIG_PROC_FS)
+	idev->proc_root = proc_mkdir("ion", NULL);
+	if (!idev->proc_root) {
+		pr_err("ion: failed to create procfs root directory.\n");
+		goto procfs_done;
+	}
+	idev->heaps_proc_root = proc_mkdir("heaps", idev->proc_root);
+	if (!idev->heaps_proc_root) {
+		pr_err("ion: failed to create procfs heaps directory.\n");
+		goto procfs_done;
+	}
+	idev->clients_proc_root = proc_mkdir("clients", idev->proc_root);
+	if (!idev->clients_proc_root)
+		pr_err("ion: failed to create procfs clients directory.\n");
+
+procfs_done:
+#endif
 	idev->custom_ioctl = custom_ioctl;
 	idev->buffers = RB_ROOT;
 	mutex_init(&idev->buffer_lock);

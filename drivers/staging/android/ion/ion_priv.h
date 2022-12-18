@@ -225,6 +225,11 @@ struct ion_device {
 	struct ion_eventlog eventlog[ION_EVENT_LOG_MAX];
 	atomic_t event_idx;
 #endif
+#if IS_ENABLED(CONFIG_PROC_FS)
+	struct proc_dir_entry *proc_root;
+	struct proc_dir_entry *heaps_proc_root;
+	struct proc_dir_entry *clients_proc_root;
+#endif
 	int heap_cnt;
 };
 
@@ -256,6 +261,9 @@ struct ion_client {
 	struct task_struct *task;
 	pid_t pid;
 	struct dentry *debug_root;
+#if IS_ENABLED(CONFIG_PROC_FS)
+	struct proc_dir_entry *proc_root;
+#endif
 };
 
 /**
