@@ -258,6 +258,7 @@ static int binder_update_page_range(struct binder_alloc *alloc, int allocate,
 
 		trace_binder_alloc_page_start(alloc, index);
 		page->page_ptr = alloc_page(GFP_KERNEL |
+					    __GFP_HIGHMEM |
 					    __GFP_ZERO);
 		if (!page->page_ptr) {
 			pr_err("%d: binder_alloc_buf failed for page at %pK\n",
@@ -913,9 +914,8 @@ enum lru_status binder_alloc_free_page(struct list_head *item,
 		goto err_mmget;
 	if (!down_write_trylock(&mm->mmap_sem))
 		goto err_down_write_mmap_sem_failed;
-
 	vma = alloc->vma;
-	
+
 	list_lru_isolate(lru, item);
 	spin_unlock(lock);
 
@@ -926,7 +926,6 @@ enum lru_status binder_alloc_free_page(struct list_head *item,
 
 		trace_binder_unmap_user_end(alloc, index);
 	}
-
 	up_write(&mm->mmap_sem);
 	mmput(mm);
 
