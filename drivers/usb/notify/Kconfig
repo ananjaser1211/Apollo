@@ -81,3 +81,12 @@ config USB_HW_PARAM
     help
       Added USB H/W Parameter for DQA Agent.
       You need more works for USB PDIC driver.
+
+config USB_HOST_RELOAD_FTDI
+	bool "USB Host reload For FTDI"
+	depends on USB
+	help
+	 USB Host driver Reload Feature for FTDI.
+	 This feature is for GTA3 FTDI stuck issue.
+	 If host driver has stuck issue by FTDI,
+	 please use this feature,
