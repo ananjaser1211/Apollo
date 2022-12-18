@@ -115,6 +115,7 @@ typedef enum {
 	PERM_ANDROID_PACKAGE,
 	/* This node is "/Android/[data|media|obb]/[package]/cache" */
 	PERM_ANDROID_PACKAGE_CACHE,
+#if defined(CONFIG_SDCARD_FS_SUPPORT_KNOX)
 	/*
 	 * The knox directory has different uses depending on whether it's
 	 * used for external storage or secondary storage.
@@ -138,7 +139,7 @@ typedef enum {
 	PERM_KNOX_ANDROID_SHARED,
 	/* This node is /knox/[userid]/Android/[data|shared]/[package] */
 	PERM_KNOX_ANDROID_PACKAGE,
-
+#endif
 } perm_t;
 
 struct sdcardfs_sb_info;
@@ -192,12 +193,9 @@ struct sdcardfs_inode_data {
 	bool under_android;
 	bool under_cache;
 	bool under_obb;
-
+#if defined(CONFIG_SDCARD_FS_SUPPORT_KNOX)
 	bool under_knox;
-	struct {
-		struct inode *owner;
-		struct task_struct *free_task;
-	} d;
+#endif
 };
 
 /* sdcardfs inode data in memory */
@@ -207,6 +205,7 @@ struct sdcardfs_inode_info {
 	struct sdcardfs_inode_data *data;
 
 	/* top folder for ownership */
+	spinlock_t top_lock;
 	struct sdcardfs_inode_data *top_data;
 
 	struct inode vfs_inode;
@@ -226,7 +225,10 @@ struct sdcardfs_mount_options {
 	userid_t fs_user_id;
 	bool multiuser;
 	bool gid_derivation;
+	bool default_normal;
+	bool unshared_obb;
 	unsigned int reserved_mb;
+	bool nocache;
 };
 
 struct sdcardfs_vfsmount_options {
@@ -377,34 +379,26 @@ static inline bool sbinfo_has_sdcard_magic(struct sdcardfs_sb_info *sbinfo)
 static inline struct sdcardfs_inode_data *data_get(
 		struct sdcardfs_inode_data *data)
 {
-	if (data) {
-#if defined(CONFIG_DEBUG_SLAB) || defined(CONFIG_SLUB_DEBUG_ON)
-		BUG_ON(atomic_read(&data->refcount.refcount) ==
-				(POISON_FREE << 24 | POISON_FREE << 16 |
-				 POISON_FREE << 8 | POISON_FREE));
-#endif
-		BUG_ON(atomic_read(&data->refcount.refcount) <= 0);
+	if (data)
 		kref_get(&data->refcount);
-	}
 	return data;
 }
 
 static inline struct sdcardfs_inode_data *top_data_get(
 		struct sdcardfs_inode_info *info)
 {
-	return data_get(info->top_data);
+	struct sdcardfs_inode_data *top_data;
+
+	spin_lock(&info->top_lock);
+	top_data = data_get(info->top_data);
+	spin_unlock(&info->top_lock);
+	return top_data;
 }
 
 extern void data_release(struct kref *ref);
 
 static inline void data_put(struct sdcardfs_inode_data *data)
 {
-#if defined(CONFIG_DEBUG_SLAB) || defined(CONFIG_SLUB_DEBUG_ON)
-	BUG_ON(atomic_read(&data->refcount.refcount) ==
-			(POISON_FREE << 24 | POISON_FREE << 16 |
-			POISON_FREE << 8 | POISON_FREE));
-#endif
-	BUG_ON(atomic_read(&data->refcount.refcount) <= 0);
 	kref_put(&data->refcount, data_release);
 }
 
@@ -415,29 +409,35 @@ static inline void release_own_data(struct sdcardfs_inode_info *info)
 	 * originally held this data is about to be freed, and all references
 	 * to it are held as a top value, and will likely be released soon.
 	 */
-	BUG_ON(info->data->abandoned == true);
-
 	info->data->abandoned = true;
 	data_put(info->data);
 }
 
 static inline void set_top(struct sdcardfs_inode_info *info,
-			struct sdcardfs_inode_data *top)
+			struct sdcardfs_inode_info *top_owner)
 {
-	struct sdcardfs_inode_data *old_top = info->top_data;
+	struct sdcardfs_inode_data *old_top;
+	struct sdcardfs_inode_data *new_top = NULL;
 
-	if (top)
-		data_get(top);
-	info->top_data = top;
+	if (top_owner)
+		new_top = top_data_get(top_owner);
+
+	spin_lock(&info->top_lock);
+	old_top = info->top_data;
+	info->top_data = new_top;
 	if (old_top)
 		data_put(old_top);
+	spin_unlock(&info->top_lock);
 }
 
 static inline int get_gid(struct vfsmount *mnt,
+		struct super_block *sb,
 		struct sdcardfs_inode_data *data)
 {
-	struct sdcardfs_vfsmount_options *opts = mnt->data;
+	struct sdcardfs_vfsmount_options *vfsopts = mnt->data;
+	struct sdcardfs_sb_info *sbi = SDCARDFS_SB(sb);
 
+#if defined(CONFIG_SDCARD_FS_SUPPORT_KNOX)
 	if (data->under_knox) {
 		switch (data->perm) {
 		case PERM_KNOX_PRE_ROOT:
@@ -453,8 +453,9 @@ static inline int get_gid(struct vfsmount *mnt,
 			break;
 		}
 	}
+#endif
 
-	if (opts->gid == AID_SDCARD_RW)
+	if (vfsopts->gid == AID_SDCARD_RW && !sbi->options.default_normal)
 		/* As an optimization, certain trusted system components only run
 		 * as owner but operate across all users. Since we're now handing
 		 * out the sdcard_rw GID only to trusted apps, we're okay relaxing
@@ -463,7 +464,7 @@ static inline int get_gid(struct vfsmount *mnt,
 		 */
 		return AID_SDCARD_RW;
 	else
-		return multiuser_get_uid(data->userid, opts->gid);
+		return multiuser_get_uid(data->userid, vfsopts->gid);
 }
 
 static inline int get_mode(struct vfsmount *mnt,
@@ -490,8 +491,10 @@ static inline int get_mode(struct vfsmount *mnt,
 			visible_mode = visible_mode & ~0006;
 		else
 			visible_mode = visible_mode & ~0007;
+#if defined(CONFIG_SDCARD_FS_SUPPORT_KNOX)
 	} else if (data->perm == PERM_KNOX_ANDROID_PACKAGE) {
 		visible_mode = visible_mode & ~0006;
+#endif
 	}
 	owner_mode = info->lower_inode->i_mode & 0700;
 	filtered_mode = visible_mode & (owner_mode | (owner_mode >> 3) | (owner_mode >> 6));
@@ -552,8 +555,7 @@ struct limit_search {
 };
 
 extern void setup_derived_state(struct inode *inode, perm_t perm,
-		userid_t userid, uid_t uid, bool under_android,
-		struct sdcardfs_inode_data *top);
+			userid_t userid, uid_t uid);
 extern void get_derived_permission(struct dentry *parent, struct dentry *dentry);
 extern void get_derived_permission_new(struct dentry *parent,
 		struct dentry *dentry, const struct qstr *name);
@@ -637,15 +639,14 @@ static inline int check_min_free_space(struct dentry *dentry, size_t size, int d
 
 	if (uid_eq(GLOBAL_ROOT_UID, current_fsuid()) ||
 			capable(CAP_SYS_RESOURCE) ||
-			in_group_p(AID_USE_ROOT_RESERVED) ||
-			in_group_p(AID_USE_SEC_RESERVED))
+			in_group_p(AID_USE_ROOT_RESERVED))
 		return 1;
 
 	if (sbi->options.reserved_mb) {
 		/* Get fs stat of lower filesystem. */
-		sdcardfs_get_lower_path(dentry->d_sb->s_root, &lower_path);
+		sdcardfs_get_lower_path(dentry, &lower_path);
 		err = vfs_statfs(&lower_path, &statfs);
-		sdcardfs_put_lower_path(dentry->d_sb->s_root, &lower_path);
+		sdcardfs_put_lower_path(dentry, &lower_path);
 
 		if (unlikely(err))
 			goto out_invalid;
@@ -724,12 +725,7 @@ static inline bool str_n_case_eq(const char *s1, const char *s2, size_t len)
 
 static inline bool qstr_case_eq(const struct qstr *q1, const struct qstr *q2)
 {
-	return q1->len == q2->len && str_case_eq(q1->name, q2->name);
-}
-
-static inline bool qstr_n_case_eq(const struct qstr *q1, const struct qstr *q2)
-{
-	return q1->len == q2->len && str_n_case_eq(q1->name, q2->name, q1->len);
+	return q1->len == q2->len && str_n_case_eq(q1->name, q2->name, q2->len);
 }
 
 #define QSTR_LITERAL(string) QSTR_INIT(string, sizeof(string)-1)
