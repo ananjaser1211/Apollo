@@ -69,11 +69,11 @@
 
 #include "audit.h"
 
-// [ SEC_SELINUX_PORTING_EXYNOS
-#ifdef CONFIG_SEC_AVC_LOG
-#include <linux/sec_debug.h>
+// [ SEC_SELINUX_PORTING_COMMON
+#ifdef CONFIG_PROC_AVC
+#include <linux/proc_avc.h>
 #endif
-// ] SEC_SELINUX_PORTING_EXYNOS
+// ] SEC_SELINUX_PORTING_COMMON
 
 /* No auditing will take place until audit_initialized == AUDIT_INITIALIZED.
  * (Initialization happens after skb_init is called.) */
@@ -85,13 +85,18 @@ static int	audit_initialized;
 #define AUDIT_OFF	0
 #define AUDIT_ON	1
 #define AUDIT_LOCKED	2
-u32		audit_enabled = AUDIT_OFF;
-u32		audit_ever_enabled = !!AUDIT_OFF;
+// [ SEC_SELINUX_PORTING_COMMON
+u32		audit_enabled = AUDIT_ON;
+u32		audit_ever_enabled = !!AUDIT_ON;
+// ] SEC_SELINUX_PORTING_COMMON
 
 EXPORT_SYMBOL_GPL(audit_enabled);
 
 /* Default state when kernel boots without any parameters. */
-static u32	audit_default = 1;
+// [ SEC_SELINUX_PORTING_COMMON
+// Samsung Change Value from AUDIT_OFF to AUDIT_ON
+static u32	audit_default = AUDIT_ON;
+// ] SEC_SELINUX_PORTING_COMMON
 
 /* If auditing cannot proceed, audit_failure selects what happens. */
 static u32	audit_failure = AUDIT_FAIL_PRINTK;
@@ -398,18 +403,20 @@ static void audit_printk_skb(struct sk_buff *skb)
 	struct nlmsghdr *nlh = nlmsg_hdr(skb);
 	char *data = nlmsg_data(nlh);
 
-	if (nlh->nlmsg_type != AUDIT_EOE) {
-// [ SEC_SELINUX_PORTING_EXYNOS
-#ifdef CONFIG_SEC_AVC_LOG
-		sec_debug_avc_log("type=%d %s\n", nlh->nlmsg_type, data);
+// [ SEC_SELINUX_PORTING_COMMON
+#ifdef CONFIG_PROC_AVC
+	if (nlh->nlmsg_type != AUDIT_EOE && nlh->nlmsg_type != AUDIT_NETFILTER_CFG)
+		sec_avc_log("%s\n", data);
 #else
+	if (nlh->nlmsg_type != AUDIT_EOE) {
 		if (printk_ratelimit())
 			pr_notice("type=%d %s\n", nlh->nlmsg_type, data);
 		else
 			audit_log_lost("printk limit exceeded");
-#endif
-// ] SEC_SELINUX_PORTING_EXYNOS
 	}
+#endif
+// ] SEC_SELINUX_PORTING_COMMON
+
 
 	audit_hold_skb(skb);
 }
@@ -446,20 +453,9 @@ restart:
 		}
 		/* we might get lucky and get this in the next auditd */
 		audit_hold_skb(skb);
-	} else {
-// [ SEC_SELINUX_PORTING_EXYNOS
-#ifdef CONFIG_SEC_AVC_LOG
-		struct nlmsghdr *nlh = nlmsg_hdr(skb);
-		char *data = NLMSG_DATA(nlh);
-
-		if (nlh->nlmsg_type != AUDIT_EOE && nlh->nlmsg_type != AUDIT_NETFILTER_CFG)
-			sec_debug_avc_log("%s\n", data);
-#endif
-// ] SEC_SELINUX_PORTING_EXYNOS
+	} else
 		/* drop the extra reference if sent ok */
 		consume_skb(skb);
-	}
-// ] SEC_SELINUX_PORTING_EXYNOS
 }
 
 /*
@@ -513,20 +509,18 @@ static void flush_hold_queue(void)
 {
 	struct sk_buff *skb;
 
-// [ SEC_SELINUX_PORTING_COMMON
-	if (!audit_default || !audit_pid || !audit_sock)
+	if (!audit_default || !audit_pid)
 		return;
-// ] SEC_SELINUX_PORTING_COMMON
+
 	skb = skb_dequeue(&audit_skb_hold_queue);
 	if (likely(!skb))
 		return;
 
-// [ SEC_SELINUX_PORTING_COMMON
-	while (skb && audit_pid && audit_sock) {
+	while (skb && audit_pid) {
 		kauditd_send_skb(skb);
 		skb = skb_dequeue(&audit_skb_hold_queue);
 	}
-// ] SEC_SELINUX_PORTING_COMMON
+
 	/*
 	 * if auditd just disappeared but we
 	 * dequeued an skb we need to drop ref
@@ -548,10 +542,8 @@ static int kauditd_thread(void *dummy)
 			if (!audit_backlog_limit ||
 			    (skb_queue_len(&audit_skb_queue) <= audit_backlog_limit))
 				wake_up(&audit_backlog_wait);
-// [ SEC_SELINUX_PORTING_COMMON
-			if (audit_pid && audit_sock)
+			if (audit_pid)
 				kauditd_send_skb(skb);
-// ] SEC_SELINUX_PORTING_COMMON
 			else
 				audit_printk_skb(skb);
 			continue;
