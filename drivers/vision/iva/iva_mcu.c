@@ -533,7 +533,9 @@ int32_t iva_mcu_boot_file(struct iva_dev_data *iva,
 		return -EINVAL;
 	}
 
-	ret = vfs_getattr(&mcu_fp->f_path, &mcu_st);
+	ret = vfs_getattr(&mcu_fp->f_path, &mcu_st,
+			(STATX_MODE | STATX_SIZE | STATX_MTIME),
+			 AT_STATX_SYNC_AS_STAT);
 	if (ret) {
 		dev_err(dev, "%s() fail to get attr for file(%s)\n",
 				__func__, mcu_file);
