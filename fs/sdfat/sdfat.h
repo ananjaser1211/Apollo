@@ -219,9 +219,9 @@ typedef struct timespec		sdfat_timespec_t;
 #endif
 
 
-#if LINUX_VERSION_CODE >= KERNEL_VERSION(4, 14, 0)
+#if LINUX_VERSION_CODE >= KERNEL_VERSION(4, 9, 0)
 
-#else /* LINUX_VERSION_CODE < KERNEL_VERSION(4, 14, 0) */
+#else /* LINUX_VERSION_CODE < KERNEL_VERSION(4, 9, 0) */
 /*
  * sb->s_flags.  Note that these mirror the equivalent MS_* flags where
  * represented in both.
