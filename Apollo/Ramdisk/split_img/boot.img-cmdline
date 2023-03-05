@@ -1,1 +1,1 @@
-androidboot.selinux=permissive
+androidboot.hardware=exynos9810 loop.max_part=7
