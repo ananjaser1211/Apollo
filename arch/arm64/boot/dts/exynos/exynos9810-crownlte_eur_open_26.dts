@@ -5011,7 +5011,7 @@
 		gpu_dynamic_abb = <0x0>;
 		gpu_early_clk_gating = <0x0>;
 		gpu_dvs = <0x0>;
-		gpu_inter_frame_pm = <0x1>;
+		gpu_inter_frame_pm = <0x0>;
 		gpu_perf_gathering = <0x0>;
 		gpu_runtime_pm_delay_time = <0x32>;
 		gpu_dvfs_polling_time = <0x1e>;
