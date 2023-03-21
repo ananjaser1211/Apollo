@@ -10393,6 +10393,18 @@
 			phandle = <0x2f0>;
 		};
 	};
+	
+	cpuidle-ucc {
+
+		ucc-config0 {
+			index = <0>;
+		};
+
+		ucc-config1 {
+			index = <1>;
+			cstate = "4-7";
+		};
+	};
 
 	cpufreq-ufc {
 
@@ -10400,12 +10412,14 @@
 			device_type = "cpufreq-userctrl";
 			shared-cpus = "0-3";
 			user-default-qos = <0xae8f8>;
+			ucc-index = <0>;
 		};
 
 		domain@1 {
 			device_type = "cpufreq-userctrl";
 			shared-cpus = "4-7";
 			user-default-qos = <0xeadd0>;
+			ucc-index = <1>;
 
 			min-limit {
 				ctrl-type = <0x0>;
