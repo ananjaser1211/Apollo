@@ -6,8 +6,6 @@ static struct pm_qos_request cluster1_qos;
 static struct pm_qos_request cluster0_qos;
 static struct pm_qos_request mif_qos;
 static struct pm_qos_request int_qos;
-static struct kpp kpp_ta;
-static struct kpp kpp_fg;
 static struct ucc_req ucc_req = {
 	.name = "input",
 };
@@ -48,11 +46,11 @@ void set_hmp(int enable)
 	if (enable != current_hmp_boost) {
 		pr_booster("[Input Booster2] ******      set_ehmp : %d ( %s )\n", enable, __FUNCTION__);
 		if (enable) {
-			kpp_request(STUNE_TOPAPP, &kpp_ta, enable);
-			kpp_request(STUNE_FOREGROUND, &kpp_fg, enable);
+			request_kernel_prefer_perf(STUNE_TOPAPP, 1);
+			request_kernel_prefer_perf(STUNE_FOREGROUND, 1);
 		} else {
-			kpp_request(STUNE_TOPAPP, &kpp_ta, 0);
-			kpp_request(STUNE_FOREGROUND, &kpp_fg, 0);
+			request_kernel_prefer_perf(STUNE_TOPAPP, 0);
+			request_kernel_prefer_perf(STUNE_FOREGROUND, 0);
 		}
 		current_hmp_boost = enable;
 	}
