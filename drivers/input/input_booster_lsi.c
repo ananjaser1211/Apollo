@@ -1,8 +1,7 @@
 #include <linux/input/input_booster.h>
 #include <linux/exynos-ucc.h>
-#include <linux/ems_service.h>
+#include <linux/ehmp.h>
 
-static struct pm_qos_request cluster2_qos;
 static struct pm_qos_request cluster1_qos;
 static struct pm_qos_request cluster0_qos;
 static struct pm_qos_request mif_qos;
@@ -95,13 +94,11 @@ void ib_release_booster(int res_id)
 void input_booster_init_vendor(int *release_val)
 {
 	int i = 0;
-	pm_qos_add_request(&cluster2_qos, PM_QOS_CLUSTER2_FREQ_MIN, PM_QOS_CLUSTER2_FREQ_MIN_DEFAULT_VALUE);
 	pm_qos_add_request(&cluster1_qos, PM_QOS_CLUSTER1_FREQ_MIN, PM_QOS_CLUSTER1_FREQ_MIN_DEFAULT_VALUE);
 	pm_qos_add_request(&cluster0_qos, PM_QOS_CLUSTER0_FREQ_MIN, PM_QOS_CLUSTER0_FREQ_MIN_DEFAULT_VALUE);
 	pm_qos_add_request(&mif_qos, PM_QOS_BUS_THROUGHPUT, PM_QOS_BUS_THROUGHPUT_DEFAULT_VALUE);
 	pm_qos_add_request(&int_qos, PM_QOS_DEVICE_THROUGHPUT, PM_QOS_DEVICE_THROUGHPUT_DEFAULT_VALUE);
 
-	informations[i++].qos = &cluster2_qos;
 	informations[i++].qos = &cluster1_qos;
 	informations[i++].qos = &cluster0_qos;
 	informations[i++].qos = &mif_qos;
@@ -116,7 +113,6 @@ void input_booster_init_vendor(int *release_val)
 
 void input_booster_exit_vendor(void)
 {
-	pm_qos_remove_request(&cluster2_qos);
 	pm_qos_remove_request(&cluster1_qos);
 	pm_qos_remove_request(&cluster0_qos);
 	pm_qos_remove_request(&mif_qos);
