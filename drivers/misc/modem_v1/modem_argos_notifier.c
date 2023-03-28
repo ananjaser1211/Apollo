@@ -74,7 +74,7 @@ static int mif_store_rps_map(struct netdev_rx_queue *queue, char *buf, size_t le
 	struct rps_map *old_map, *map;
 	cpumask_var_t mask;
 	int err, cpu, i;
-	static DEFINE_SPINLOCK(rps_map_lock);
+	static DEFINE_MUTEX(rps_map_mutex);
 
 	if (!alloc_cpumask_var(&mask, GFP_KERNEL)) {
 		mif_err("failed to alloc_cpumask\n");
@@ -113,9 +113,9 @@ static int mif_store_rps_map(struct netdev_rx_queue *queue, char *buf, size_t le
 		return -EINVAL;
 	}
 
-	spin_lock(&rps_map_lock);
+	mutex_lock(&rps_map_mutex);
 	old_map = rcu_dereference_protected(queue->rps_map,
-		lockdep_is_held(&rps_map_lock));
+		mutex_is_locked(&rps_map_mutex));
 	rcu_assign_pointer(queue->rps_map, map);
 
 	if (map)
@@ -123,7 +123,7 @@ static int mif_store_rps_map(struct netdev_rx_queue *queue, char *buf, size_t le
 	if (old_map)
 		static_key_slow_dec(&rps_needed);
 
-	spin_unlock(&rps_map_lock);
+	mutex_unlock(&rps_map_mutex);
 
 	if (old_map)
 		kfree_rcu(old_map, rcu);
