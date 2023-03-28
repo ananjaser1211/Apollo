@@ -1,5 +1,5 @@
 /*
- * argos.c
+ * sec_argos.c
  *
  * Copyright (c) 2012 Samsung Electronics Co., Ltd
  *              http://www.samsung.com
@@ -44,12 +44,18 @@ static DEFINE_SPINLOCK(argos_task_lock);
 
 enum {
 	THRESHOLD,
-	CPU_MIN_FREQ,
-	CPU_MAX_FREQ,
-	KFC_MIN_FREQ,
-	KFC_MAX_FREQ,
-	MIFFREQ,
-	INTFREQ,
+#if (CONFIG_ARGOS_CLUSTER_NUM > 1)
+	BIG_MIN_FREQ,
+	BIG_MAX_FREQ,
+#endif
+#if (CONFIG_ARGOS_CLUSTER_NUM > 2)
+	MID_MIN_FREQ,
+	MID_MAX_FREQ,
+#endif
+	LIT_MIN_FREQ,
+	LIT_MAX_FREQ,
+	MIF_FREQ,
+	INT_FREQ,
 	TASK_AFFINITY_EN,
 	IRQ_AFFINITY_EN,
 	HMP_BOOST_EN,
@@ -75,10 +81,16 @@ struct argos_irq_affinity {
 };
 
 struct argos_pm_qos {
-	struct pm_qos_request cpu_min_qos_req;
-	struct pm_qos_request cpu_max_qos_req;
-	struct pm_qos_request kfc_min_qos_req;
-	struct pm_qos_request kfc_max_qos_req;
+#if (CONFIG_ARGOS_CLUSTER_NUM > 1)
+	struct pm_qos_request big_min_qos_req;
+	struct pm_qos_request big_max_qos_req;
+#endif
+#if (CONFIG_ARGOS_CLUSTER_NUM > 2)
+	struct pm_qos_request mid_min_qos_req;
+	struct pm_qos_request mid_max_qos_req;
+#endif
+	struct pm_qos_request lit_min_qos_req;
+	struct pm_qos_request lit_max_qos_req;
 	struct pm_qos_request mif_qos_req;
 	struct pm_qos_request int_qos_req;
 	struct pm_qos_request hotplug_min_qos_req;
@@ -96,6 +108,7 @@ struct argos {
 	struct list_head irq_affinity_list;
 	bool irq_hotplug_disable;
 	bool hmpboost_enable;
+	bool slowdown;
 	bool argos_block;
 	struct blocking_notifier_head argos_notifier;
 	/* protect prev_level, qos, task/irq_hotplug_disable, hmpboost_enable */
@@ -419,10 +432,16 @@ static void argos_freq_unlock(int type)
 
 	cname = argos_pdata->devices[type].desc;
 
-	REMOVE_PM_QOS(&qos->cpu_min_qos_req);
-	REMOVE_PM_QOS(&qos->cpu_max_qos_req);
-	REMOVE_PM_QOS(&qos->kfc_min_qos_req);
-	REMOVE_PM_QOS(&qos->kfc_max_qos_req);
+#if (CONFIG_ARGOS_CLUSTER_NUM > 1)
+	REMOVE_PM_QOS(&qos->big_min_qos_req);
+	REMOVE_PM_QOS(&qos->big_max_qos_req);
+#endif
+#if (CONFIG_ARGOS_CLUSTER_NUM > 2)
+	REMOVE_PM_QOS(&qos->mid_min_qos_req);
+	REMOVE_PM_QOS(&qos->mid_max_qos_req);
+#endif
+	REMOVE_PM_QOS(&qos->lit_min_qos_req);
+	REMOVE_PM_QOS(&qos->lit_max_qos_req);
 	REMOVE_PM_QOS(&qos->mif_qos_req);
 	REMOVE_PM_QOS(&qos->int_qos_req);
 
@@ -431,64 +450,112 @@ static void argos_freq_unlock(int type)
 
 static void argos_freq_lock(int type, int level)
 {
-	unsigned int cpu_min_freq, cpu_max_freq, kfc_min_freq,
-			 kfc_max_freq, mif_freq, int_freq;
+#if (CONFIG_ARGOS_CLUSTER_NUM > 1)
+	unsigned int big_min_freq, big_max_freq;
+#endif
+#if (CONFIG_ARGOS_CLUSTER_NUM > 2)
+	unsigned int mid_min_freq, mid_max_freq;
+#endif
+	unsigned int lit_min_freq, lit_max_freq;
+	unsigned int mif_freq, int_freq;
 	struct boost_table *t = &argos_pdata->devices[type].tables[level];
 	struct argos_pm_qos *qos = argos_pdata->devices[type].qos;
 	const char *cname;
 
 	cname = argos_pdata->devices[type].desc;
 
-	cpu_min_freq = t->items[CPU_MIN_FREQ];
-	cpu_max_freq = t->items[CPU_MAX_FREQ];
-	kfc_min_freq = t->items[KFC_MIN_FREQ];
-	kfc_max_freq = t->items[KFC_MAX_FREQ];
-	mif_freq = t->items[MIFFREQ];
-	int_freq = t->items[INTFREQ];
+#if (CONFIG_ARGOS_CLUSTER_NUM > 1)
+	big_min_freq = t->items[BIG_MIN_FREQ];
+	big_max_freq = t->items[BIG_MAX_FREQ];
+#endif
+#if (CONFIG_ARGOS_CLUSTER_NUM > 2)
+	mid_min_freq = t->items[MID_MIN_FREQ];
+	mid_max_freq = t->items[MID_MAX_FREQ];
+#endif
+	lit_min_freq = t->items[LIT_MIN_FREQ];
+	lit_max_freq = t->items[LIT_MAX_FREQ];
+	mif_freq = t->items[MIF_FREQ];
+	int_freq = t->items[INT_FREQ];
 
-	if (cpu_min_freq) {
-		UPDATE_PM_QOS(&qos->cpu_min_qos_req,
-			      PM_QOS_CLUSTER1_FREQ_MIN, cpu_min_freq);
-	} else {
-		REMOVE_PM_QOS(&qos->cpu_min_qos_req);
-	}
+#if (CONFIG_ARGOS_CLUSTER_NUM == 3)
+	if (big_min_freq)
+		UPDATE_PM_QOS(&qos->big_min_qos_req,
+			      PM_QOS_CLUSTER2_FREQ_MIN, big_min_freq);
+	else
+		REMOVE_PM_QOS(&qos->big_min_qos_req);
 
-	if (cpu_max_freq) {
-		UPDATE_PM_QOS(&qos->cpu_max_qos_req,
-			      PM_QOS_CLUSTER1_FREQ_MAX, cpu_max_freq);
-	} else {
-		REMOVE_PM_QOS(&qos->cpu_max_qos_req);
-	}
+	if (big_max_freq)
+		UPDATE_PM_QOS(&qos->big_max_qos_req,
+			      PM_QOS_CLUSTER2_FREQ_MAX, big_max_freq);
+	else
+		REMOVE_PM_QOS(&qos->big_max_qos_req);
 
-	if (kfc_min_freq) {
-		UPDATE_PM_QOS(&qos->kfc_min_qos_req,
-			      PM_QOS_CLUSTER0_FREQ_MIN, kfc_min_freq);
-	} else {
-		REMOVE_PM_QOS(&qos->kfc_min_qos_req);
-	}
+	if (mid_min_freq)
+		UPDATE_PM_QOS(&qos->mid_min_qos_req,
+			      PM_QOS_CLUSTER1_FREQ_MIN, mid_min_freq);
+	else
+		REMOVE_PM_QOS(&qos->mid_min_qos_req);
 
-	if (kfc_max_freq) {
-		UPDATE_PM_QOS(&qos->kfc_max_qos_req,
-			      PM_QOS_CLUSTER0_FREQ_MAX, kfc_max_freq);
-	} else {
-		REMOVE_PM_QOS(&qos->kfc_max_qos_req);
-	}
+	if (mid_max_freq)
+		UPDATE_PM_QOS(&qos->mid_max_qos_req,
+			      PM_QOS_CLUSTER1_FREQ_MAX, mid_max_freq);
+	else
+		REMOVE_PM_QOS(&qos->mid_max_qos_req);
 
-	if (mif_freq) {
+#elif (CONFIG_ARGOS_CLUSTER_NUM == 2)
+	if (big_min_freq)
+		UPDATE_PM_QOS(&qos->big_min_qos_req,
+			      PM_QOS_CLUSTER1_FREQ_MIN, big_min_freq);
+	else
+		REMOVE_PM_QOS(&qos->big_min_qos_req);
+
+	if (big_max_freq)
+		UPDATE_PM_QOS(&qos->big_max_qos_req,
+			      PM_QOS_CLUSTER1_FREQ_MAX, big_max_freq);
+	else
+		REMOVE_PM_QOS(&qos->big_max_qos_req);
+#endif
+
+	if (lit_min_freq)
+		UPDATE_PM_QOS(&qos->lit_min_qos_req,
+			      PM_QOS_CLUSTER0_FREQ_MIN, lit_min_freq);
+	else
+		REMOVE_PM_QOS(&qos->lit_min_qos_req);
+
+	if (lit_max_freq)
+		UPDATE_PM_QOS(&qos->lit_max_qos_req,
+			      PM_QOS_CLUSTER0_FREQ_MAX, lit_max_freq);
+	else
+		REMOVE_PM_QOS(&qos->lit_max_qos_req);
+
+	if (mif_freq)
 		UPDATE_PM_QOS(&qos->mif_qos_req,
 			      PM_QOS_BUS_THROUGHPUT, mif_freq);
-	} else {
+	else
 		REMOVE_PM_QOS(&qos->mif_qos_req);
-	}
 
-	if (int_freq) {
+	if (int_freq)
 		UPDATE_PM_QOS(&qos->int_qos_req,
 			      PM_QOS_DEVICE_THROUGHPUT, int_freq);
-	} else {
+	else
 		REMOVE_PM_QOS(&qos->int_qos_req);
-	}
-	pr_info("%s name:%s, CPU_MIN=%d, CPU_MAX=%d , KFC_MIN=%d, KFC_MAX=%d, MIF=%d, INT=%d\n",
-		__func__, cname, cpu_min_freq, cpu_max_freq, kfc_min_freq, kfc_max_freq, mif_freq, int_freq);
+
+	pr_info("%s name:%s, "
+#if (CONFIG_ARGOS_CLUSTER_NUM > 1)
+		"BIG_MIN=%d, BIG_MAX=%d, "
+#endif
+#if (CONFIG_ARGOS_CLUSTER_NUM > 2)
+		"MID_MIN=%d, MID_MAX=%d, "
+#endif
+		"LIT_MIN=%d, LIT_MAX=%d, MIF=%d, INT=%d\n",
+		__func__, cname,
+#if (CONFIG_ARGOS_CLUSTER_NUM > 1)
+		big_min_freq, big_max_freq,
+#endif
+#if (CONFIG_ARGOS_CLUSTER_NUM > 2)
+		mid_min_freq, mid_max_freq,
+#endif
+		lit_min_freq, lit_max_freq, mif_freq, int_freq);
 }
 
 void argos_block_enable(char *req_name, bool set)
@@ -544,7 +611,7 @@ static int argos_pm_qos_notify(struct notifier_block *nfb,
 			       unsigned long speedtype, void *arg)
 
 {
-	int type, level, prev_level;
+	int type, level, prev_level, change_level;
 	unsigned long speed;
 	bool argos_blocked;
 	struct argos *cnode;
@@ -569,16 +636,9 @@ static int argos_pm_qos_notify(struct notifier_block *nfb,
 	argos_blocked = cnode->argos_block;
 
 	/* Find proper level */
-	for (level = 0; level < cnode->ntables; level++) {
-		struct boost_table *t = &cnode->tables[level];
-
-		if (speed < t->items[THRESHOLD]) {
+	for (level = 0; level < cnode->ntables; level++)
+		if (speed < cnode->tables[level].items[THRESHOLD])
 			break;
-		} else if (argos_pdata->devices[type].ntables == level) {
-			level++;
-			break;
-		}
-	}
 
 	/* decrease 1 level to match proper table */
 	level--;
@@ -597,6 +657,8 @@ static int argos_pm_qos_notify(struct notifier_block *nfb,
 			pr_info("%s: name:%s, speed:%ldMbps, prev level:%d, request level:%d\n",
 				__func__, cnode->desc, speed, prev_level, level);
 
+			change_level = level;
+
 			if (level == -1) {
 				if (cnode->argos_notifier.head) {
 					pr_debug("%s: Call argos notifier(%s lev:%d)\n",
@@ -610,26 +672,41 @@ static int argos_pm_qos_notify(struct notifier_block *nfb,
 				argos_hmpboost_apply(type, 0);
 			} else {
 				unsigned int enable_flag;
+				struct boost_table *plevel;
 
-				argos_freq_lock(type, level);
+				if (cnode->slowdown) {
+					if (prev_level - level == 1) {
+						pr_info("%s: skip! apply slowdown scheme. prev level:%d, request level:%d\n",
+							__func__, prev_level, level);
+						mutex_unlock(&cnode->level_mutex);
+						goto out;
+					} else if (prev_level - level > 1) {
+						change_level = level + 1;
+						pr_info("%s: slowdown! request level:%d, change level:%d\n",
+							__func__, level, change_level);
+					}
+				}
 
-				enable_flag = argos_pdata->devices[type].tables[level].items[TASK_AFFINITY_EN];
+				plevel = &argos_pdata->devices[type].tables[change_level];
+
+				argos_freq_lock(type, change_level);
+
+				enable_flag = plevel->items[TASK_AFFINITY_EN];
 				argos_task_affinity_apply(type, enable_flag);
-				enable_flag = argos_pdata->devices[type].tables[level].items[IRQ_AFFINITY_EN];
+				enable_flag = plevel->items[IRQ_AFFINITY_EN];
 				argos_irq_affinity_apply(type, enable_flag);
-				enable_flag =
-					argos_pdata->devices[type].tables[level].items[HMP_BOOST_EN];
+				enable_flag = plevel->items[HMP_BOOST_EN];
 				argos_hmpboost_apply(type, enable_flag);
 
 				if (cnode->argos_notifier.head) {
 					pr_debug("%s: Call argos notifier(%s lev:%d)\n",
-						 __func__, cnode->desc, level);
+						 __func__, cnode->desc, change_level);
 					blocking_notifier_call_chain(&cnode->argos_notifier,
 								     speed, NULL);
 				}
 			}
 
-			cnode->prev_level = level;
+			cnode->prev_level = change_level;
 			mutex_unlock(&cnode->level_mutex);
 		} else {
 			pr_debug("%s:same level (%d) is requested", __func__, level);
@@ -640,71 +717,181 @@ out:
 }
 
 #ifdef CONFIG_OF
+static int load_table_items(struct device_node *np, struct boost_table *t)
+{
+	int ret = 0;
+	int len = 0;
+	const char *status;
+
+	ret = of_property_read_u32(np, "threshold", &t->items[THRESHOLD]);
+	if (ret) {
+		pr_err("Failed to get speed property\n");
+		return -EINVAL;
+	}
+
+#if (CONFIG_ARGOS_CLUSTER_NUM > 1)
+	ret = of_property_read_u32(np, "big_min", &t->items[BIG_MIN_FREQ]);
+	/* If not exist, set to default 0 */
+	if (ret == -EINVAL) {
+		t->items[BIG_MIN_FREQ] = 0;
+	} else if (ret) {
+		pr_err("Failed to get big_min\n");
+		return ret;
+	}
+
+	ret = of_property_read_u32(np, "big_max", &t->items[BIG_MAX_FREQ]);
+	/* If not exist, set to default 0 */
+	if (ret == -EINVAL) {
+		t->items[BIG_MAX_FREQ] = 0;
+	} else if (ret) {
+		pr_err("Failed to get big_max\n");
+		return ret;
+	}
+#endif
+
+#if (CONFIG_ARGOS_CLUSTER_NUM > 2)
+	ret = of_property_read_u32(np, "mid_min", &t->items[MID_MIN_FREQ]);
+	/* If not exist, set to default 0 */
+	if (ret == -EINVAL) {
+		t->items[MID_MIN_FREQ] = 0;
+	} else if (ret) {
+		pr_err("Failed to get mid_min\n");
+		return ret;
+	}
+
+	ret = of_property_read_u32(np, "mid_max", &t->items[MID_MAX_FREQ]);
+	/* If not exist, set to default 0 */
+	if (ret == -EINVAL) {
+		t->items[MID_MAX_FREQ] = 0;
+	} else if (ret) {
+		pr_err("Failed to get mid_max\n");
+		return ret;
+	}
+#endif
+
+	ret = of_property_read_u32(np, "lit_min", &t->items[LIT_MIN_FREQ]);
+	/* If not exist, set to default 0 */
+	if (ret == -EINVAL) {
+		t->items[LIT_MIN_FREQ] = 0;
+	} else if (ret) {
+		pr_err("Failed to get lit_min\n");
+		return ret;
+	}
+
+	ret = of_property_read_u32(np, "lit_max", &t->items[LIT_MAX_FREQ]);
+	/* If not exist, set to default 0 */
+	if (ret == -EINVAL) {
+		t->items[LIT_MAX_FREQ] = 0;
+	} else if (ret) {
+		pr_err("Failed to get lit_max\n");
+		return ret;
+	}
+
+	ret = of_property_read_u32(np, "mif", &t->items[MIF_FREQ]);
+	if (ret == -EINVAL) {
+		t->items[MIF_FREQ] = 0;
+	} else if (ret) {
+		pr_err("Failed to get mif\n");
+		return ret;
+	}
+
+	ret = of_property_read_u32(np, "int", &t->items[INT_FREQ]);
+	if (ret == -EINVAL) {
+		t->items[INT_FREQ] = 0;
+	} else if (ret) {
+		pr_err("Failed to get int\n");
+		return ret;
+	}
+
+	status = of_get_property(np, "task_affinity", &len);
+	if (status && len > 0 && !strcmp(status, "enable"))
+		t->items[TASK_AFFINITY_EN] = 1;
+	else
+		t->items[TASK_AFFINITY_EN] = 0;
+
+	status = of_get_property(np, "irq_affinity", &len);
+	if (status && len > 0 && !strcmp(status, "enable"))
+		t->items[IRQ_AFFINITY_EN] = 1;
+	else
+		t->items[IRQ_AFFINITY_EN] = 0;
+
+	status = of_get_property(np, "hmp_boost", &len);
+	if (status && len > 0 && !strcmp(status, "enable"))
+		t->items[HMP_BOOST_EN] = 1;
+	else
+		t->items[HMP_BOOST_EN] = 0;
+
+	return 0;
+}
+
+static int argos_set_device_node(struct device *dev, struct device_node *np, struct argos *node)
+{
+	struct device_node *np_table, *np_level;
+	int ret = 0;
+
+	if (of_get_property(np, "net_boost,slowdown", NULL))
+		node->slowdown = true;
+	else
+		node->slowdown = false;
+
+	node->desc = of_get_property(np, "net_boost,label", NULL);
+	node->qos = devm_kzalloc(dev, sizeof(struct argos_pm_qos), GFP_KERNEL);
+	if (!node->qos)
+		return -ENOMEM;
+
+	np_table = of_get_child_by_name(np, "net_boost,table");
+	if (!of_device_is_available(np_table)) {
+		return -EINVAL;
+		}
+
+		/* Allocation for freq and time table */
+	node->tables = devm_kzalloc(dev, sizeof(struct boost_table) * of_get_child_count(np_table), GFP_KERNEL);
+	if (!node->tables)
+		return -ENOMEM;
+
+		/* Get and add frequency and time table */
+	for_each_child_of_node(np_table, np_level) {
+		if ((ret = load_table_items(np_level, &node->tables[node->ntables])) != 0)
+			return ret;
+		node->ntables++;
+	}
+
+	INIT_LIST_HEAD(&node->task_affinity_list);
+	INIT_LIST_HEAD(&node->irq_affinity_list);
+	node->task_hotplug_disable = false;
+	node->irq_hotplug_disable = false;
+	node->hmpboost_enable = false;
+	node->argos_block = false;
+	node->prev_level = -1;
+	mutex_init(&node->level_mutex);
+	BLOCKING_INIT_NOTIFIER_HEAD(&node->argos_notifier);
+
+	return 0;
+			}
+
 static int argos_parse_dt(struct device *dev)
 {
 	struct argos_platform_data *pdata = dev->platform_data;
-	struct argos *cnode;
-	struct device_node *np, *cnp;
-	int device_count = 0, num_level = 0;
-	int retval = 0, i, j;
+	struct argos *device_node;
+	struct device_node *root_np, *device_np;
+	int device_count = 0;
+	int retval = 0;
 
-	np = dev->of_node;
-	pdata->ndevice = of_get_child_count(np);
-	if (!pdata->ndevice)
+	root_np = dev->of_node;
+	pdata->ndevice = of_get_child_count(root_np);
+	if (!pdata->ndevice) {
+		dev_err(dev, "Failed to get child count\n");
 		return -ENODEV;
+		}
 
 	pdata->devices = devm_kzalloc(dev, sizeof(struct argos) * pdata->ndevice, GFP_KERNEL);
 	if (!pdata->devices)
 		return -ENOMEM;
 
-	for_each_child_of_node(np, cnp) {
-		cnode = &pdata->devices[device_count];
-		cnode->desc = of_get_property(cnp, "net_boost,label", NULL);
-		if (of_property_read_u32(cnp, "net_boost,table_size", &num_level)) {
-			dev_err(dev, "Failed to get table size: node not exist\n");
-			retval = -EINVAL;
+	for_each_child_of_node(root_np, device_np) {
+		device_node = &pdata->devices[device_count];
+		if ((retval = argos_set_device_node(dev, device_np, device_node)) != 0)
 			goto err_out;
-		}
-		cnode->ntables = num_level;
-
-		/* Allocation for freq and time table */
-		if (!cnode->tables) {
-			cnode->tables = devm_kzalloc(dev,
-						     sizeof(struct boost_table) * cnode->ntables, GFP_KERNEL);
-			if (!cnode->tables) {
-				retval = -ENOMEM;
-				goto err_out;
-			}
-		}
-
-		/* Get and add frequency and time table */
-		for (i = 0; i < num_level; i++) {
-			for (j = 0; j < ITEM_MAX; j++) {
-				retval = of_property_read_u32_index(cnp, "net_boost,table",
-								    i * ITEM_MAX + j, &cnode->tables[i].items[j]);
-				if (retval) {
-					dev_err(dev, "Failed to get property\n");
-					retval = -EINVAL;
-					goto err_out;
-				}
-			}
-		}
-
-		INIT_LIST_HEAD(&cnode->task_affinity_list);
-		INIT_LIST_HEAD(&cnode->irq_affinity_list);
-		cnode->task_hotplug_disable = false;
-		cnode->irq_hotplug_disable = false;
-		cnode->hmpboost_enable = false;
-		cnode->argos_block = false;
-		cnode->prev_level = -1;
-		mutex_init(&cnode->level_mutex);
-		cnode->qos = devm_kzalloc(dev, sizeof(struct argos_pm_qos),
-					  GFP_KERNEL);
-		if (!cnode->qos) {
-			retval = -ENOMEM;
-			goto err_out;
-		}
-		BLOCKING_INIT_NOTIFIER_HEAD(&cnode->argos_notifier);
 
 		device_count++;
 	}
