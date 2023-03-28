@@ -13518,74 +13518,264 @@
 		};
 	};
 
-	argos {
-		compatible = "samsung,argos";
-		#address-cells = <0x1>;
+			argos {
+				compatible = "samsung,argos";
+				#address-cells = <0x1>;
 
-		boot_device@1 {
-			net_boost,label = "IPC";
-			net_boost,node = "rmnet0 rmnet1 rmnet2 rmnet3 rmnet4 rmnet5 rmnet6 rmnet7 umts_dm0";
-			net_boost,table_size = <0x3>;
-			net_boost,table = <0x64 0x0 0x0 0x101148 0x0 0xce4c8 0x0 0x0 0x0 0x0 0x96 0x0 0x0 0x130b00 0x0 0xf78f0 0x0 0x0 0x0 0x0 0xc8 0x1d5ba0 0x0 0x19c990 0x0 0x1b5fd0 0x0 0x0 0x0 0x0>;
-		};
+				boot_device@1 {
+					net_boost,label = "UFS";
+					net_boost,node = [00];
+					net_boost,sysnode = "/sys/class/scsi_host/host0/transferred_cnt";
 
-		boot_device@2 {
-			net_boost,label = "CLAT";
-			net_boost,node = "clat clat4 v4-rmnet0 v4-rmnet1 v4-rmnet2 v4-rmnet3 v4-rmnet4 v4-rmnet5 v4-rmnet6 v4-rmnet7";
-			net_boost,table_size = <0x5>;
-			net_boost,table = <0x1 0x0 0x0 0x0 0x0 0x0 0x0 0x0 0x0 0x0 0x64 0x104410 0x0 0x0 0x0 0xf78f0 0x0 0x0 0x0 0x0 0xc8 0x110b48 0x0 0x0 0x0 0x1b5fd0 0x0 0x0 0x0 0x0 0x12c 0x133dc8 0x0 0x0 0x0 0x1b5fd0 0x0 0x0 0x0 0x0 0x190 0x166a48 0x0 0x0 0x0 0x1b5fd0 0x0 0x0 0x0 0x0>;
-		};
+					net_boost,table {
 
-		boot_device@3 {
-			net_boost,label = "UFS";
-			net_boost,node = [00];
-			net_boost,sysnode = "/sys/class/scsi_host/host0/transferred_cnt";
-			net_boost,table_size = <0x2>;
-			net_boost,table = <0x70 0x0 0x0 0x163780 0x0 0x14a140 0x0 0x0 0x0 0x0 0x320 0x104410 0x0 0x163780 0x0 0x177bb8 0x0 0x0 0x0 0x1>;
-		};
+						level_0 {
+							threshold = <0x190>;
+							lit_min = <0x163780>;
+							mif = <0x14a140>;
+						};
 
-		boot_device@4 {
-			net_boost,label = "WIFI";
-			net_boost,node = "wlan0";
-			net_boost,table_size = <0x3>;
-			net_boost,table = <0x96 0x0 0x0 0x0 0x0 0x0 0x0 0x0 0x0 0x0 0xc8 0x0 0x0 0x0 0x0 0x0 0x0 0x1 0x1 0x1 0x12c 0x0 0x0 0x0 0x0 0x0 0x0 0x1 0x1 0x1>;
-		};
+						level_1 {
+							threshold = <0x320>;
+							big_min = <0x104410>;
+							lit_min = <0x163780>;
+							mif = <0x177bb8>;
+							hmp_boost = "enable";
+						};
+					};
+				};
 
-		boot_device@5 {
-			net_boost,label = "WIFI TX";
-			net_boost,node = "wlan0";
-			net_boost,table_size = <0x4>;
-			net_boost,table = <0x3c 0x166a48 0x0 0x163780 0x0 0x0 0x0 0x0 0x0 0x0 0x96 0x19c990 0x0 0x19c990 0x0 0x0 0x0 0x0 0x0 0x0 0xc8 0x1d5ba0 0x0 0x1b5fd0 0x0 0x14a140 0x61a80 0x1 0x1 0x1 0x12c 0x1e8c50 0x0 0x1b5fd0 0x0 0x1b5fd0 0x825f0 0x1 0x1 0x1>;
-		};
+				boot_device@2 {
+					net_boost,label = "WIFI TX";
+					net_boost,node = "wlan0";
+					net_boost,slowdown;
 
-		boot_device@6 {
-			net_boost,label = "WIFI RX";
-			net_boost,node = "wlan0";
-			net_boost,table_size = <0x4>;
-			net_boost,table = <0x64 0x11da50 0x0 0x101148 0x0 0x0 0x0 0x0 0x0 0x0 0x96 0x166a48 0x0 0x130b00 0x0 0x0 0x0 0x0 0x0 0x0 0xc8 0x19c990 0x0 0x130b00 0x0 0xce4c8 0x61a80 0x1 0x1 0x1 0x12c 0x1d5ba0 0x0 0x163780 0x0 0x14a140 0x825f0 0x1 0x1 0x1>;
-		};
+					net_boost,table {
 
-		boot_device@7 {
-			net_boost,label = "P2P";
-			net_boost,node = "p2p-wlan0-0";
-			net_boost,table_size = <0x3>;
-			net_boost,table = <0x1e 0x1174c0 0x0 0x11da50 0x0 0x0 0x0 0x0 0x0 0x0 0x5a 0x1c9080 0x0 0x183350 0x0 0x0 0x3e418 0x0 0x0 0x0 0x12c 0x1fbd00 0x0 0x183350 0x0 0x854d0 0x3e418 0x1 0x1 0x1>;
-		};
+						level_0 {
+							threshold = <0x3c>;
+							big_min = <0x166a48>;
+							lit_min = <0x163780>;
+						};
 
-		boot_device@8 {
-			net_boost,label = "NAN";
-			net_boost,node = "aware_data0";
-			net_boost,table_size = <0x3>;
-			net_boost,table = <0x1e 0x1174c0 0x0 0x11da50 0x0 0x0 0x0 0x0 0x0 0x0 0x5a 0x1c9080 0x0 0x183350 0x0 0x0 0x3e418 0x0 0x0 0x0 0x12c 0x1fbd00 0x0 0x183350 0x0 0x854d0 0x3e418 0x1 0x1 0x1>;
-		};
+						level_1 {
+							threshold = <0x96>;
+							big_min = <0x19c990>;
+							lit_min = <0x19c990>;
+						};
 
-		boot_device@9 {
-			net_boost,label = "USB";
-			net_boost,node = "rndis0";
-			net_boost,table_size = <0x3>;
-			net_boost,table = <0x0 0x0 0x0 0x0 0x0 0x0 0x0 0x0 0x1 0x0 0xc8 0x0 0x0 0x163780 0x0 0x177fa0 0x0 0x0 0x1 0x0 0x12c 0x0 0x0 0x19c990 0x0 0x1b5fd0 0x825f0 0x0 0x1 0x0>;
-		};
-	};
+						level_2 {
+							threshold = <0xc8>;
+							big_min = <0x1d5ba0>;
+							lit_min = <0x1b5fd0>;
+							mif = <0x14a140>;
+							int = <0x61a80>;
+							task_affinity = "enable";
+							irq_affinity = "enable";
+							hmp_boost = "enable";
+						};
+
+						level_3 {
+							threshold = <0x12c>;
+							big_min = <0x1e8c50>;
+							lit_min = <0x1b5fd0>;
+							mif = <0x1b5fd0>;
+							int = <0x825f0>;
+							task_affinity = "enable";
+							irq_affinity = "enable";
+							hmp_boost = "enable";
+						};
+					};
+				};
+
+				boot_device@3 {
+					net_boost,label = "WIFI RX";
+					net_boost,node = "wlan0";
+					net_boost,slowdown;
+
+					net_boost,table {
+
+						level_0 {
+							threshold = <0x64>;
+							big_min = <0x11da50>;
+							lit_min = <0x101148>;
+						};
+
+						level_1 {
+							threshold = <0x96>;
+							big_min = <0x166a48>;
+							lit_min = <0x130b00>;
+						};
+
+						level_2 {
+							threshold = <0xc8>;
+							big_min = <0x19c990>;
+							lit_min = <0x130b00>;
+							mif = <0xce4c8>;
+							int = <0x61a80>;
+							task_affinity = "enable";
+							irq_affinity = "enable";
+							hmp_boost = "enable";
+						};
+
+						level_3 {
+							threshold = <0x12c>;
+							big_min = <0x1d5ba0>;
+							lit_min = <0x163780>;
+							mif = <0x14a140>;
+							int = <0x825f0>;
+							task_affinity = "enable";
+							irq_affinity = "enable";
+							hmp_boost = "enable";
+						};
+					};
+				};
+
+				boot_device@4 {
+					net_boost,label = "P2P";
+					net_boost,node = "p2p-wlan0-0";
+					net_boost,slowdown;
+
+					net_boost,table {
+
+						level_0 {
+							threshold = <0x3c>;
+							big_min = <0x166a48>;
+							lit_min = <0x163780>;
+						};
+
+						level_1 {
+							threshold = <0x96>;
+							big_min = <0x19c990>;
+							lit_min = <0x19c990>;
+						};
+
+						level_2 {
+							threshold = <0xc8>;
+							big_min = <0x1d5ba0>;
+							lit_min = <0x1b5fd0>;
+							mif = <0x14a140>;
+							int = <0x61a80>;
+							task_affinity = "enable";
+							irq_affinity = "enable";
+							hmp_boost = "enable";
+						};
+
+						level_3 {
+							threshold = <0x12c>;
+							big_min = <0x1e8c50>;
+							lit_min = <0x1b5fd0>;
+							mif = <0x1b5fd0>;
+							int = <0x825f0>;
+							task_affinity = "enable";
+							irq_affinity = "enable";
+							hmp_boost = "enable";
+						};
+					};
+				};
+
+				boot_device@5 {
+					net_boost,label = "NAN";
+					net_boost,node = "aware_data0";
+					net_boost,slowdown;
+
+					net_boost,table {
+
+						level_0 {
+							threshold = <0x3c>;
+							big_min = <0x166a48>;
+							lit_min = <0x163780>;
+						};
+
+						level_1 {
+							threshold = <0x96>;
+							big_min = <0x19c990>;
+							lit_min = <0x19c990>;
+						};
+
+						level_2 {
+							threshold = <0xc8>;
+							big_min = <0x1d5ba0>;
+							lit_min = <0x1b5fd0>;
+							mif = <0x14a140>;
+							int = <0x61a80>;
+							task_affinity = "enable";
+							irq_affinity = "enable";
+							hmp_boost = "enable";
+						};
+
+						level_3 {
+							threshold = <0x12c>;
+							big_min = <0x1e8c50>;
+							lit_min = <0x1b5fd0>;
+							mif = <0x1b5fd0>;
+							int = <0x825f0>;
+							task_affinity = "enable";
+							irq_affinity = "enable";
+							hmp_boost = "enable";
+						};
+					};
+				};
+
+				boot_device@6 {
+					net_boost,label = "IPC";
+					net_boost,node = "rmnet0 rmnet1 rmnet2 rmnet3 rmnet4 rmnet5 rmnet6 rmnet7 umts_dm0";
+
+					net_boost,table {
+
+						level_0 {
+							threshold = <0x64>;
+							lit_min = <0x101148>;
+							mif = <0xce4c8>;
+						};
+
+						level_1 {
+							threshold = <0x96>;
+							lit_min = <0x130b00>;
+							mif = <0xf78f0>;
+						};
+
+						level_2 {
+							threshold = <0xc8>;
+							big_min = <0x1d5ba0>;
+							lit_min = <0x19c990>;
+							mif = <0x1b5fd0>;
+						};
+					};
+				};
+
+				boot_device@7 {
+					net_boost,label = "CLAT";
+					net_boost,node = "clat clat4 v4-rmnet0 v4-rmnet1 v4-rmnet2 v4-rmnet3 v4-rmnet4 v4-rmnet5 v4-rmnet6 v4-rmnet7";
+
+					net_boost,table {
+
+						level_0 {
+							threshold = <0x64>;
+							big_min = <0x104410>;
+							mif = <0xf78f0>;
+						};
+
+						level_1 {
+							threshold = <0xc8>;
+							big_min = <0x110b48>;
+							mif = <0x1b5fd0>;
+						};
+
+						level_2 {
+							threshold = <0x12c>;
+							big_min = <0x133dc8>;
+							mif = <0x1b5fd0>;
+						};
+
+						level_3 {
+							threshold = <0x190>;
+							big_min = <0x166a48>;
+							mif = <0x1b5fd0>;
+						};
+					};
+				};
+			};
 
 	dev_ril_bridge_pdata {
 		compatible = "samsung,dev_ril_bridge_pdata";
