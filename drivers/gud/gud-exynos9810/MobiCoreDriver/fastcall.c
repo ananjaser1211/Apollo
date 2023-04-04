@@ -228,7 +228,7 @@ static inline int _smc(union mc_fc_generic *mc_fc_generic)
 
 #ifdef TBASE_CORE_SWITCHER
 static int active_cpu;
-static int swap_ref;
+static int __maybe_unused swap_ref;
 #ifdef CONFIG_SECURE_OS_BOOSTER_API
 /* ExySp: for sos performance */
 void mc_set_schedule_policy(int core)
