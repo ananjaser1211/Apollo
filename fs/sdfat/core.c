@@ -54,6 +54,19 @@ static inline u64 inode_peek_iversion(struct inode *inode)
 #endif
 
 
+#if LINUX_VERSION_CODE < KERNEL_VERSION(5, 11, 0)
+static u64 bdev_nr_sectors(struct block_device *bdev)
+{
+	struct hd_struct *part = bdev->bd_part;
+
+	if (!part)
+		return 0;
+
+	return (u64)(part->nr_sects);
+}
+#endif
+
+
 /*----------------------------------------------------------------------*/
 /*  Constant & Macro Definitions                                        */
 /*----------------------------------------------------------------------*/
@@ -158,7 +171,7 @@ static s32 __fs_set_vol_flags(struct super_block *sb, u16 new_flag, s32 always_s
 	/* skip updating volume dirty flag,
 	 * if this volume has been mounted with read-only
 	 */
-	if (sb->s_flags & MS_RDONLY)
+	if (sb_rdonly(sb))
 		return 0;
 
 	if (!fsi->pbr_bh) {
@@ -177,7 +190,8 @@ static s32 __fs_set_vol_flags(struct super_block *sb, u16 new_flag, s32 always_s
 		bpb->bsx.state = new_flag & VOL_DIRTY ? FAT_VOL_DIRTY : 0x00;
 	} else { /* FAT16/12 */
 		pbr16_t *bpb = (pbr16_t *) fsi->pbr_bh->b_data;
-		bpb->bpb.state = new_flag & VOL_DIRTY ? FAT_VOL_DIRTY : 0x00;
+		bpb->bpb.f16.state = new_flag & VOL_DIRTY ?
+				     FAT_VOL_DIRTY : 0x00;
 	}
 
 	if (always_sync)
@@ -386,6 +400,9 @@ static s32 __load_upcase_table(struct super_block *sb, u64 sector, u64 num_secto
 	/* thanks for kzalloc
 	 * memset(upcase_table, 0, UTBL_COL_COUNT * sizeof(u16 *));
 	 */
+
+	/* trigger read upcase_table ahead */
+	bdev_readahead(sb, sector, num_sectors);
 
 	fsi->vol_utbl = upcase_table;
 	num_sectors += sector;
@@ -1655,7 +1672,7 @@ static bool is_exfat(pbr_t *pbr)
 
 static bool is_fat32(pbr_t *pbr)
 {
-	if (le16_to_cpu(pbr->bpb.f16.num_fat_sectors))
+	if (le16_to_cpu(pbr->bpb.fat.num_fat_sectors))
 		return false;
 	return true;
 }
@@ -1668,7 +1685,7 @@ inline pbr_t *read_pbr_with_logical_sector(struct super_block *sb, struct buffer
 	if (is_exfat(p_pbr))
 		logical_sect = 1 << p_pbr->bsx.f64.sect_size_bits;
 	else
-		logical_sect = get_unaligned_le16(&p_pbr->bpb.f16.sect_size);
+		logical_sect = get_unaligned_le16(&p_pbr->bpb.fat.sect_size);
 
 	/* is x a power of 2?
 	 * (x) != 0 && (((x) & ((x) - 1)) == 0)
@@ -1724,7 +1741,6 @@ s32 fscore_mount(struct super_block *sb)
 	pbr_t *p_pbr;
 	struct buffer_head *tmp_bh = NULL;
 	struct gendisk *disk = sb->s_bdev->bd_disk;
-	struct hd_struct *part = sb->s_bdev->bd_part;
 	struct sdfat_mount_options *opts = &(SDFAT_SB(sb)->options);
 	FS_INFO_T *fsi = &(SDFAT_SB(sb)->fsi);
 
@@ -1780,18 +1796,6 @@ s32 fscore_mount(struct super_block *sb)
 		opts->improved_allocation = 0;
 		opts->defrag = 0;
 		ret = mount_exfat(sb, p_pbr);
-	} else if (is_fat32(p_pbr)) {
-		if (opts->fs_type && opts->fs_type != FS_TYPE_VFAT) {
-			sdfat_log_msg(sb, KERN_ERR,
-				"not specified filesystem type "
-				"(media:vfat, opts:%s)",
-				FS_TYPE_STR[opts->fs_type]);
-			ret = -EINVAL;
-			goto free_bh;
-		}
-		/* set maximum file size for FAT */
-		sb->s_maxbytes = 0xffffffff;
-		ret = mount_fat32(sb, p_pbr);
 	} else {
 		if (opts->fs_type && opts->fs_type != FS_TYPE_VFAT) {
 			sdfat_log_msg(sb, KERN_ERR,
@@ -1803,9 +1807,14 @@ s32 fscore_mount(struct super_block *sb)
 		}
 		/* set maximum file size for FAT */
 		sb->s_maxbytes = 0xffffffff;
-		opts->improved_allocation = 0;
-		opts->defrag = 0;
-		ret = mount_fat16(sb, p_pbr);
+
+		if (is_fat32(p_pbr)) {
+			ret = mount_fat32(sb, p_pbr);
+		} else {
+			opts->improved_allocation = 0;
+			opts->defrag = 0;
+			ret = mount_fat16(sb, p_pbr);
+		}
 	}
 free_bh:
 	brelse(tmp_bh);
@@ -1817,8 +1826,9 @@ free_bh:
 	/* warn misaligned data data start sector must be a multiple of clu_size */
 	sdfat_log_msg(sb, KERN_INFO,
 		"detected volume info     : %s "
-		"(bps : %lu, spc : %u, data start : %llu, %s)",
+		"(%04hX-%04hX, bps : %lu, spc : %u, data start : %llu, %s)",
 		sdfat_get_vol_type_str(fsi->vol_type),
+		(fsi->vol_id >> 16) & 0xffff, fsi->vol_id & 0xffff,
 		sb->s_blocksize, fsi->sect_per_clus, fsi->data_start_sector,
 		(fsi->data_start_sector & (fsi->sect_per_clus - 1)) ?
 		"misaligned" : "aligned");
@@ -1827,9 +1837,8 @@ free_bh:
 		"detected volume size     : %llu KB (disk : %llu KB, "
 		"part : %llu KB)",
 		(fsi->num_sectors * (sb->s_blocksize >> SECTOR_SIZE_BITS)) >> 1,
-		disk ? (u64)((disk->part0.nr_sects) >> 1) : 0,
-		part ? (u64)((part->nr_sects) >> 1) : 0);
-
+		disk ? (u64)(get_capacity(disk) >> 1) : 0,
+		(u64)bdev_nr_sectors(sb->s_bdev) >> 1);
 	ret = load_upcase_table(sb);
 	if (ret) {
 		sdfat_log_msg(sb, KERN_ERR, "failed to load upcase table");
@@ -2374,7 +2383,7 @@ s32 fscore_write_link(struct inode *inode, FILE_ID_T *fid, void *buffer, u64 cou
 		ep2 = ep;
 	}
 
-	fsi->fs_func->set_entry_time(ep, tm_now(SDFAT_SB(sb), &tm), TM_MODIFY);
+	fsi->fs_func->set_entry_time(ep, tm_now(inode, &tm), TM_MODIFY);
 	fsi->fs_func->set_entry_attr(ep, fid->attr);
 
 	if (modified) {
@@ -2581,7 +2590,7 @@ s32 fscore_truncate(struct inode *inode, u64 old_size, u64 new_size)
 			ep2 = ep;
 		}
 
-		fsi->fs_func->set_entry_time(ep, tm_now(SDFAT_SB(sb), &tm), TM_MODIFY);
+		fsi->fs_func->set_entry_time(ep, tm_now(inode, &tm), TM_MODIFY);
 		fsi->fs_func->set_entry_attr(ep, fid->attr);
 
 		/*
