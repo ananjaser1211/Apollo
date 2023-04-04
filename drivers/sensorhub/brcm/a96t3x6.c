@@ -3075,12 +3075,14 @@ static int a96t3x6_probe(struct i2c_client *client,
 	ret = a96t3x6_parse_dt(data, &client->dev);
 	if (ret) {
 		GRIP_ERR("failed to a96t3x6_parse_dt\n");
+		input_free_device(input_dev);
 		goto err_config;
 	}
 
 	ret = a96t3x6_irq_init(&client->dev, data);
 	if (ret) {
 		GRIP_ERR("failed to init reg\n");
+		input_free_device(input_dev);
 		goto pwr_config;
 	}
 
@@ -3101,6 +3103,7 @@ static int a96t3x6_probe(struct i2c_client *client,
 	ret = a96t3x6_fw_check(data);
 	if (ret) {
 		GRIP_ERR("failed to firmware check (%d)\n", ret);
+		input_free_device(input_dev);
 		goto err_reg_input_dev;
 	}
 #else
@@ -3114,6 +3117,7 @@ static int a96t3x6_probe(struct i2c_client *client,
 		ret = a96t3x6_i2c_read(client, REG_MODEL_NO, &buf, 1);
 		if (ret) {
 			GRIP_ERR("i2c is failed %d\n", ret);
+			input_free_device(input_dev);
 			goto err_reg_input_dev;
 		} else {
 			GRIP_INFO("i2c is normal, model_no = 0x%2x\n", buf);
@@ -3137,6 +3141,7 @@ static int a96t3x6_probe(struct i2c_client *client,
 	noti_input_dev = input_allocate_device();
 	if (!noti_input_dev) {
 		GRIP_ERR("noti_input_allocate_device failed\n");
+		input_free_device(input_dev);
 		goto err_noti_input_alloc;
 	}
 
@@ -3157,13 +3162,15 @@ static int a96t3x6_probe(struct i2c_client *client,
 	if (ret) {
 		GRIP_ERR("failed to register input dev (%d)\n",
 			 ret);
+		input_free_device(input_dev);
+		input_free_device(noti_input_dev);
 		goto err_reg_input_dev;
 	}
 
 	ret = input_register_device(noti_input_dev);
 	if (ret) {
-		input_free_device(noti_input_dev);
 		GRIP_ERR("failed to register input dev for noti (%d)\n", ret);
+		input_free_device(noti_input_dev);
 		goto err_register_input_dev_noti;
 	}
 
@@ -3238,7 +3245,6 @@ err_reg_input_dev:
 pwr_config:
 err_config:
 	wake_lock_destroy(&data->grip_wake_lock);
-	input_free_device(input_dev);
 err_input_alloc:
 	kfree(data);
 err_alloc:
