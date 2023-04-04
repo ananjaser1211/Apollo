@@ -40,7 +40,7 @@ CR_NAME=Apollo
 CR_JOBS=$(nproc --all)
 # Target Android version
 CR_ANDROID=q
-CR_PLATFORM=10.0.0
+CR_PLATFORM=13.0.0
 # Target ARCH
 CR_ARCH=arm64
 # Current Date
