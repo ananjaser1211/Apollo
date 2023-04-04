@@ -27,7 +27,7 @@
 #include <mali_kbase_sync.h>
 #endif
 #include <linux/dma-mapping.h>
-#include <uapi/gpu/arm/midgard/mali_base_kernel.h>
+#include <uapi/gpu/arm/bv_r32p1/mali_base_kernel.h>
 #include <mali_kbase_hwaccess_time.h>
 #include <mali_kbase_kinstr_jm.h>
 #include <mali_kbase_mem_linux.h>
@@ -1483,10 +1483,11 @@ static void kbase_ext_res_process(struct kbase_jd_atom *katom, bool map)
 			if (!kbase_sticky_resource_acquire(katom->kctx,
 					gpu_addr))
 				goto failed_loop;
-		} else
+		} else {
 			if (!kbase_sticky_resource_release_force(katom->kctx, NULL,
 					gpu_addr))
 				failed = true;
+		}
 	}
 
 	/*

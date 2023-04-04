@@ -28,8 +28,8 @@
 #include <tl/mali_kbase_tracepoints.h>
 #include <backend/gpu/mali_kbase_pm_internal.h>
 #include <linux/export.h>
-#include <uapi/gpu/arm/midgard/csf/mali_gpu_csf_registers.h>
-#include <uapi/gpu/arm/midgard/mali_base_kernel.h>
+#include <uapi/gpu/arm/bv_r32p1/csf/mali_gpu_csf_registers.h>
+#include <uapi/gpu/arm/bv_r32p1/mali_base_kernel.h>
 
 /* Value to indicate that a queue group is not groups_to_schedule list */
 #define KBASEP_GROUP_PREPARED_SEQ_NUM_INVALID (U32_MAX)

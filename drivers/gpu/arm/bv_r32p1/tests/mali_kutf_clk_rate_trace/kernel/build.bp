@@ -1,7 +1,7 @@
 /* SPDX-License-Identifier: GPL-2.0 WITH Linux-syscall-note */
 /*
  *
- * (C) COPYRIGHT 2014-2016, 2020-2021 ARM Limited. All rights reserved.
+ * (C) COPYRIGHT 2020-2021 ARM Limited. All rights reserved.
  *
  * This program is free software and is provided to you under the terms of the
  * GNU General Public License version 2 as published by the Free Software
@@ -19,19 +19,25 @@
  *
  */
 
-#ifndef _KBASE_CACHE_POLICY_BACKEND_H_
-#define _KBASE_CACHE_POLICY_BACKEND_H_
-
-#include "mali_kbase.h"
-#include <uapi/gpu/arm/bv_r32p1/mali_base_kernel.h>
-
-/**
-  * kbase_cache_set_coherency_mode() - Sets the system coherency mode
-  *			in the GPU.
-  * @kbdev:	Device pointer
-  * @mode:	Coherency mode. COHERENCY_ACE/ACE_LITE
-  */
-void kbase_cache_set_coherency_mode(struct kbase_device *kbdev,
-		u32 mode);
-
-#endif				/* _KBASE_CACHE_POLICY_H_ */
+bob_kernel_module {
+    name: "mali_kutf_clk_rate_trace_test_portal",
+    defaults: [
+        "mali_kbase_shared_config_defaults",
+        "kernel_test_configs",
+        "kernel_test_includes",
+    ],
+    srcs: [
+        "Kbuild",
+        "mali_kutf_clk_rate_trace_test.c",
+        "../mali_kutf_clk_rate_trace_test.h",
+    ],
+    extra_symbols: [
+        "mali_kbase",
+        "kutf",
+    ],
+    enabled: false,
+    mali_kutf_clk_rate_trace: {
+        kbuild_options: ["CONFIG_MALI_KUTF_CLK_RATE_TRACE=y"],
+        enabled: true,
+    },
+}
