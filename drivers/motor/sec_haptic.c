@@ -234,7 +234,9 @@ static ssize_t duty_store(struct device *dev,
 		dev_err(dev, "fail to get duty.\n");
 		return count;
 	}
-	ddata->duty = ddata->max_duty = ddata->multi_freq_duty[0] = duty;
+	ddata->duty = ddata->max_duty = duty;
+	if (ddata->multi_frequency)
+		ddata->multi_freq_duty[0] = duty;
 	ddata->intensity = MAX_INTENSITY;
 
 	return count;
@@ -262,7 +264,9 @@ static ssize_t period_store(struct device *dev,
 		dev_err(dev, "fail to get period.\n");
 		return count;
 	}
-	ddata->period = ddata->multi_freq_period[0] = period;
+	ddata->period = period;
+	if (ddata->multi_frequency)
+		ddata->multi_freq_period[0] = period;
 
 	return count;
 }
@@ -304,8 +308,8 @@ static ssize_t intensity_store(struct device *dev,
 
 	pr_info("%s %d\n", __func__, intensity);
 
-	if ((intensity < 0) || (intensity > MAX_INTENSITY)) {
-		pr_err("[VIB]: %s out of range\n", __func__);
+	if ((intensity < 1) || ( intensity > MAX_INTENSITY)) {
+		pr_err("%s out of range %d\n", __func__, intensity);
 		return -EINVAL;
 	}
 
@@ -346,8 +350,8 @@ static ssize_t force_touch_intensity_store(struct device *dev,
 
 	pr_info("%s %d\n", __func__, intensity);
 
-	if ((intensity < 0) || (intensity > MAX_INTENSITY)) {
-		pr_err("[VIB]: %s out of range\n", __func__);
+	if ((intensity < 1) || ( intensity > MAX_INTENSITY)) {
+		pr_err("%s out of range %d\n", __func__, intensity);
 		return -EINVAL;
 	}
 
@@ -378,6 +382,9 @@ static ssize_t multi_freq_store(struct device *dev,
 
 	pr_info("%s %d\n", __func__, num);
 
+	if (num < 0 || num >= HOMEKEY_PRESS_FREQ)
+		return -EINVAL;
+	
 	ret = sec_haptic_set_frequency(ddata, num);
 	if (ret)
 		return ret;
@@ -401,11 +408,12 @@ static ssize_t haptic_engine_store(struct device *dev,
 	int i = 0, _data = 0, tmp = 0;
 
 	if (sscanf(buf, "%6d", &_data) != 1)
-		return count;
+		return -EINVAL;
 
-	if (_data > PACKET_MAX_SIZE * VIB_PACKET_MAX)
+	if (_data > PACKET_MAX_SIZE * VIB_PACKET_MAX) {
 		pr_info("%s, [%d] packet size over\n", __func__, _data);
-	else {
+		return -EINVAL;
+	} else {
 		ddata->packet_size = _data / VIB_PACKET_MAX;
 		ddata->packet_cnt = 0;
 		ddata->f_packet_en = true;
@@ -418,14 +426,14 @@ static ssize_t haptic_engine_store(struct device *dev,
 					pr_err("%s, buf is NULL, Please check packet data again\n",
 							__func__);
 					ddata->f_packet_en = false;
-					return count;
+					return -EINVAL;
 				}
 
 				if (sscanf(buf++, "%6d", &_data) != 1) {
 					pr_err("%s, packet data error, Please check packet data again\n",
 							__func__);
 					ddata->f_packet_en = false;
-					return count;
+					return -EINVAL;
 				}
 
 				switch (tmp) {
@@ -625,6 +633,8 @@ extern int haptic_homekey_press(void)
 
 	if (ddata == NULL)
 		return -1;
+	if (!ddata->multi_frequency)
+		return -1;
 	timer = &ddata->timer;
 
 	sec_haptic_boost(ddata, BOOST_ON);
@@ -652,6 +662,8 @@ extern int haptic_homekey_release(void)
 	struct hrtimer *timer;
 
 	if (ddata == NULL)
+		return -1;
+	if (!ddata->multi_frequency)
 		return -1;
 	timer = &ddata->timer;
 
