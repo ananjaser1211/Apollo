@@ -73,6 +73,7 @@ struct sec_haptic_drvdata {
 	int packet_size;
 	int packet_cnt;
 	int freq_num;
+	const char *vib_type;
 	u16 max_timeout;
 	u32 period;
 	u32 intensity;

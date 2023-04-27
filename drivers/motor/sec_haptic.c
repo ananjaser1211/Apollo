@@ -323,6 +323,15 @@ static ssize_t intensity_show(struct device *dev,
 		"intensity: %u\n", ddata->intensity);
 }
 
+
+static ssize_t motor_type_show(struct device *dev,
+			struct device_attribute *attr, char *buf)
+{
+	struct sec_haptic_drvdata *ddata = dev_get_drvdata(dev);
+
+	return snprintf(buf, VIB_BUFSIZE,
+		"%s\n", ddata->vib_type);
+}
 static ssize_t force_touch_intensity_store(struct device *dev,
 		struct device_attribute *devattr, const char *buf, size_t count)
 {
@@ -495,11 +504,13 @@ static DEVICE_ATTR_RW(multi_freq);
 static DEVICE_ATTR_RW(intensity);
 static DEVICE_ATTR_RW(force_touch_intensity);
 static DEVICE_ATTR_RW(enable);
+static DEVICE_ATTR(motor_type, S_IWUSR | S_IRUGO, motor_type_show, NULL);
 
 static struct attribute *timed_output_attributes[] = {
 	&dev_attr_intensity.attr,
 	&dev_attr_force_touch_intensity.attr,
 	&dev_attr_enable.attr,
+	&dev_attr_motor_type.attr,
 	NULL,
 };
 

@@ -43,6 +43,7 @@ struct max77705_haptic_pdata {
 	int gpio;
 	char *regulator_name;
 	unsigned int pwm_id;
+	const char *vib_type;
 
 	/* for multi-frequency */
 	int multi_frequency;

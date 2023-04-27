@@ -118,6 +118,7 @@ static struct max77705_haptic_pdata *of_max77705_haptic_dt(struct device *dev)
 	struct device_node *np;
 	struct max77705_haptic_pdata *pdata;
 	u32 temp;
+	const char *type;
 	int ret, i;
 
 	pdata = kzalloc(sizeof(struct max77705_haptic_pdata),
@@ -213,6 +214,14 @@ static struct max77705_haptic_pdata *of_max77705_haptic_dt(struct device *dev)
 			pdata->period = (u16)temp;
 	}
 
+	ret = of_property_read_string(np,
+			"haptic,type", &type);
+	if (ret) {
+		pr_err("%s : error to get dt node type\n", __func__);
+		goto err_parsing_dt;
+	} else
+		pdata->vib_type = type;
+
 	ret = of_property_read_u32(np,
 			"haptic,pwm_id", &temp);
 	if (ret) {
@@ -292,6 +301,7 @@ static int max77705_haptic_probe(struct platform_device *pdev)
 	shdata->max_timeout = pdata->max_timeout;
 	shdata->multi_frequency = pdata->multi_frequency;
 	shdata->freq_num = pdata->freq_num;
+	shdata->vib_type = pdata->vib_type;
 	shdata->multi_freq_duty = pdata->multi_freq_duty;
 	shdata->multi_freq_period = pdata->multi_freq_period;
 	shdata->data = drvdata;
