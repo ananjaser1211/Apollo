@@ -12635,6 +12635,7 @@
 		haptic,regulator_name = "VDD_MOTOR_3P3";
 		haptic,normal_ratio = <0x53>;
 		haptic,overdrive_ratio = <0x5f>;
+		haptic,type = "LINEAR_1040";
 	};
 
 	sound {
