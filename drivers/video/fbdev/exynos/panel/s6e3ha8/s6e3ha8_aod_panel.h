@@ -53,6 +53,8 @@ static DEFINE_PANEL_KEY(s6e3ha8_aod_level3_key_enable, CMD_LEVEL_3,
 static DEFINE_PANEL_KEY(s6e3ha8_aod_level3_key_disable, CMD_LEVEL_3,
 	KEY_DISABLE, &PKTINFO(s6e3ha8_aod_level3_key_disable));
 
+static DEFINE_PANEL_MDELAY(s6e3ha8_aod_set_timer_delay, 34);
+
 static struct keyinfo KEYINFO(s6e3ha8_aod_level2_key_enable);
 static struct keyinfo KEYINFO(s6e3ha8_aod_level2_key_disable);
 static struct keyinfo KEYINFO(s6e3ha8_aod_level3_key_enable);
@@ -595,6 +597,7 @@ static void *s6e3ha8_aod_set_time_cmdtbl[] = {
 	&KEYINFO(s6e3ha8_aod_level2_key_enable),
 	&PKTINFO(s6e3ha8_aod_set_time),
 	&PKTINFO(s6e3ha8_aod_update_time_ctrl),
+	&DLYINFO(s6e3ha8_aod_set_timer_delay),
 	&KEYINFO(s6e3ha8_aod_level2_key_disable),
 };
 

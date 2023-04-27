@@ -1679,9 +1679,7 @@ void decon_reg_set_dsu(u32 id, enum decon_dsi_mode dsi_mode, struct decon_param 
 #define EXYNOS_DPU_DUMP		_IOW('F', 302, \
 						struct decon_win_config_data)
 
-#ifdef CONFIG_SUPPORT_DOZE
 #define S3CFB_POWER_MODE		_IOW('F', 223, __u32)
-#endif
 
 /* HDR support */
 #define S3CFB_GET_HDR_CAPABILITIES _IOW('F', 400, struct decon_hdr_capabilities)
