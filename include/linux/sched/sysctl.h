@@ -45,6 +45,12 @@ extern unsigned int sysctl_sched_migration_cost;
 extern unsigned int sysctl_sched_nr_migrate;
 extern unsigned int sysctl_sched_time_avg;
 extern unsigned int sysctl_sched_shares_window;
+extern unsigned int sched_switch_to_rt_load_ratio;
+extern unsigned int sched_switch_to_fair_load_ratio;
+extern unsigned int sched_rt_remove_ratio_for_freq;
+#ifdef CONFIG_SCHED_USE_FLUID_RT
+extern unsigned int sched_rt_boost_threshold;
+#endif
 
 int sched_proc_update_handler(struct ctl_table *table, int write,
 		void __user *buffer, size_t *length,
