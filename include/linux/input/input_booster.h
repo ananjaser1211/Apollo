@@ -7,6 +7,7 @@
 #include <linux/cpufreq.h>
 #include <linux/kernel.h>
 #include <linux/workqueue.h>
+#include <linux/slab.h>
 #include <linux/input.h>
 
 #pragma GCC diagnostic ignored "-Wunused-variable"
