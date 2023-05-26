@@ -7657,7 +7657,7 @@ int __alloc_contig_range(unsigned long start, unsigned long end,
 	 * -EBUSY is not accidentally used or returned to caller.
 	 */
 	ret = __alloc_contig_migrate_range(&cc, start, end, drain, migratetype);
-	if (ret && ret != -EBUSY)
+	if (ret && (ret != -EBUSY || (gfp_mask & __GFP_NORETRY)))
 		goto done;
 	ret =0;
 
