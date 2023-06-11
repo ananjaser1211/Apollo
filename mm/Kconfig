@@ -663,13 +663,13 @@ config ZSMALLOC_STAT
 
 config DIRECT_RECLAIM_FILE_PAGES_ONLY
 	bool "Reclaim file pages only on direct reclaim path"
-	depends on ZSWAP
-	default n
+	depends on SWAP
+	default y
 
 config INCREASE_MAXIMUM_SWAPPINESS
 	bool "Allow swappiness to be set up to 200"
-	depends on ZSWAP
-	default n
+	depends on SWAP
+	default y
 
 config FIX_INACTIVE_RATIO
 	bool "Fix active:inactive anon ratio to 1:1"
@@ -778,6 +778,7 @@ config LARGE_DIRTY_BUFFER
 
 config MAX_DIRTY_THRESH_PAGES
        int "The upper bound of VM dirty_thresh value in number of pages"
+	depends on LARGE_DIRTY_BUFFER
        default 25600
        help
          This value is the upper bound of VM dirty-thresh. (0 means no limit.)
