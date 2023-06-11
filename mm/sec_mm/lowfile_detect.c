@@ -30,7 +30,7 @@ static unsigned long lowfile_count(struct shrinker *s,
 		pr_info("low file detected : %lukB < %luKB\n", K(file),
 			K(min_file));
 #ifdef CONFIG_SEC_MM
-		show_mem(0, NULL);
+		show_mem(0);
 #else
 		mm_debug_show_free_areas();
 #endif

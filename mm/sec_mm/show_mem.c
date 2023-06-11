@@ -41,12 +41,12 @@ void mm_debug_show_free_areas(void)
 		K(global_node_page_state(NR_SLAB_UNRECLAIMABLE)),
 		K(global_node_page_state(NR_FILE_MAPPED)),
 		K(global_node_page_state(NR_SHMEM)),
-		K(global_zone_page_state(NR_PAGETABLE)),
-		K(global_zone_page_state(NR_BOUNCE)),
-		K(global_zone_page_state(NR_FREE_PAGES)),
-		K(global_zone_page_state(NR_FREE_CMA_PAGES)),
+		K(global_page_state(NR_PAGETABLE)),
+		K(global_page_state(NR_BOUNCE)),
+		K(global_page_state(NR_FREE_PAGES)),
+		K(global_page_state(NR_FREE_CMA_PAGES)),
 #if IS_ENABLED(CONFIG_ZSMALLOC)
-		K(global_zone_page_state(NR_ZSPAGES)),
+		K(global_page_state(NR_ZSPAGES)),
 #endif
 		K(get_nr_swap_pages()));
 }

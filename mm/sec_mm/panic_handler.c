@@ -18,7 +18,7 @@ static int sec_mm_panic_handler(struct notifier_block *nb, unsigned long action,
 		return NOTIFY_DONE;
 
 #ifdef CONFIG_SEC_MM
-	show_mem(0, NULL);
+	show_mem(0);
 #else
 	mm_debug_show_free_areas();
 #endif
