@@ -38,6 +38,7 @@ obj-y			:= filemap.o mempool.o oom_kill.o \
 			   compaction.o vmacache.o \
 			   interval_tree.o list_lru.o workingset.o \
 			   debug.o $(mmu-y) showmem_extra.o
+obj-y += sec_mm/
 
 obj-y += init-mm.o
 

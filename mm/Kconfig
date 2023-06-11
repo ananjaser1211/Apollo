@@ -849,3 +849,5 @@ config VMPRESSURE_LEVEL_MED
 	default 60
 	help
 	  This supports to adjust vmpressure_level_med threshold value
+
+source "mm/sec_mm/Kconfig"
