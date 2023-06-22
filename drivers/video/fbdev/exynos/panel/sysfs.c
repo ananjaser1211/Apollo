@@ -2969,6 +2969,29 @@ static ssize_t isc_defect_store(struct device *dev,
 
 #endif
 
+int fix_green_screen = 0;
+
+static ssize_t fix_green_screen_show(struct device *dev,
+	struct device_attribute *attr, char *buf)
+{
+	snprintf(buf, PAGE_SIZE, "%d\n", fix_green_screen);
+
+	return strlen(buf);
+}
+
+static ssize_t fix_green_screen_store(struct device *dev,
+	struct device_attribute *attr, const char *buf, size_t size)
+{
+	int rc;
+
+	rc = kstrtouint(buf, 0, &fix_green_screen);
+	if (rc < 0)
+		return rc;
+
+	dev_info(dev, "%s: %d\n", __func__, fix_green_screen);
+
+	return size;
+}
 
 struct device_attribute panel_attrs[] = {
 	__PANEL_ATTR_RO(lcd_type, 0444),
@@ -3046,6 +3069,7 @@ struct device_attribute panel_attrs[] = {
 #ifdef CONFIG_SUPPORT_ISC_DEFECT
 	__PANEL_ATTR_RW(isc_defect, 0664),
 #endif
+	__PANEL_ATTR_RW(fix_green_screen, 0664),
 };
 
 int panel_sysfs_probe(struct panel_device *panel)
