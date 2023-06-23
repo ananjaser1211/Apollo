@@ -1825,7 +1825,7 @@ static long panel_core_ioctl(struct v4l2_subdev *sd, unsigned int cmd, void *arg
 			panel_info("PANEL:INFO:%s:FRAME_DONE (panel_state:%s, display on)\n",
 					__func__, panel_state_names[panel->state.cur_state]);
 			ret = panel_display_on(panel);
-			if (!ret)
+			if (!ret && panel->state.cur_state != PANEL_STATE_ALPM)
 				fix_green = 1;
 		}
 		copr_update_start(&panel->copr, 3);
