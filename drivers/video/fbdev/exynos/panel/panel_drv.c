@@ -1739,10 +1739,35 @@ static int panel_set_finger_layer(struct panel_device *panel, void *arg)
 	return ret;
 }
 #endif
+
+#ifdef CONFIG_SUPPORT_DOZE
+static int fix_green(struct panel_device *panel) {
+    int ret = 0;
+
+    if (panel->state.cur_state == PANEL_STATE_ALPM) {
+        return 0;
+    }
+
+    ret = panel_doze(panel, PANEL_IOC_DOZE);
+    if (ret) {
+        panel_err("PANEL:ERR:%s:failed to enter alpm\n", __func__);
+        return ret;
+    }
+
+    // sleep 126msec (ALPM spec)
+    usleep_range(126 * 1000, 126 * 1000 + 10);
+
+    ret = panel_sleep_out(panel);
+    if (ret)
+        panel_err("PANEL:ERR:%s:failed to panel exit alpm\n", __func__);
+
+    return ret;
+}
+#endif
+
 static long panel_core_ioctl(struct v4l2_subdev *sd, unsigned int cmd, void *arg)
 {
 	int ret = 0;
-	int fix_green = 0;
 	struct panel_device *panel = container_of(sd, struct panel_device, sd);
 
 	mutex_lock(&panel->io_lock);
@@ -1824,30 +1849,15 @@ static long panel_core_ioctl(struct v4l2_subdev *sd, unsigned int cmd, void *arg
 		if (panel->state.disp_on == PANEL_DISPLAY_OFF) {
 			panel_info("PANEL:INFO:%s:FRAME_DONE (panel_state:%s, display on)\n",
 					__func__, panel_state_names[panel->state.cur_state]);
-			ret = panel_display_on(panel);
-			if (!ret && panel->state.cur_state != PANEL_STATE_ALPM)
-				fix_green = 1;
-		}
-		copr_update_start(&panel->copr, 3);
 
 #ifdef CONFIG_SUPPORT_DOZE
-		if (fix_green && fix_green_screen) {
-			ret = panel_doze(panel, PANEL_IOC_DOZE);
-			if (ret) {
-				panel_err("PANEL:ERR:%s:failed to enter alpm\n",
-					__func__);
-				break;
-			}
-			// sleep 126msec (ALPM spec)
-			usleep_range(126 * 1000, 126 * 1000 + 10);
-			ret = panel_sleep_out(panel);
-			if (ret) {
-				panel_err("PANEL:ERR:%s:failed to panel exit alpm\n",
-					__func__);
-				break;
-			}
-		}
+            if (fix_green_screen)
+                fix_green(panel);
 #endif
+
+			ret = panel_display_on(panel);
+		}
+		copr_update_start(&panel->copr, 3);
 		break;
 	case PANEL_IOC_EVT_VSYNC:
 		//panel_dbg("PANEL:INFO:%s:PANEL_IOC_EVT_VSYNC\n", __func__);
