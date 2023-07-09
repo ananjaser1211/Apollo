@@ -2751,6 +2751,10 @@ void kbase_mmu_term(struct kbase_device *kbdev, struct kbase_mmu_table *mmut)
 {
 	int level;
 
+        WARN((mmut->kctx) && (mmut->kctx->as_nr != KBASEP_AS_NR_INVALID),
+        "kctx-%d_%d must first be scheduled out to flush GPU caches+tlbs before tearing down MMU tables",
+        mmut->kctx->tgid, mmut->kctx->id);
+
 	if (mmut->pgd) {
 		mutex_lock(&mmut->mmu_lock);
 		mmu_teardown_level(kbdev, mmut, mmut->pgd, MIDGARD_MMU_TOPLEVEL);
