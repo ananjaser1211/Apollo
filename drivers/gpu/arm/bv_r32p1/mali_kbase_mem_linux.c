@@ -1765,6 +1765,9 @@ u64 kbase_mem_alias(struct kbase_context *kctx, u64 *flags, u64 stride,
 	if (!nents)
 		goto bad_nents;
 
+	if (stride > U64_MAX / nents)
+		goto bad_size;
+
 	if ((nents * stride) > (U64_MAX / PAGE_SIZE))
 		/* 64-bit address range is the max */
 		goto bad_size;
@@ -2222,6 +2225,9 @@ int kbase_mem_commit(struct kbase_context *kctx, u64 gpu_addr, u64 new_pages)
 		goto out_unlock;
 	/* can't grow regions which are ephemeral */
 	if (reg->flags & KBASE_REG_DONT_NEED)
+		goto out_unlock;
+
+	 if (reg->flags & KBASE_REG_NO_USER_FREE)
 		goto out_unlock;
 
 #ifdef CONFIG_MALI_MEMORY_FULLY_BACKED
@@ -3053,6 +3059,10 @@ void *kbase_vmap_prot(struct kbase_context *kctx, u64 gpu_addr, size_t size,
 			gpu_addr);
 	if (kbase_is_region_invalid_or_free(reg))
 		goto out_unlock;
+
+	if (reg->gpu_alloc->type != KBASE_MEM_TYPE_NATIVE)
+		goto out_unlock;
+
 
 	/* check access permissions can be satisfied
 	 * Intended only for checking KBASE_REG_{CPU,GPU}_{RD,WR}

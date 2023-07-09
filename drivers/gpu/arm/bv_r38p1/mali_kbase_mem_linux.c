@@ -2257,6 +2257,9 @@ int kbase_mem_commit(struct kbase_context *kctx, u64 gpu_addr, u64 new_pages)
 	if (reg->flags & KBASE_REG_DONT_NEED)
 		goto out_unlock;
 
+	 if (reg->flags & KBASE_REG_NO_USER_FREE)
+		goto out_unlock;
+
 #ifdef CONFIG_MALI_MEMORY_FULLY_BACKED
 	/* Reject resizing commit size */
 	if (reg->flags & KBASE_REG_PF_GROW)
@@ -3098,6 +3101,10 @@ void *kbase_vmap_prot(struct kbase_context *kctx, u64 gpu_addr, size_t size,
 			gpu_addr);
 	if (kbase_is_region_invalid_or_free(reg))
 		goto out_unlock;
+
+	if (reg->gpu_alloc->type != KBASE_MEM_TYPE_NATIVE)
+		goto out_unlock;
+
 
 	/* check access permissions can be satisfied
 	 * Intended only for checking KBASE_REG_{CPU,GPU}_{RD,WR}
