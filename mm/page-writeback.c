@@ -71,7 +71,7 @@ static long ratelimit_pages = 32;
  * Start background writeback (via writeback threads) at this percentage
  */
 #ifdef CONFIG_LARGE_DIRTY_BUFFER
-int dirty_background_ratio = 5;
+int dirty_background_ratio = 14;
 #else
 int dirty_background_ratio;
 #endif
