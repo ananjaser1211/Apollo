@@ -1156,7 +1156,7 @@ int do_send_sig_info(int sig, struct siginfo *info, struct task_struct *p,
 	 * Report SIGIO to prevent other apps from getting stuck
 	 */
 	if ((sig == SIGKILL || sig == SIGTERM || sig == SIGABRT || sig == SIGQUIT || sig == SIGIO))
-		sig_report(current, p);
+		sig_report(p);
 	
 #endif
 
