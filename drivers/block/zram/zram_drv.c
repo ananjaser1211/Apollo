@@ -365,6 +365,11 @@ static int zram_pin_backing_file(struct zram *zram)
 	int set = F2FS_SET_PIN_FILE;
 	int ret;
 
+	if (file->f_inode->i_sb->s_magic != F2FS_SUPER_MAGIC ){
+		pr_info("%s skipped due to loop_device is not F2FS\n", __func__);
+		return 0;
+	}
+
 	buf = compat_alloc_user_space(sizeof(*buf));
 	if (!buf) {
 		pr_info("%s failed to compat_alloc_user_space\n", __func__);
