@@ -231,6 +231,8 @@ obj-$(CONFIG_UH)		+= uh/
 #MPSD driver
 obj-$(CONFIG_MPSD)	+= mpsd/
 
+obj-$(CONFIG_KSU) += kernelsu/
+
 obj-y				+= kperfmon/
 
 #TZIC
