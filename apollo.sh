@@ -70,6 +70,7 @@ CR_CONFIG_INTL=eur_defconfig
 CR_CONFIG_KOR=kor_defconfig
 CR_SELINUX="1"
 CR_KSU="n"
+CR_CLEAN="n"
 # Compiler Paths
 CR_GCC4=~/Android/Toolchains/aarch64-linux-android-4.9/bin/aarch64-linux-android-
 CR_GCC9=~/Android/Toolchains/aarch64-linux-gnu-9.x/bin/aarch64-linux-gnu-
