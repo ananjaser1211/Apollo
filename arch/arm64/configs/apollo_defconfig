@@ -22,3 +22,9 @@ CONFIG_PELT_HALFLIFE_16=y
 # SEC Memory Management Options
 #
 CONFIG_SEC_MM=y
+
+#
+# MoroSound
+#
+CONFIG_MORO_SOUND=y
+
