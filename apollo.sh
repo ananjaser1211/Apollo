@@ -34,7 +34,7 @@ CR_KERNEL=$CR_DIR/arch/arm64/boot/Image
 # Compiled dtb by dtbtool
 CR_DTB=$CR_DIR/arch/arm64/boot/dtb.img
 # Kernel Name and Version
-CR_VERSION=V5.1
+CR_VERSION=V5.2
 CR_NAME=Apollo
 # Thread count
 CR_JOBS=$(nproc --all)
