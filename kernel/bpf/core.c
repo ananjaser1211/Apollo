@@ -297,6 +297,12 @@ struct bpf_prog *bpf_patch_insn_single(struct bpf_prog *prog, u32 off,
 }
 
 #ifdef CONFIG_BPF_JIT
+/* All BPF JIT sysctl knobs here. */
+int bpf_jit_enable   __read_mostly = IS_BUILTIN(CONFIG_BPF_JIT_ALWAYS_ON);
+int bpf_jit_harden   __read_mostly;
+int bpf_jit_kallsyms __read_mostly;
+long bpf_jit_limit   __read_mostly;
+
 static __always_inline void
 bpf_get_prog_addr_region(const struct bpf_prog *prog,
 			 unsigned long *symbol_start,
@@ -364,8 +370,6 @@ static const struct latch_tree_ops bpf_tree_ops = {
 static DEFINE_SPINLOCK(bpf_lock);
 static LIST_HEAD(bpf_kallsyms);
 static struct latch_tree_root bpf_tree __cacheline_aligned;
-
-int bpf_jit_kallsyms __read_mostly;
 
 static void bpf_prog_ksym_node_add(struct bpf_prog_aux *aux)
 {
@@ -496,12 +500,6 @@ int bpf_get_kallsym(unsigned int symnum, unsigned long *value, char *type,
 
 	return ret;
 }
-
-/* All BPF JIT sysctl knobs here. */
-int bpf_jit_enable   __read_mostly = IS_BUILTIN(CONFIG_BPF_JIT_ALWAYS_ON);
-int bpf_jit_harden   __read_mostly;
-long bpf_jit_limit   __read_mostly;
-long bpf_jit_limit_max __read_mostly;
 
 static atomic_long_t bpf_jit_current;
 
@@ -1357,21 +1355,13 @@ load_byte:
 STACK_FRAME_NON_STANDARD(__bpf_prog_run); /* jump table */
 
 #else
-static unsigned int __bpf_prog_ret0_warn(void *ctx,
+static unsigned int __bpf_prog_ret0_warn(const void *ctx,
 					 const struct bpf_insn *insn)
 {
 	/* If this handler ever gets executed, then BPF_JIT_ALWAYS_ON
 	 * is not working properly, so warn about it!
 	 */
 	WARN_ON_ONCE(1);
-	return 0;
-}
-#endif
-
-#else
-static unsigned int __bpf_prog_ret0(const void *ctx,
-				    const struct bpf_insn *insn)
-{
 	return 0;
 }
 #endif
