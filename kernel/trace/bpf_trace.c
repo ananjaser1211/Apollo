@@ -17,7 +17,7 @@
 
 /**
  * trace_call_bpf - invoke BPF program
- * @call: tracepoint event
+ * @prog: BPF program
  * @ctx: opaque context pointer
  *
  * kprobe handlers execute BPF programs via this helper.
@@ -29,7 +29,7 @@
  * 1 - store kprobe event into ring buffer
  * Other values are reserved and currently alias to 1
  */
-unsigned int trace_call_bpf(struct trace_event_call *call, void *ctx)
+unsigned int trace_call_bpf(struct bpf_prog *prog, void *ctx)
 {
 	unsigned int ret;
 
@@ -49,22 +49,9 @@ unsigned int trace_call_bpf(struct trace_event_call *call, void *ctx)
 		goto out;
 	}
 
-	/*
-	 * Instead of moving rcu_read_lock/rcu_dereference/rcu_read_unlock
-	 * to all call sites, we did a bpf_prog_array_valid() there to check
-	 * whether call->prog_array is empty or not, which is
-	 * a heurisitc to speed up execution.
-	 *
-	 * If bpf_prog_array_valid() fetched prog_array was
-	 * non-NULL, we go into trace_call_bpf() and do the actual
-	 * proper rcu_dereference() under RCU lock.
-	 * If it turns out that prog_array is NULL then, we bail out.
-	 * For the opposite, if the bpf_prog_array_valid() fetched pointer
-	 * was NULL, you'll skip the prog_array with the risk of missing
-	 * out of events when it was updated in between this and the
-	 * rcu_dereference() which is accepted risk.
-	 */
-	ret = BPF_PROG_RUN_ARRAY_CHECK(call->prog_array, ctx, BPF_PROG_RUN);
+	rcu_read_lock();
+	ret = BPF_PROG_RUN(prog, ctx);
+	rcu_read_unlock();
 
  out:
 	__this_cpu_dec(bpf_prog_active);
