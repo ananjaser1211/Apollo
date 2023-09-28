@@ -3535,19 +3535,14 @@ static ssize_t cgroup_pressure_write(struct kernfs_open_file *of, char *buf,
 	cgroup_get(cgrp);
 	cgroup_kn_unlock(of->kn);
 
-	/* Allow only one trigger per file descriptor */
-	if (of->priv) {
-		cgroup_put(cgrp);
-		return -EBUSY;
-	}
-
 	new = psi_trigger_create(&cgrp->psi, buf, nbytes, res);
 	if (IS_ERR(new)) {
 		cgroup_put(cgrp);
 		return PTR_ERR(new);
 	}
 
-	smp_store_release(&of->priv, new);
+	psi_trigger_replace(&of->priv, new);
+
 	cgroup_put(cgrp);
 
 	return nbytes;
@@ -3582,7 +3577,7 @@ static unsigned int cgroup_pressure_poll(struct kernfs_open_file *of,
 
 static void cgroup_pressure_release(struct kernfs_open_file *of)
 {
-	psi_trigger_destroy(of->priv);
+	psi_trigger_replace(&of->priv, NULL);
 }
 #endif /* CONFIG_PSI */
 
@@ -5440,6 +5435,12 @@ static struct cgroup *cgroup_create(struct cgroup *parent)
 	 */
 	if (!cgroup_on_dfl(cgrp))
 		cgrp->subtree_control = cgroup_control(cgrp);
+
+	if (cgroup_on_dfl(cgrp)) {
+		ret = psi_cgroup_alloc(cgrp);
+		if (ret)
+			goto out_idr_free;
+	}
 
 	cgroup_propagate_control(cgrp);
 
