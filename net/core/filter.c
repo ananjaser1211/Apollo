@@ -2936,45 +2936,11 @@ static bool sock_filter_is_valid_access(int off, int size,
 
 	if (off < 0 || off + size > sizeof(struct bpf_sock))
 		return false;
-
 	/* The verifier guarantees that size > 0. */
 	if (off % size != 0)
 		return false;
 
 	return true;
-}
-
-static bool lwt_is_valid_access(int off, int size,
-				enum bpf_access_type type,
-				enum bpf_reg_type *reg_type)
-{
-	switch (off) {
-	case offsetof(struct __sk_buff, tc_classid):
-		return false;
-	}
-
-	if (type == BPF_WRITE) {
-		switch (off) {
-		case offsetof(struct __sk_buff, mark):
-		case offsetof(struct __sk_buff, priority):
-		case offsetof(struct __sk_buff, cb[0]) ...
-		     offsetof(struct __sk_buff, cb[4]):
-			break;
-		default:
-			return false;
-		}
-	}
-
-	switch (off) {
-	case offsetof(struct __sk_buff, data):
-		*reg_type = PTR_TO_PACKET;
-		break;
-	case offsetof(struct __sk_buff, data_end):
-		*reg_type = PTR_TO_PACKET_END;
-		break;
-	}
-
-	return __is_valid_access(off, size, type);
 }
 
 static int tc_cls_act_prologue(struct bpf_insn *insn_buf, bool direct_write,
@@ -3043,11 +3009,10 @@ static bool tc_cls_act_is_valid_access(int off, int size,
 		break;
 	}
 
-	return __is_valid_access(off, size, type);
+	return __is_valid_access(off, size);
 }
 
-static bool __is_valid_xdp_access(int off, int size,
-				  enum bpf_access_type type)
+static bool __is_valid_xdp_access(int off, int size)
 {
 	if (off < 0 || off >= sizeof(struct xdp_md))
 		return false;
@@ -3075,7 +3040,7 @@ static bool xdp_is_valid_access(int off, int size,
 		break;
 	}
 
-	return __is_valid_xdp_access(off, size, type);
+	return __is_valid_xdp_access(off, size);
 }
 
 void bpf_warn_invalid_xdp_action(u32 act)
@@ -3288,7 +3253,6 @@ static u32 sock_filter_convert_ctx_access(enum bpf_access_type type,
 		*insn++ = BPF_ALU32_IMM(BPF_AND, si->dst_reg, SK_FL_PROTO_MASK);
 		*insn++ = BPF_ALU32_IMM(BPF_RSH, si->dst_reg, SK_FL_PROTO_SHIFT);
 		break;
->>>>>>> 8931578fa6c0 (bpf: pass original insn directly to convert_ctx_access)
 	}
 
 	return insn - insn_buf;
@@ -3391,13 +3355,6 @@ static const struct bpf_verifier_ops cg_sock_ops = {
 };
 
 static struct bpf_prog_type_list sk_filter_type __ro_after_init = {
-=======
-	.convert_ctx_access	= sk_filter_convert_ctx_access,
-	.gen_prologue		= tc_cls_act_prologue,
-};
-
-static struct bpf_prog_type_list sk_filter_type __read_mostly = {
->>>>>>> 761ebc5ec716 (bpf: BPF for lightweight tunnel infrastructure)
 	.ops	= &sk_filter_ops,
 	.type	= BPF_PROG_TYPE_SOCKET_FILTER,
 };
