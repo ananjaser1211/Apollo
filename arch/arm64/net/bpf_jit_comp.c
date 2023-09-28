@@ -607,7 +607,7 @@ emit_cond_jmp:
 		break;
 	}
 	/* tail call */
-	case BPF_JMP | BPF_TAIL_CALL:
+	case BPF_JMP | BPF_CALL | BPF_X:
 		if (emit_bpf_tail_call(ctx))
 			return -EFAULT;
 		break;
