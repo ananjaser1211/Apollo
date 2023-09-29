@@ -192,6 +192,8 @@ BUILD_GENERATE_CONFIG()
     echo "CONFIG_KSU=y" >> $CR_DIR/arch/$CR_ARCH/configs/tmp_defconfig
     CR_IMAGE_NAME=$CR_IMAGE_NAME-ksu
     zver=$zver-KernelSU
+  else
+    echo "# CONFIG_KSU is not set" >> $CR_DIR/arch/$CR_ARCH/configs/tmp_defconfig
   fi
   echo " Set $CR_VARIANT to generated config "
   CR_CONFIG=tmp_defconfig
