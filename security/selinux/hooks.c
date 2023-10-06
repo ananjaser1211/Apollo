@@ -2029,7 +2029,11 @@ selinux_determine_inode_label(const struct task_security_struct *tsec,
 				 u32 *_new_isid)
 {
 	const struct superblock_security_struct *sbsec = dir->i_sb->s_security;
-	const struct task_security_struct *tsec = current_security();
+	struct inode_security_struct *dir_isec = dir->i_security;
+	char *context, *context2;
+	u32 context_len, context_len2;
+	int rc = 0, rc1, rc2;
+	rc1 = security_sid_to_context(dir_isec->sid, &context, &context_len);
 
 	if ((sbsec->flags & SE_SBINITIALIZED) &&
 	    (sbsec->behavior == SECURITY_FS_USE_MNTPOINT)) {
@@ -2039,7 +2043,7 @@ selinux_determine_inode_label(const struct task_security_struct *tsec,
 		*_new_isid = tsec->create_sid;
 	} else {
 		const struct inode_security_struct *dsec = inode_security(dir);
-		return security_transition_sid(tsec->sid, dsec->sid, tclass,
+		rc = security_transition_sid(tsec->sid, dsec->sid, tclass,
 					       name, _new_isid);
 	}
 
@@ -3787,7 +3791,8 @@ static int selinux_inode_getsecurity(struct inode *inode, const char *name, void
 	u32 size;
 	int error;
 	char *context = NULL;
-        struct inode_security_struct *isec;
+	struct inode_security_struct *isec;
+
 #ifdef CONFIG_RKP_KDP
 	int rc;
 	if ((rc = security_integrity_current()))
@@ -4523,8 +4528,8 @@ static int selinux_kernel_module_from_file(struct file *file)
 
 	/* finit_module */
 
-	ad.type = LSM_AUDIT_DATA_PATH;
-	ad.u.path = file->f_path;
+	ad.type = LSM_AUDIT_DATA_FILE;
+	ad.u.file = file;
 
 	fsec = file->f_security;
 	if (sid != fsec->sid) {
@@ -4533,8 +4538,7 @@ static int selinux_kernel_module_from_file(struct file *file)
 			return rc;
 	}
 
-	inode = file_inode(file);
-	isec = inode->i_security;
+	isec = inode_security(file_inode(file));
 	return avc_has_perm(sid, isec->sid, SECCLASS_SYSTEM,
 				SYSTEM__MODULE_LOAD, &ad);
 }
