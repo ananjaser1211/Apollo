@@ -7151,15 +7151,6 @@ static void selinux_inode_invalidate_secctx(struct inode *inode)
 	mutex_unlock(&isec->lock);
 }
 
-static void selinux_inode_invalidate_secctx(struct inode *inode)
-{
-	struct inode_security_struct *isec = inode->i_security;
-
-	mutex_lock(&isec->lock);
-	isec->initialized = LABEL_INVALID;
-	mutex_unlock(&isec->lock);
-}
-
 /*
  *	called with inode->i_mutex locked
  */
