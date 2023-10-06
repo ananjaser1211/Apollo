@@ -972,22 +972,7 @@ static int bpf_prog_attach(const union bpf_attr *attr)
 		ptype = BPF_PROG_TYPE_CGROUP_SKB;
 		break;
 	case BPF_CGROUP_INET_SOCK_CREATE:
-		prog = bpf_prog_get_type(attr->attach_bpf_fd,
-					 BPF_PROG_TYPE_CGROUP_SOCK);
-		if (IS_ERR(prog))
-			return PTR_ERR(prog);
-
-		cgrp = cgroup_get_from_fd(attr->target_fd);
-		if (IS_ERR(cgrp)) {
-			bpf_prog_put(prog);
-			return PTR_ERR(cgrp);
-		}
-
-		ret = cgroup_bpf_attach(cgrp, prog, attr->attach_type,
-					attr->attach_flags);
-		if (ret)
-			bpf_prog_put(prog);
-		cgroup_put(cgrp);
+		ptype = BPF_PROG_TYPE_CGROUP_SOCK;
 		break;
 	default:
 		return -EINVAL;
@@ -1031,11 +1016,10 @@ static int bpf_prog_detach(const union bpf_attr *attr)
 	switch (attr->attach_type) {
 	case BPF_CGROUP_INET_INGRESS:
 	case BPF_CGROUP_INET_EGRESS:
+	case BPF_CGROUP_INET_SOCK_CREATE:
 		ptype = BPF_PROG_TYPE_CGROUP_SKB;
 		break;
-	case BPF_CGROUP_INET_SOCK_CREATE:
-		ptype = BPF_PROG_TYPE_CGROUP_SOCK;
-		break;
+
 	default:
 		return -EINVAL;
 	}
