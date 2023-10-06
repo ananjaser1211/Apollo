@@ -3847,9 +3847,6 @@ static int selinux_inode_setsecurity(struct inode *inode, const char *name,
 	if (strcmp(name, XATTR_SELINUX_SUFFIX))
 		return -EOPNOTSUPP;
 
-	if (!(sbsec->flags & SBLABEL_MNT))
-		return -EOPNOTSUPP;
-
 	if (!value || !size)
 		return -EACCES;
 
