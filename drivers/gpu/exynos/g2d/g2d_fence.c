@@ -73,7 +73,7 @@ void g2d_fence_timeout_handler(unsigned long arg)
 	 * decremented under fence_timeout_lock held if it is done by fence
 	 * signal.
 	 */
-	if (kref_read(&task->starter) == 0) {
+	if (atomic_read(&task->starter.refcount) == 0) {
 		spin_unlock_irqrestore(&task->fence_timeout_lock, flags);
 		pr_err("All fences have been signaled. (work_busy? %d)\n",
 			work_busy(&task->work));
@@ -81,7 +81,7 @@ void g2d_fence_timeout_handler(unsigned long arg)
 	}
 
 	pr_err("%s: %d Fence(s) timed out after %d msec.\n", __func__,
-		kref_read(&task->starter), G2D_FENCE_TIMEOUT_MSEC);
+		atomic_read(&task->starter.refcount), G2D_FENCE_TIMEOUT_MSEC);
 
 	/* Increase reference to prevent running the workqueue in callback */
 	kref_get(&task->starter);

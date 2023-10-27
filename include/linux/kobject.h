@@ -125,7 +125,7 @@ extern char *kobject_get_path(struct kobject *kobj, gfp_t flag);
  */
 static inline bool kobject_has_children(struct kobject *kobj)
 {
-	WARN_ON_ONCE(kref_read(&kobj->kref) == 0);
+	WARN_ON_ONCE(atomic_read(&kobj->kref.refcount) == 0);
 
 	return kobj->sd && kobj->sd->dir.subdirs;
 }

@@ -84,7 +84,7 @@ static inline int iva_mem_map_put_refcnt(struct iva_mem_map *iva_map)
 
 int iva_mem_map_read_refcnt(struct iva_mem_map *iva_map)
 {
-	return kref_read(&iva_map->map_ref);
+	return atomic_read(&iva_map->map_ref.refcount);
 }
 
 static int iva_mem_show_proc_mapped_list_nolock(struct iva_proc *proc)
@@ -245,7 +245,7 @@ static struct iva_mem_map *iva_mem_ion_alloc(struct iva_proc *proc,
 	iva_map_node->flags	= 0x0;
 	SET_IVA_ALLOC_TYPE(iva_map_node->flags, IVA_ALLOC_TYPE_ALLOCATED);
 	SET_IVA_CACHE_TYPE(iva_map_node->flags, cacheflag);
-	refcount_set(&iva_map_node->map_ref.refcount, 0);
+	atomic_set(&iva_map_node->map_ref.refcount, 0);
 	iva_map_node->dev	= dev;
 
 	dev_dbg(dev, "%s() succeed : size(0x%x, 0x%x) align(0x%x) handle(%p) ",
@@ -433,7 +433,7 @@ static int iva_mem_put_ion_iova(struct iva_proc *proc,
 	if (forced_put) {
 		/* forced to unmap iova */
 		__iva_mem_map_destroy(&iva_map_node->map_ref);
-		refcount_set(&iva_map_node->map_ref.refcount, 0);
+		atomic_set(&iva_map_node->map_ref.refcount, 0);
 		return 0;
 	}
 
@@ -567,7 +567,7 @@ static struct iva_mem_map *iva_mem_import_ion_buf(struct iva_proc *proc,
 
 	iva_map_node->flags	= 0x0;
 	SET_IVA_ALLOC_TYPE(iva_map_node->flags, IVA_ALLOC_TYPE_IMPORTED);
-	refcount_set(&iva_map_node->map_ref.refcount, 0);
+	atomic_set(&iva_map_node->map_ref.refcount, 0);
 	iva_map_node->dev	= dev;
 
 	/* lock is held */

@@ -1483,7 +1483,7 @@ static void cleanup_glue_dir(struct device *dev, struct kobject *glue_dir)
 	 * kernfs_node for glue_dir is released in CPU1 only when refcount
 	 * for glue_dir kobj is 1.
 	 */
-	ref = kref_read(&glue_dir->kref);
+	ref = atomic_read(&glue_dir->kref.refcount);
 	if (!kobject_has_children(glue_dir) && !--ref)
 		kobject_del(glue_dir);
 	kobject_put(glue_dir);
