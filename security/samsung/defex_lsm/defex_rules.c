@@ -7,8 +7,10 @@
  */
 
 #if 0
+	/* Rules start after this line */
 	{feature_ped_exception,"/system/bin/run-as"},	/* DEFAULT */
 	{feature_ped_exception,"/system/bin/dumpstate"},	/* DEFAULT */
+	{feature_ped_exception,"/vendor/bin/hw/vendor.samsung.hardware.camera.provider@4.0-service"},	/* DEFAULT */
 	{feature_safeplace_path,"/init"},
 	{feature_safeplace_path,"/system/bin/init"},
 	{feature_safeplace_path,"/system/bin/app_process32"},
@@ -160,6 +162,8 @@
 	{feature_safeplace_path,"/vendor/bin/hw/vendor.qti.hardware.perf-hal-service"},
 	{feature_safeplace_path,"/vendor/bin/iod"},
 	{feature_safeplace_path,"/vendor/bin/dsmsca"},
+	{feature_safeplace_path,"/vendor/bin/hqread"},
+	{feature_safeplace_path,"/system/bin/hqcpsnbin"},
 	{feature_safeplace_path,"/system/bin/awk"},
 	{feature_safeplace_path,"/system/bin/bc"},
 	{feature_safeplace_path,"/system/bin/rdxd"},
@@ -180,6 +184,12 @@
 	{feature_safeplace_path,"/system_ext/bin/qcrosvm"},
 	{feature_safeplace_path,"/vendor/bin/ssr_setup"},
 	{feature_safeplace_path,"/vendor/bin/thermal_manager"},
+	{feature_safeplace_path,"/vendor/bin/nvram_daemon"},
+	{feature_safeplace_path,"/vendor/bin/hw/vendor.mediatek.hardware.nvram@1.1-service"},
+	{feature_safeplace_path,"/vendor/bin/aee_aedv"},
+	{feature_safeplace_path,"/vendor/bin/aee_aedv64"},
+	{feature_safeplace_path,"/vendor/bin/meta_tst"},
+	{feature_safeplace_path,"/vendor/bin/thermal_core"},
 	{feature_safeplace_path,"/system/bin/linkerconfig"},
 	{feature_safeplace_path,"/system/bin/snapshotctl"},
 	{feature_safeplace_path,"/system/bin/boringssl_self_test32"},

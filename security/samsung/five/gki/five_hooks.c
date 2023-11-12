@@ -273,9 +273,11 @@ void five_hook_task_forked(struct task_struct *parent,
 	get_task_struct(parent);
 	get_task_struct(child);
 	event.forked.parent = parent;
-	event.forked.parent_tint_value = task_integrity_read(TASK_INTEGRITY(parent));
+	event.forked.parent_tint_value =
+		task_integrity_read(TASK_INTEGRITY(parent));
 	event.forked.child = child;
-	event.forked.child_tint_value = task_integrity_read(TASK_INTEGRITY(child));
+	event.forked.child_tint_value =
+		task_integrity_read(TASK_INTEGRITY(child));
 
 	if (__push_event(&event, GFP_ATOMIC) < 0)
 		hook_wq_event_destroy(&event);

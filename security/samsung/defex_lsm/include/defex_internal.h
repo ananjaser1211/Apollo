@@ -176,7 +176,7 @@ struct defex_context {
 	char *process_name_buff;
 
 	/* NB: cred must be the last field */
-	struct cred cred;
+	struct cred *cred;
 };
 
 extern const char unknown_file[];

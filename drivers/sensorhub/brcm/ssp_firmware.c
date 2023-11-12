@@ -15,9 +15,9 @@
 #include "ssp.h"
 
 #ifdef CONFIG_SENSORS_SSP_GTACTIVE3
-#define SSP_FIRMWARE_REVISION_BCM	22112300  /*Android Q*/
+#define SSP_FIRMWARE_REVISION_BCM	23030400  /*Android Q*/
 #else	// anote
-#define SSP_FIRMWARE_REVISION_BCM	22112500  /*Android R*/
+#define SSP_FIRMWARE_REVISION_BCM	23060100  /*Android R*/
 #endif
 
 unsigned int get_module_rev(struct ssp_data *data)

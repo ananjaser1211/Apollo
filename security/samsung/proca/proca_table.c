@@ -21,6 +21,8 @@
 
 void proca_table_init(struct proca_table *table)
 {
+	BUG_ON(!table);
+
 	memset(table, 0, sizeof(*table));
 
 	spin_lock_init(&table->pid_map_lock);

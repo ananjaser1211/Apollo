@@ -97,6 +97,15 @@ static const struct rules_file_struct rules_files[4] = {
 static volatile unsigned int load_flags;
 
 
+__visible_for_testing unsigned long get_current_sec(void)
+{
+#if LINUX_VERSION_CODE < KERNEL_VERSION(5, 11, 0)
+	return get_seconds();
+#else
+	return ktime_get_seconds();
+#endif
+}
+
 __visible_for_testing char *get_rules_ptr(int is_system)
 {
 	if (load_flags & LOAD_FLAG_SYSTEM_FIRST)
@@ -256,6 +265,26 @@ static const unsigned char *find_policy_section(const char *name, const char *da
 }
 #endif
 
+__visible_for_testing int check_rule_structure(unsigned char *data_buff)
+{
+	struct rule_item_struct *rules_ptr = (struct rule_item_struct *)data_buff;
+	int res = 0;
+	const int req_size = sizeof(struct rule_item_struct) + rules_ptr->size;
+
+#ifdef DEFEX_INTEGRITY_ENABLE
+	const int integrity_state = 1;
+#else
+	const int integrity_state = 0;
+#endif /* DEFEX_INTEGRITY_ENABLE */
+	if (rules_ptr->next_level != req_size || memcmp(rules_ptr->name, "DEFEX_RULES_FILE", 16) != 0) {
+		pr_err("[DEFEX] Rules structure is wrong. Integrity state: %d\n", integrity_state);
+		res = -1;
+	} else {
+		pr_info("[DEFEX] Rules structure is OK. Integrity state: %d\n", integrity_state);
+	}
+	return res;
+}
+
 __visible_for_testing int load_rules_common(struct file *f, int flags)
 {
 	int res = -1, data_size, rules_size;
@@ -286,6 +315,9 @@ __visible_for_testing int load_rules_common(struct file *f, int flags)
 	res = 0;
 #endif
 
+	if (!res)
+		res = check_rule_structure(data_buff);
+
 	if (!res) {
 		const unsigned char *policy_data = NULL; /* where additional features like DTM could look for policy data */
 		if (!(load_flags & (LOAD_FLAG_DPOLICY | LOAD_FLAG_DPOLICY_SYSTEM))) {
@@ -297,10 +329,12 @@ __visible_for_testing int load_rules_common(struct file *f, int flags)
 			policy_data = packed_rules_primary;
 			if (flags & LOAD_FLAG_DPOLICY_SYSTEM)
 				load_flags |= LOAD_FLAG_SYSTEM_FIRST;
+			pr_info("[DEFEX] Primary rules have been stored.\n");
 		} else {
 			if (rules_size > 0) {
 				policy_data = packed_rules_secondary = data_buff;
 				data_buff = NULL;
+				pr_info("[DEFEX] Secondary rules have been stored.\n");
 			}
 		}
 #ifdef DEFEX_TRUSTED_MAP_ENABLE
@@ -320,62 +354,44 @@ do_clean:
 	return res;
 }
 
-int load_rules_late(unsigned int is_system)
+int load_rules_late(int forced_load)
 {
 	struct file *f = NULL;
 	int f_index, res = 0;
+	static atomic_t load_lock = ATOMIC_INIT(1);
+	const struct rules_file_struct *item;
 	static unsigned long start_time;
 	static unsigned long last_time;
-#if LINUX_VERSION_CODE < KERNEL_VERSION(5, 11, 0)
-	unsigned long cur_time = get_seconds();
-#else
-	unsigned long cur_time = ktime_get_seconds();
-#endif
-	static DEFINE_SPINLOCK(load_lock);
-	static atomic_t in_progress = ATOMIC_INIT(0);
-	const struct rules_file_struct *item;
+	static int load_counter = 0;
+	unsigned long cur_time = get_current_sec();
 
 	if (load_flags & LOAD_FLAG_TIMEOUT)
 		return -1;
 
-	if (!spin_trylock(&load_lock))
-		return res;
-
-	if (atomic_read(&in_progress) != 0) {
-		spin_unlock(&load_lock);
+	if (!atomic_dec_and_test(&load_lock)) {
+		atomic_inc(&load_lock);
 		return res;
 	}
 
-	atomic_set(&in_progress, 1);
-	spin_unlock(&load_lock);
-
 	/* The first try to load, initialize time values */
 	if (!start_time)
-#if LINUX_VERSION_CODE < KERNEL_VERSION(5, 11, 0)
-		start_time = get_seconds();
-#else
-		start_time = ktime_get_seconds();
-#endif
+		start_time = cur_time;
 	/* Skip this try, wait for next second */
-	if (cur_time == last_time)
+	if (!forced_load && (cur_time == last_time))
 		goto do_exit;
+	last_time = cur_time;
 	/* Load has been attempted for 20 seconds, give up. */
 	if ((cur_time - start_time) > 20) {
 		res = -1;
 		load_flags |= LOAD_FLAG_TIMEOUT;
+		pr_info("[DEFEX] Late load timeout. Try counter = %d\n", load_counter);
 		goto do_exit;
 	}
-	last_time = cur_time;
-
-	if (is_system > 1) {
-		pr_info("[DEFEX] Something wrong input.\n");
-		res = -1;
-		goto do_exit;
-	}
+	load_counter++;
 
 	for (f_index = 0; f_index < ARRAY_SIZE(rules_files); f_index++) {
 		item = &rules_files[f_index];
-		if (item->flags & (is_system ? LOAD_FLAG_DPOLICY_SYSTEM : LOAD_FLAG_DPOLICY)) {
+		if (!(item->flags & load_flags)) {
 			f = local_fopen(item->name, O_RDONLY, 0);
 			if (!IS_ERR_OR_NULL(f)) {
 				pr_info("[DEFEX] Late load rules file: %s.\n", item->name);
@@ -394,7 +410,7 @@ int load_rules_late(unsigned int is_system)
 	res = (res < 0) ? res : (res > 0);
 
 do_exit:
-	atomic_set(&in_progress, 0);
+	atomic_inc(&load_lock);
 	return res;
 }
 
@@ -481,9 +497,10 @@ __visible_for_testing int lookup_tree(const char *file_path, int attribute, stru
 {
 	const char *ptr, *next_separator;
 	struct rule_item_struct *base, *cur_item = NULL;
-	int l;
 	char *base_start;
-	unsigned int is_system = 0, is_recovery = !!(load_flags & LOAD_FLAG_RECOVERY);
+	int l, is_system, forced_load;
+	const int is_recovery = !!(load_flags & LOAD_FLAG_RECOVERY);
+	const unsigned int load_both_mask = (LOAD_FLAG_DPOLICY | LOAD_FLAG_DPOLICY_SYSTEM);
 
 	if (!file_path || *file_path != '/')
 		return 0;
@@ -492,24 +509,17 @@ __visible_for_testing int lookup_tree(const char *file_path, int attribute, stru
 			(strncmp("/product/", file_path, 9) == 0) ||
 			(strncmp("/apex/", file_path, 6) == 0) ||
 			(strncmp("/system_ext/", file_path, 12) == 0))?1:0;
-try_to_load:
 
-	if (!(load_flags & LOAD_FLAG_DPOLICY)) {
-		l = load_rules_late(0);
-		if (l > 0 && !is_system)
-			goto try_to_load;
-		/* allow all requests if rules were not loaded for Recovery mode */
-		if (!is_system && (!l || is_recovery))
-			return (attribute == feature_ped_exception || attribute == feature_safeplace_path)?1:0;
-	}
+	forced_load = is_system &&
+			(attribute == feature_safeplace_path ||
+			 attribute == feature_umhbin_path);
 
-	if (!(load_flags & LOAD_FLAG_DPOLICY_SYSTEM)) {
-		l = load_rules_late(1);
-		if (l > 0 && is_system)
-			goto try_to_load;
+	if ((load_flags & load_both_mask) != load_both_mask &&
+			!(load_flags & LOAD_FLAG_TIMEOUT)) {
 		/* allow all requests if rules were not loaded for Recovery mode */
-		if (is_system && (!l || is_recovery))
-			return (attribute == feature_ped_exception || attribute == feature_safeplace_path)?1:0;
+		if (!load_rules_late(forced_load) || is_recovery)
+			return (attribute == feature_ped_exception ||
+					attribute == feature_safeplace_path)?1:0;
 	}
 
 try_not_system:
