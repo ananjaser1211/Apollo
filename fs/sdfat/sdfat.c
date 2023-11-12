@@ -911,7 +911,7 @@ static int sdfat_getattr(struct user_namespace *mnt_uerns,
 	stat->blksize = SDFAT_SB(inode->i_sb)->fsi.cluster_size;
 	return 0;
 }
-#elif LINUX_VERSION_CODE >= KERNEL_VERSION(4, 11, 0)
+#elif LINUX_VERSION_CODE >= KERNEL_VERSION(4, 9, 0)
 static int sdfat_getattr(const struct path *path, struct kstat *stat,
 			u32 request_mask, unsigned int query_flags)
 {
@@ -922,7 +922,7 @@ static int sdfat_getattr(const struct path *path, struct kstat *stat,
 
 	return 0;
 }
-#else /* LINUX_VERSION_CODE < KERNEL_VERSION(4, 11, 0) */
+#else /* LINUX_VERSION_CODE < KERNEL_VERSION(4, 9, 0) */
 static int sdfat_getattr(struct vfsmount *mnt, struct dentry *dentry, struct kstat *stat)
 {
 	struct inode *inode = dentry->d_inode;
