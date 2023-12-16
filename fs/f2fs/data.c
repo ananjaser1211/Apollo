@@ -424,12 +424,33 @@ static void __f2fs_submit_read_bio(struct f2fs_sb_info *sbi,
 	__submit_bio(sbi, bio, type);
 }
 
+/*
+ * P221011-01695
+ * flush_group: Process group in which file's is very important.
+ * e.g., system_server, keystore, etc.
+ */
+static void __sec_attach_io_flag(struct f2fs_io_info *fio)
+{
+	struct f2fs_sb_info *sbi = fio->sbi;
+
+	if (fio->type == DATA && !(fio->op_flags & REQ_FUA) &&
+	    in_group_p(F2FS_OPTION(sbi).flush_group)) {
+		struct inode *inode = fio->page->mapping->host;
+
+		if (f2fs_is_atomic_file(inode) && f2fs_is_commit_atomic_write(inode))
+			fio->op_flags |= REQ_FUA;
+	}
+	return;
+}
+
 static void __submit_merged_bio(struct f2fs_bio_info *io)
 {
 	struct f2fs_io_info *fio = &io->fio;
 
 	if (!io->bio)
 		return;
+
+	__sec_attach_io_flag(fio);
 
 	if (f2fs_bio_disk_encrypted(io->bio->bi_opf))
 		bio_set_op_attrs(io->bio, fio->op, fio->op_flags | REQ_CRYPT);

@@ -3593,10 +3593,17 @@ try_onemore:
 		 * mount should be failed, when device has readonly mode, and
 		 * previous checkpoint was not done by clean system shutdown.
 		 */
-		if (bdev_read_only(sb->s_bdev) &&
-				!is_set_ckpt_flags(sbi, CP_UMOUNT_FLAG)) {
-			err = -EROFS;
-			goto free_meta;
+		if (bdev_read_only(sb->s_bdev)) {
+			if (!is_set_ckpt_flags(sbi, CP_UMOUNT_FLAG)) {
+				err = -EROFS;
+				f2fs_msg(sb, KERN_ERR,
+					"Need to recover fsync data, but "
+					"write access unavailable");
+				goto free_meta;
+			}
+			f2fs_msg(sbi->sb, KERN_INFO, "write access "
+				"unavailable, skipping recovery");
+			goto reset_checkpoint;
 		}
 
 		if (need_fsck)
