@@ -166,13 +166,7 @@ enum fimc_is_sensor_subdev_ioctl {
 	SENSOR_IOCTL_DMA_CANCEL,
 };
 
-#if defined(CONFIG_SECURE_CAMERA_USE)
-#define MC_SECURE_CAMERA_SYSREG_PROT    ((uint32_t)(0x82002132))
-#define MC_SECURE_CAMERA_INIT           ((uint32_t)(0x83000041))
-#define MC_SECURE_CAMERA_CFW_ENABLE     ((uint32_t)(0x83000042))
-#define MC_SECURE_CAMERA_PREPARE        ((uint32_t)(0x83000043))
-#define MC_SECURE_CAMERA_UNPREPARE      ((uint32_t)(0x83000044))
-
+#if defined(SECURE_CAMERA_IRIS)
 enum fimc_is_sensor_smc_state {
         FIMC_IS_SENSOR_SMC_INIT = 0,
         FIMC_IS_SENSOR_SMC_CFW_ENABLE,
@@ -359,7 +353,7 @@ struct fimc_is_device_sensor {
 	spinlock_t					slock_state;
 	struct mutex					mlock_state;
 	atomic_t					group_open_cnt;
-#if defined(CONFIG_SECURE_CAMERA_USE)
+#if defined(SECURE_CAMERA_IRIS)
 	enum fimc_is_sensor_smc_state			smc_state;
 #endif
 
@@ -424,6 +418,7 @@ struct fimc_is_device_sensor {
 	u32						use_standby;
 	u32						sstream;
 	u32						ex_mode;
+	u32						ex_scenario;
 };
 
 int fimc_is_sensor_open(struct fimc_is_device_sensor *device,

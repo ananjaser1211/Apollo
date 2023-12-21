@@ -222,7 +222,8 @@ enum fimc_is_video_state {
 enum fimc_is_queue_state {
 	FIMC_IS_QUEUE_BUFFER_PREPARED,
 	FIMC_IS_QUEUE_BUFFER_READY,
-	FIMC_IS_QUEUE_STREAM_ON
+	FIMC_IS_QUEUE_STREAM_ON,
+	IS_QUEUE_NEED_TO_REMAP,
 };
 
 struct fimc_is_frame_cfg {

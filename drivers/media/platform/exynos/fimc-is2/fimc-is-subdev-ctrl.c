@@ -1288,7 +1288,7 @@ static int fimc_is_subdev_internal_alloc_buffer(struct fimc_is_subdev *subdev,
 	}
 
 	for (i = 0; i < subdev->buffer_num; i++) {
-		subdev->pb_subdev[i] = CALL_PTR_MEMOP(mem, alloc, mem->default_ctx, buffer_size, 16);
+		subdev->pb_subdev[i] = CALL_PTR_MEMOP(mem, alloc, mem->default_ctx, buffer_size, 0, 0);
 		if (IS_ERR_OR_NULL(subdev->pb_subdev[i])) {
 			err("failed to allocate buffer for internal subdev");
 			return -ENOMEM;

@@ -167,6 +167,7 @@ enum is_scenario_is {
 	FIMC_IS_SCENARIO_AUTO_DUAL = 3,
 	FIMC_IS_SCENARIO_FULL_SIZE = 4,
 	FIMC_IS_SCENARIO_HIGH_SPEED_DUALFPS = 5, /* FPS is changed from normal to high speed */
+	FIMC_IS_SCENARIO_SECURE = 6,
 };
 
 enum is_system_control_id {

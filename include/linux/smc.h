@@ -73,6 +73,24 @@
 #define MC_FC_DRM_SET_CFW_PROT		(0x10000000)
 #define SMC_SRPMB_WSM			(0x82003811)
 
+/* Command ID for seccam */
+#define SMC_SECCAM_SETENV               (0x82002130)
+#define SMC_SECCAM_INIT                 (0x82002131)
+#define SMC_SECCAM_SYSREG_PROT          (0x82002132)
+#define SMC_SECCAM_PREPARE              (0x82002135)
+#define SMC_SECCAM_UNPREPARE            (0x82002136)
+#define SMC_SECCAM_GETSTATUS            (0x82002137)
+
+/* Command ID for seccam */
+#define SMC_SECCAM_SETENV               (0x82002130)
+#define SMC_SECCAM_INIT                 (0x82002131)
+#define SMC_SECCAM_INIT_NSBUF           (0x82002134)
+#define SMC_SECCAM_SYSREG_PROT          (0x82002132)
+#define SMC_SECCAM_PREPARE              (0x82002135)
+#define SMC_SECCAM_UNPREPARE            (0x82002136)
+#define SMC_SECCAM_GETSTATUS            (0x82002137)
+#define SMC_SECCAM_SET_PDP_REG		(0x8200213A)
+
 /* Deprecated */
 #define SMC_DRM_MAKE_PGTABLE		(0x81000003)
 #define SMC_DRM_CLEAR_PGTABLE		(0x81000004)

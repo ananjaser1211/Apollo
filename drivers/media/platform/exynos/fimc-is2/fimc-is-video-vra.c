@@ -605,6 +605,10 @@ static int fimc_is_vra_queue_setup(struct vb2_queue *vbq,
 	struct fimc_is_video_ctx *vctx = vbq->drv_priv;
 	struct fimc_is_video *video;
 	struct fimc_is_queue *queue;
+#if defined(SECURE_CAMERA_FACE)
+	struct fimc_is_core *core =
+		(struct fimc_is_core *)dev_get_drvdata(fimc_is_dev);
+#endif
 
 	FIMC_BUG(!vctx);
 	FIMC_BUG(!vctx->video);
@@ -613,6 +617,11 @@ static int fimc_is_vra_queue_setup(struct vb2_queue *vbq,
 
 	video = GET_VIDEO(vctx);
 	queue = GET_QUEUE(vctx);
+
+#if defined(SECURE_CAMERA_FACE)
+       if (core->scenario == FIMC_IS_SCENARIO_SECURE)
+               set_bit(IS_QUEUE_NEED_TO_REMAP, &queue->state);
+#endif
 
 	ret = fimc_is_queue_setup(queue,
 		video->alloc_ctx,

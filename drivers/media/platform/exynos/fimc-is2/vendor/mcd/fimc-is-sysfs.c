@@ -37,7 +37,7 @@ extern struct device *fimc_is_dev;
 struct class *camera_class = NULL;
 struct device *camera_front_dev;
 struct device *camera_rear_dev;
-#ifdef CONFIG_SECURE_CAMERA_USE
+#ifdef SECURE_CAMERA_IRIS
 struct device *camera_secure_dev;
 #endif
 #if defined (CONFIG_OIS_USE)
@@ -91,7 +91,7 @@ extern int comp_fac_i2c_check;
 extern u16 comp_fac_valid_check;
 #endif
 
-#ifdef CONFIG_SECURE_CAMERA_USE
+#ifdef SECURE_CAMERA_IRIS
 extern bool is_final_cam_module_iris;
 extern bool is_iris_ver_read;
 extern bool is_iris_mtf_test_check;
@@ -331,7 +331,7 @@ static ssize_t camera_ssrm_camera_info_show(struct device *dev,
 
 static DEVICE_ATTR(ssrm_camera_info, 0644, camera_ssrm_camera_info_show, camera_ssrm_camera_info_store);
 
-#ifdef CONFIG_SECURE_CAMERA_USE
+#ifdef SECURE_CAMERA_IRIS
 static ssize_t camera_secure_sensorid_show(struct device *dev,
 		struct device_attribute *attr, char *buf)
 {
@@ -2657,7 +2657,7 @@ static ssize_t camera_rear_camfw_all_show(struct device *dev,
 	return sprintf(buf, "%s\n", output);
 }
 
-#ifdef CONFIG_SECURE_CAMERA_USE
+#ifdef SECURE_CAMERA_IRIS
 static ssize_t camera_iris_camfw_show(struct device *dev,
 		struct device_attribute *attr, char *buf)
 {
@@ -2844,7 +2844,7 @@ static ssize_t rear2_camera_hw_param_store(struct device *dev,
 }
 #endif
 
-#ifdef CONFIG_SECURE_CAMERA_USE
+#ifdef SECURE_CAMERA_IRIS
 static ssize_t iris_camera_hw_param_show(struct device *dev,
 		struct device_attribute *attr, char *buf)
 {
@@ -2874,7 +2874,7 @@ static ssize_t iris_camera_hw_param_store(struct device *dev,
 #endif
 #endif
 
-#ifdef CONFIG_SECURE_CAMERA_USE
+#ifdef SECURE_CAMERA_IRIS
 static ssize_t camera_iris_checkfw_user_show(struct device *dev,
 		struct device_attribute *attr, char *buf)
 {
@@ -3168,7 +3168,7 @@ static DEVICE_ATTR(SVC_front_module, S_IRUGO, camera_front_moduleid_show, NULL);
 
 static DEVICE_ATTR(rear_camfw_all, S_IRUGO, camera_rear_camfw_all_show, NULL);
 
-#ifdef CONFIG_SECURE_CAMERA_USE
+#ifdef SECURE_CAMERA_IRIS
 static DEVICE_ATTR(iris_camfw, S_IRUGO, camera_iris_camfw_show, NULL);
 static DEVICE_ATTR(iris_camfw_full, S_IRUGO, camera_iris_camfw_full_show, NULL);
 static DEVICE_ATTR(iris_checkfw_factory, S_IRUGO, camera_iris_checkfw_factory_show, NULL);
@@ -3187,7 +3187,7 @@ static DEVICE_ATTR(front_hwparam, S_IRUSR|S_IWUSR|S_IRGRP|S_IWGRP|S_IROTH,
 static DEVICE_ATTR(rear2_hwparam, S_IRUSR|S_IWUSR|S_IRGRP|S_IWGRP|S_IROTH,
 				rear2_camera_hw_param_show, rear2_camera_hw_param_store);
 #endif
-#ifdef CONFIG_SECURE_CAMERA_USE
+#ifdef SECURE_CAMERA_IRIS
 static DEVICE_ATTR(iris_hwparam, S_IRUSR|S_IWUSR|S_IRGRP|S_IWGRP|S_IROTH,
 				iris_camera_hw_param_show, iris_camera_hw_param_store);
 #endif
@@ -3569,7 +3569,7 @@ int fimc_is_create_sysfs(struct fimc_is_core *core)
 		}
 	}
 #endif
-#ifdef CONFIG_SECURE_CAMERA_USE
+#ifdef SECURE_CAMERA_IRIS
 	camera_secure_dev = device_create(camera_class, NULL, 3, NULL, "secure");
 	if (IS_ERR(camera_secure_dev)) {
 		pr_err("failed to create secure device!\n");
@@ -3725,7 +3725,7 @@ int fimc_is_destroy_sysfs(struct fimc_is_core *core)
 		device_remove_file(camera_ois_dev, &dev_attr_ois_exif);
 	}
 #endif
-#ifdef CONFIG_SECURE_CAMERA_USE
+#ifdef SECURE_CAMERA_IRIS
 	if (camera_secure_dev) {
 		device_remove_file(camera_secure_dev, &dev_attr_secure_sensorid);
 		device_remove_file(camera_secure_dev, &dev_attr_iris_camfw);
@@ -3752,7 +3752,7 @@ int fimc_is_destroy_sysfs(struct fimc_is_core *core)
 		if (camera_ois_dev)
 			device_destroy(camera_class, camera_ois_dev->devt);
 #endif
-#ifdef CONFIG_SECURE_CAMERA_USE
+#ifdef SECURE_CAMERA_IRIS
 		if (camera_secure_dev)
 			device_destroy(camera_class, camera_secure_dev->devt);
 #endif

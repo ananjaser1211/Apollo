@@ -368,21 +368,24 @@ static void fimc_is_ion_deinit(void *ctx)
 }
 
 static struct fimc_is_priv_buf *fimc_is_ion_alloc(void *ctx,
-		size_t size, size_t align)
+		size_t size, unsigned int heap_id_mask, unsigned int flags)
 {
 	struct fimc_is_ion_ctx *alloc_ctx = ctx;
 	struct fimc_is_priv_buf *buf;
-	int heapflags = EXYNOS_ION_HEAP_SYSTEM_MASK;
 	int ret = 0;
 
 	buf = vzalloc(sizeof(*buf));
 	if (!buf)
 		return ERR_PTR(-ENOMEM);
 
+	if (heap_id_mask)
+		info("heap_id_mask: 0x%08x, size: 0x%lx\n", heap_id_mask, size);
+
 	size = PAGE_ALIGN(size);
 
 	buf->handle = ion_alloc(alloc_ctx->client, size, alloc_ctx->alignment,
-				heapflags, alloc_ctx->flags);
+				heap_id_mask ? heap_id_mask : EXYNOS_ION_HEAP_SYSTEM_MASK,
+				flags ? flags : alloc_ctx->flags);
 	if (IS_ERR(buf->handle)) {
 		ret = -ENOMEM;
 		goto err_alloc;

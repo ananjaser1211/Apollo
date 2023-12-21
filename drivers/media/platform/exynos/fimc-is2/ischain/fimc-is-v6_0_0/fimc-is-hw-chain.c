@@ -16,9 +16,7 @@
 #include <linux/errno.h>
 #include <linux/platform_device.h>
 #include <linux/io.h>
-#if defined(CONFIG_SECURE_CAMERA_USE)
 #include <linux/smc.h>
-#endif
 
 #include <asm/neon.h>
 
@@ -37,13 +35,7 @@
 #include "../../hardware/fimc-is-hw-control.h"
 #include "../../hardware/fimc-is-hw-mcscaler-v2.h"
 
-#if defined(CONFIG_SECURE_CAMERA_USE)
-#define SECURE_ISCHAIN_PATH_MCSC_SRC0	0   /* ISPLP -> MCSC0 */
-
-#define itfc_to_core(x) \
-	container_of(x, struct fimc_is_core, interface_ischain)
-#endif
-
+DEFINE_MUTEX(sysreg_isppre_lock);
 static struct fimc_is_reg sysreg_isppre_regs[SYSREG_ISPPRE_REG_CNT] = {
 	{0x0400, "ISPPRE_USER_CON"},
 	{0x0404, "ISPPRE_SC_CON0"},
@@ -588,20 +580,26 @@ int fimc_is_hw_camif_cfg(void *sensor_data)
 	struct fimc_is_device_ischain *ischain;
 	struct fimc_is_subdev *dma_subdev;
 	struct fimc_is_sensor_cfg *sensor_cfg;
-#if !defined(CONFIG_SECURE_CAMERA_USE)
-	void __iomem *isppre_reg = ioremap_nocache(SYSREG_ISPPRE_BASE_ADDR, 0x1000);
-#else
 	void __iomem *isppre_reg = ioremap_nocache(SYSREG_ISPPRE_BASE_ADDR, 0x424);
-#endif
 	u32 pdp_ch = 0;
-	u32 csi_ch = 0;
-	u32 dma_ch = 0;
-	u32 mux_val = 0;
+	u32 csi_ch;
+	u32 dma_ch;
+	u32 mux_val;
 	u32 logical_dma_offset;
+	struct fimc_is_core *core;
+	enum sysreg_isppre_reg_name pdp_mux;
 
 	FIMC_BUG(!sensor_data);
 
 	sensor = sensor_data;
+
+	core = (struct fimc_is_core *)dev_get_drvdata(fimc_is_dev);
+	if (!core) {
+		merr("core is null\n", sensor);
+		ret = -ENODEV;
+		goto err_get_core;
+	}
+
 	csi = (struct fimc_is_device_csi *)v4l2_get_subdevdata(sensor->subdev_csi);
 	if (!csi) {
 		merr("csi is null\n", sensor);
@@ -619,6 +617,19 @@ int fimc_is_hw_camif_cfg(void *sensor_data)
 	/* CSIS to PDP MUX */
 	ischain = sensor->ischain;
 	if (ischain) {
+#if defined(SECURE_CAMERA_FACE)
+		mutex_lock(&core->secure_state_lock);
+		if (core->secure_state == FIMC_IS_STATE_UNSECURE) {
+			if (core->scenario == FIMC_IS_SCENARIO_SECURE) {
+				fimc_is_hw_set_reg(isppre_reg,
+					&sysreg_isppre_regs[SYSREG_ISPPRE_R_SC_CON0], csi_ch);
+
+				minfo("[SECURE] CSI%d -{}-> PDP%d\n", sensor, csi_ch, 0);
+			} else
+#endif
+			{
+				pdp_ch = (ischain->group_3aa.id == GROUP_ID_3AA0) ? 0 : 1;
+
 		pdp_ch = (ischain->group_3aa.id == GROUP_ID_3AA0) ? 0 : 1;
 
 		switch (pdp_ch) {
@@ -630,6 +641,11 @@ int fimc_is_hw_camif_cfg(void *sensor_data)
 			break;
 		}
 		minfo("CSI(%d) --> PDP(%d)\n", sensor, csi_ch, pdp_ch);
+		}
+#if defined(SECURE_CAMERA_FACE)
+		}
+		mutex_unlock(&core->secure_state_lock);
+#endif
 	}
 
 	/* DMA input MUX */
@@ -662,14 +678,37 @@ int fimc_is_hw_camif_cfg(void *sensor_data)
 			fimc_is_hw_set_reg(isppre_reg, &sysreg_isppre_regs[SYSREG_ISPPRE_R_SC_CON2], mux_val);
 			break;
 		case 1:
-			fimc_is_hw_set_reg(isppre_reg, &sysreg_isppre_regs[SYSREG_ISPPRE_R_SC_CON4], mux_val);
+#if defined(SECURE_CAMERA_FACE)
+			mutex_lock(&core->secure_state_lock);
+			if (core->secure_state == FIMC_IS_STATE_UNSECURE) {
+				if (core->scenario == FIMC_IS_SCENARIO_SECURE) {
+					fimc_is_hw_set_reg(isppre_reg,
+						&sysreg_isppre_regs[SYSREG_ISPPRE_R_SC_CON4], 2);
+
+				} else
+#endif
+				{
+					fimc_is_hw_set_reg(isppre_reg,
+						&sysreg_isppre_regs[SYSREG_ISPPRE_R_SC_CON4], mux_val);
+				}
+#if defined(SECURE_CAMERA_FACE)
+			}
+			mutex_unlock(&core->secure_state_lock);
+#endif
 			break;
 		case 2:
 			fimc_is_hw_set_reg(isppre_reg, &sysreg_isppre_regs[SYSREG_ISPPRE_R_SC_CON6], mux_val);
 			break;
 		case 3:
-#if !defined(CONFIG_SECURE_CAMERA_USE)
-			fimc_is_hw_set_reg(isppre_reg, &sysreg_isppre_regs[SYSREG_ISPPRE_R_SC_CON8], mux_val);
+#if defined(SECURE_CAMERA_IRIS)
+			mutex_lock(&core->secure_state_lock);
+			if (core->secure_state == FIMC_IS_STATE_UNSECURE) {
+#endif
+				fimc_is_hw_set_reg(isppre_reg,
+						&sysreg_isppre_regs[SYSREG_ISPPRE_R_SC_CON8], mux_val);
+#if defined(SECURE_CAMERA_IRIS)
+			}
+			mutex_unlock(&core->secure_state_lock);
 #endif
 			break;
 		case 4:
@@ -683,6 +722,7 @@ int fimc_is_hw_camif_cfg(void *sensor_data)
 		minfo("DMA #%d VC #%d input(%d)\n", sensor, dma_ch, vc, mux_val);
 	}
 
+err_get_core:
 p_err:
 	iounmap(isppre_reg);
 	return ret;

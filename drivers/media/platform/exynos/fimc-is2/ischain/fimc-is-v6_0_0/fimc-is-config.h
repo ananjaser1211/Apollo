@@ -163,10 +163,20 @@
 
 #define ENABLE_DBG_EVENT_PRINT
 
-//#define SECURE_CAMERA_EMULATE
-#define SECURE_CAMERA_CH	(CSI_ID_D)
-#define SECURE_CAMERA_MEM_ADDR	(0xD0000000)
-#define SECURE_CAMERA_MEM_SIZE	(0x1400000)
+#ifdef CONFIG_SECURE_CAMERA_USE
+#ifdef SECURE_CAMERA_IRIS
+#undef SECURE_CAMERA_IRIS
+#endif
+#define SECURE_CAMERA_FACE     /* For face detection and face authentication */
+#define SECURE_CAMERA_CH		(CSI_ID_B)
+#define SECURE_CAMERA_HEAP_ID		(11)
+#define SECURE_CAMERA_MEM_ADDR		(0xE1900000)	/* secure_camera_heap */
+#define SECURE_CAMERA_MEM_SIZE		(0x1E00000)
+#define NON_SECURE_CAMERA_MEM_ADDR	(0x80000000)	/* camera_heap */
+#define NON_SECURE_CAMERA_MEM_SIZE	(0x21C00000)
+
+//#define SECURE_CAMERA_FACE_SEQ_CHK      /* To check sequence before applying secure protection */
+#endif
 
 #define MODULE_2L7_MODE2
 #define MODULE_2L2_MODE2

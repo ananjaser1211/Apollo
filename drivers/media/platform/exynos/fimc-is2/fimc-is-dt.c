@@ -222,6 +222,7 @@ int fimc_is_parse_dt(struct platform_device *pdev)
 	struct device_node *dvfs_np = NULL;
 	struct device_node *vender_np = NULL;
 	struct device_node *np;
+	u32 mem_info[2];
 
 	FIMC_BUG(!pdev);
 
@@ -252,6 +253,28 @@ int fimc_is_parse_dt(struct platform_device *pdev)
 
 	of_property_read_u32(np, "chain_config", &core->chain_config);
 	probe_info("FIMC-IS chain configuration: %d", core->chain_config);
+
+	ret = of_property_read_u32_array(np, "secure_mem_info", mem_info, 2);
+	if (ret) {
+		core->secure_mem_info[0] = 0;
+		core->secure_mem_info[1] = 0;
+	} else {
+		core->secure_mem_info[0] = mem_info[0];
+		core->secure_mem_info[1] = mem_info[1];
+	}
+	probe_info("ret(%d) secure_mem_info(%#08lx, %#08lx)", ret,
+		core->secure_mem_info[0], core->secure_mem_info[1]);
+
+	ret = of_property_read_u32_array(np, "non_secure_mem_info", mem_info, 2);
+	if (ret) {
+		core->non_secure_mem_info[0] = 0;
+		core->non_secure_mem_info[1] = 0;
+	} else {
+		core->non_secure_mem_info[0] = mem_info[0];
+		core->non_secure_mem_info[1] = mem_info[1];
+	}
+	probe_info("ret(%d) non_secure_mem_info(%#08lx, %#08lx)", ret,
+		core->non_secure_mem_info[0], core->non_secure_mem_info[1]);
 
 	vender_np = of_find_node_by_name(np, "vender");
 	if (vender_np) {

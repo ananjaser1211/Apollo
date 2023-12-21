@@ -783,6 +783,7 @@ static int fimc_is_queue_open(struct fimc_is_queue *queue,
 	clear_bit(FIMC_IS_QUEUE_BUFFER_PREPARED, &queue->state);
 	clear_bit(FIMC_IS_QUEUE_BUFFER_READY, &queue->state);
 	clear_bit(FIMC_IS_QUEUE_STREAM_ON, &queue->state);
+	clear_bit(IS_QUEUE_NEED_TO_REMAP, &queue->state);
 	memset(&queue->framecfg, 0, sizeof(struct fimc_is_frame_cfg));
 	frame_manager_probe(&queue->framemgr, queue->id, queue->name);
 
@@ -948,7 +949,10 @@ int fimc_is_queue_buffer_queue(struct fimc_is_queue *queue,
 				dma_buf_put(bufs[buf_k]);
 			}
 		} else {
-			queue->buf_dva[index][i] = vbuf->ops->plane_dvaddr(vbuf, i);
+			if (test_bit(IS_QUEUE_NEED_TO_REMAP, &queue->state))
+				queue->buf_dva[index][i] = vbuf->dva[i];
+			else
+				queue->buf_dva[index][i] = vbuf->ops->plane_dvaddr(vbuf, i);
 #ifdef DBG_IMAGE_KMAPPING
 			queue->buf_kva[index][i] = vbuf->ops->plane_kvaddr(vbuf, i);
 #endif

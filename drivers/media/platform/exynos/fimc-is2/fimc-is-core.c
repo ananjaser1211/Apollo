@@ -174,6 +174,121 @@ static int fimc_is_resume(struct device *dev)
 	return 0;
 }
 
+#if defined(SECURE_CAMERA_IRIS)
+static int fimc_is_secure_iris(struct fimc_is_device_sensor *device,
+	u32 type, u32 scenario, ulong smc_cmd)
+{
+	int ret = 0;
+
+	if (scenario != SENSOR_SCENARIO_SECURE)
+		return ret;
+
+	switch (smc_cmd) {
+	case SMC_SECCAM_PREPARE:
+		ret = exynos_smc(SMC_SECCAM_PREPARE, 0, 0, 0);
+		if (ret) {
+			merr("[SMC] SMC_SECURE_CAMERA_PREPARE fail(%d)\n", device, ret);
+		} else {
+			minfo("[SMC] Call SMC_SECURE_CAMERA_PREPARE ret(%d) / smc_state(%d->%d)\n",
+				device, ret, device->smc_state, FIMC_IS_SENSOR_SMC_PREPARE);
+			device->smc_state = FIMC_IS_SENSOR_SMC_PREPARE;
+		}
+		break;
+	case SMC_SECCAM_UNPREPARE:
+		if (device->smc_state != FIMC_IS_SENSOR_SMC_PREPARE)
+			break;
+
+		ret = exynos_smc(SMC_SECCAM_UNPREPARE, 0, 0, 0);
+		if (ret != 0) {
+			merr("[SMC] SMC_SECURE_CAMERA_UNPREPARE fail(%d)\n", device, ret);
+		} else {
+			minfo("[SMC] Call SMC_SECURE_CAMERA_UNPREPARE ret(%d) / smc_state(%d->%d)\n",
+				device, ret, device->smc_state, FIMC_IS_SENSOR_SMC_UNPREPARE);
+			device->smc_state = FIMC_IS_SENSOR_SMC_UNPREPARE;
+		}
+		break;
+	default:
+		break;
+	}
+
+	return ret;
+}
+#endif
+
+#if defined(SECURE_CAMERA_FACE)
+static int fimc_is_secure_face(struct fimc_is_core *core,
+	u32 type, u32 scenario, ulong smc_cmd)
+{
+	int ret = 0;
+
+	if (scenario != FIMC_IS_SCENARIO_SECURE)
+		return ret;
+
+	mutex_lock(&core->secure_state_lock);
+	switch (smc_cmd) {
+	case SMC_SECCAM_PREPARE:
+		if (core->secure_state == FIMC_IS_STATE_UNSECURE) {
+#if defined(SECURE_CAMERA_FACE_SEQ_CHK)
+			ret = 0;
+#else
+			ret = exynos_smc(SMC_SECCAM_PREPARE, 0, 0, 0);
+#endif
+			if (ret != 0) {
+				err("[SMC] SMC_SECCAM_PREPARE fail(%d)", ret);
+			} else {
+				info("[SMC] Call SMC_SECCAM_PREPARE ret(%d) / state(%ld->%d)\n",
+					ret, core->secure_state, FIMC_IS_STATE_SECURED);
+				core->secure_state = FIMC_IS_STATE_SECURED;
+			}
+		}
+		break;
+	case SMC_SECCAM_UNPREPARE:
+		if (core->secure_state == FIMC_IS_STATE_SECURED) {
+#if defined(SECURE_CAMERA_FACE_SEQ_CHK)
+			ret = 0;
+#else
+			ret = exynos_smc(SMC_SECCAM_UNPREPARE, 0, 0, 0);
+#endif
+			if (ret != 0) {
+				err("[SMC] SMC_SECCAM_UNPREPARE fail(%d)\n", ret);
+			} else {
+				info("[SMC] Call SMC_SECCAM_UNPREPARE ret(%d) / smc_state(%ld->%d)\n",
+					ret, core->secure_state, FIMC_IS_STATE_UNSECURE);
+				core->secure_state = FIMC_IS_STATE_UNSECURE;
+			}
+		}
+		break;
+	default:
+		break;
+	}
+	mutex_unlock(&core->secure_state_lock);
+
+	return ret;
+}
+#endif
+
+int fimc_is_secure_func(struct fimc_is_core *core,
+	struct fimc_is_device_sensor *device, u32 type, u32 scenario, ulong smc_cmd)
+{
+	int ret = 0;
+
+	switch (type) {
+	case FIMC_IS_SECURE_CAMERA_IRIS:
+#if defined(SECURE_CAMERA_IRIS)
+		ret = fimc_is_secure_iris(device, type, scenario, smc_cmd);
+#endif
+		break;
+	case FIMC_IS_SECURE_CAMERA_FACE:
+#if defined(SECURE_CAMERA_FACE)
+		ret = fimc_is_secure_face(core, type, scenario, smc_cmd);
+#endif
+		break;
+	default:
+		break;
+	}
+
+	return ret;
+}
 #ifdef ENABLE_FAULT_HANDLER
 static void fimc_is_print_target_dva(struct camera2_shot *shot)
 {
@@ -971,6 +1086,9 @@ static int __init fimc_is_probe(struct platform_device *pdev)
 	u32 channel;
 #endif
 	struct pinctrl_state *s;
+#if defined(SECURE_CAMERA_IRIS) || defined(SECURE_CAMERA_FACE)
+	ulong mem_info_addr, mem_info_size;
+#endif
 
 	probe_info("%s:start(%ld, %ld)\n", __func__,
 		sizeof(struct fimc_is_core), sizeof(struct fimc_is_video_ctx));
@@ -1291,15 +1409,46 @@ static int __init fimc_is_probe(struct platform_device *pdev)
 
 	EXYNOS_MIF_ADD_NOTIFIER(&exynos_fimc_is_mif_throttling_nb);
 
-#if defined(CONFIG_SECURE_CAMERA_USE) && defined(SECURE_CAMERA_EMULATE)
-	ret = exynos_smc(SMC_SECCAM_SETENV, SECURE_CAMERA_CH, ION_EXYNOS_HEAP_ID_SECURE_CAMERA, 0);
+#if defined(SECURE_CAMERA_IRIS) || defined(SECURE_CAMERA_FACE)
+	probe_info("%s: call SMC_SECCAM_SETENV, SECURE_CAMERA_CH(%#x), SECURE_CAMERA_HEAP_ID(%d)\n",
+		__func__, SECURE_CAMERA_CH, SECURE_CAMERA_HEAP_ID);
+
+#if defined(SECURE_CAMERA_FACE_SEQ_CHK)
+	ret = 0;
+#else
+	ret = exynos_smc(SMC_SECCAM_SETENV, SECURE_CAMERA_CH, SECURE_CAMERA_HEAP_ID, 0);
+#endif
 	if (ret) {
 		dev_err(fimc_is_dev, "[SMC] SMC_SECCAM_SETENV fail(%d)\n", ret);
 		goto p_err3;
 	}
-	ret = exynos_smc(SMC_SECCAM_INIT, SECURE_CAMERA_MEM_ADDR, SECURE_CAMERA_MEM_SIZE, 0);
+
+	mem_info_addr = core->secure_mem_info[0] ? core->secure_mem_info[0] : SECURE_CAMERA_MEM_ADDR;
+	mem_info_size = core->secure_mem_info[1] ? core->secure_mem_info[1] : SECURE_CAMERA_MEM_SIZE;
+
+	probe_info("%s: call SMC_SECCAM_INIT, mem_info(%#08lx, %#08lx)\n",
+		__func__, mem_info_addr, mem_info_size);
+#if defined(SECURE_CAMERA_FACE_SEQ_CHK)
+	ret = 0;
+#else
+	ret = exynos_smc(SMC_SECCAM_INIT, mem_info_addr, mem_info_size, 0);
+#endif
 	if (ret) {
 		dev_err(fimc_is_dev, "[SMC] SMC_SECCAM_INIT fail(%d)\n", ret);
+		goto p_err3;
+	}
+	mem_info_addr = core->non_secure_mem_info[0] ? core->non_secure_mem_info[0] : NON_SECURE_CAMERA_MEM_ADDR;
+	mem_info_size = core->non_secure_mem_info[1] ? core->non_secure_mem_info[1] : NON_SECURE_CAMERA_MEM_SIZE;
+
+	probe_info("%s: call SMC_SECCAM_INIT_NSBUF, mem_info(%#08lx, %#08lx)\n",
+		__func__, mem_info_addr, mem_info_size);
+#if defined(SECURE_CAMERA_FACE_SEQ_CHK)
+	ret = 0;
+#else
+	ret = exynos_smc(SMC_SECCAM_INIT_NSBUF, mem_info_addr, mem_info_size, 0);
+#endif
+	if (ret) {
+		dev_err(fimc_is_dev, "[SMC] SMC_SECCAM_INIT_NSBUF fail(%d)\n", ret);
 		goto p_err3;
 	}
 #endif
