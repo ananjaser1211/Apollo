@@ -78,13 +78,6 @@
 			id = <0x1>;
 		};
 
-		secure_camera {
-			compatible = "exynos8890-ion,secure_camera";
-			ion,untouchable;
-			reg = <0x0 0xe1900000 0x1e00000>;
-			id = <0xb>;
-		};
-
 		exynos_ss {
 			compatible = "exynos,exynos_ss";
 			reg = <0x0 0xfda00000 0x1c08000>;
@@ -145,6 +138,13 @@
 			reg = <0x8 0x80000000 0x21c00000>;
 			alignment = <0x0 0x400000>;
 			id = <0xa>;
+		};
+
+		secure_camera {
+			compatible = "exynos8890-ion,secure_camera";
+			ion,untouchable;
+			reg = <0x0 0xe1900000 0x1e00000>;
+			id = <0xb>;
 		};
 
 		camera_contig {
@@ -11382,6 +11382,8 @@
 		iommus = <0x166 0x167 0x168 0x169>;
 		#cooling-cells = <0x2>;
 		ewf-index = <0x3>;
+		secure_mem_info = <0xe1900000 0x1e00000>;
+		non_secure_mem_info = <0x40000000 0xc0000000>;
 		linux,phandle = <0x116>;
 		phandle = <0x116>;
 
