@@ -3441,7 +3441,8 @@ retry:
 	 */
 	if (!page && !drained) {
 		unreserve_highatomic_pageblock(ac);
-		drain_all_pages(NULL);
+		if (!need_memory_boosting(NULL))
+			drain_all_pages(NULL);
 		drained = true;
 		goto retry;
 	}
