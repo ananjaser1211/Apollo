@@ -274,7 +274,7 @@ struct zs_pool {
 	struct inode *inode;
 	struct work_struct free_work;
 	/* A wait queue for when migration races with async_free_zspage() */
-	struct wait_queue_head migration_wait;
+	wait_queue_head_t migration_wait;
 	atomic_long_t isolated_pages;
 	bool destroying;
 #endif
