@@ -22,8 +22,11 @@ struct zcomp {
 	struct notifier_block notifier;
 
 	const char *name;
+	struct hlist_node node;
 };
 
+int zcomp_cpu_up_prepare(unsigned int cpu, struct hlist_node *node);
+int zcomp_cpu_dead(unsigned int cpu, struct hlist_node *node);
 ssize_t zcomp_available_show(const char *comp, char *buf);
 bool zcomp_available_algorithm(const char *comp);
 
