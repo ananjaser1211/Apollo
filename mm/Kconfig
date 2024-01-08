@@ -785,6 +785,13 @@ config BALANCE_ANON_FILE_RECLAIM
 	  Swapping anonymous pages out to memory can be efficient enough to justify
 	  treating anonymous and file backed pages equally.
 
+config KSWAPD_CPU
+	hex "Set kswapd cpu affinity by default"
+	default 0x3F
+	help
+	  Set kswapd cpu affinity by default. 0x3F means allowing CPU as 0 to 5.
+	  To disable this config, set this to 0.
+
 config SWAP_ENABLE_READAHEAD
 	bool "Enable readahead on page swap in"
 	depends on SWAP
