@@ -453,9 +453,9 @@ static int exynos_hpgov_set_enable(bool enable)
 	int enable_cnt;
 
 	spin_lock(&hpgov_lock);
-	if (enable && exynos_hpgov.enabled == 0)
+	if (enable)
 		exynos_hpgov.enabled++;
-	else if (!enable && exynos_hpgov.enabled == 1)
+	else
 		exynos_hpgov.enabled--;
 	enable_cnt = exynos_hpgov.enabled;
 	smp_wmb();
