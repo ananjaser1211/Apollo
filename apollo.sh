@@ -125,9 +125,6 @@ fi
 done
 
 export PATH=$CR_CLANG/bin:$CR_CLANG/lib:${PATH}
-#export CLANG_TRIPLE=$CR_GCC9
-#export CROSS_COMPILE=$CR_GCC9
-#export CROSS_COMPILE_ARM32=arm-linux-gnueabi-
 export CC=$CR_CLANG/bin/clang
 export REAL_CC=$CR_CLANG/bin/clang
 export LD=$CR_CLANG/bin/ld.lld
@@ -139,8 +136,9 @@ export READELF=$CR_CLANG/bin/llvm-readelf
 export STRIP=$CR_CLANG/bin/llvm-strip
 export LLVM=1
 export LLVM_IAS=1
+export KALLSYMS_EXTRA_PASS=1
 export ARCH=arm64 && export SUBARCH=arm64
-compile="make ARCH=arm64 CC=clang"
+compile="make ARCH=arm64 CC=clang LLVM=1"
 CR_COMPILER="$CR_CLANG"
 fi
 }
