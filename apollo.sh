@@ -364,6 +364,8 @@ BUILD_GENERATE_CONFIG()
     echo "CONFIG_KSU=y" >> $CR_DEFCONFIG/tmp_defconfig
     CR_IMAGE_NAME=$CR_IMAGE_NAME-ksu
     zver=$zver-KernelSU
+    echo " Updating KernelSU-Next Module"
+    git submodule update --remote --merge
   else
     echo "# CONFIG_KSU is not set" >> $CR_DEFCONFIG/tmp_defconfig
   fi
