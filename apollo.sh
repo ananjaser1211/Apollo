@@ -80,6 +80,7 @@ DEFAULT_TARGET=5   # star2ltekor
 DEFAULT_COMPILER=3 # clang18
 DEFAULT_SELINUX=2  # enforce
 DEFAULT_KSU=y      # enabled
+DEFAULT_SUS=n	   # Disable susfs
 DEFAULT_CLEAN=n    # dirty
 #####################################################
 READY=$CR_DIR/buildtools
@@ -291,35 +292,78 @@ BUILD_IMAGE_NAME()
 # Build options
 BUILD_OPTIONS()
 {
-	# KSU Version
-	KSU_VERSION=$( [ -f "drivers/kernelsu/Makefile" ] && grep -oP '(?<=-DKSU_VERSION=)[0-9]+' drivers/kernelsu/Makefile )
+	# Compute KSU_VERSION if KernelSU is enabled
+	if [[ "$CR_KSU" =~ ^[yY]$ ]]; then
+		KERNELSU_DIR="drivers/kernelsu"
+		if [ -e "$KERNELSU_DIR/../.git" ]; then
+			# Unshallow if needed
+			if [ -f "$KERNELSU_DIR/../.git/shallow" ]; then
+				git -C "$KERNELSU_DIR" fetch --unshallow
+			fi
+			GIT_VERSION=$(git -C "$KERNELSU_DIR" rev-list --count HEAD 2>/dev/null)
+			if [[ "$GIT_VERSION" =~ ^[0-9]+$ ]]; then
+				KSU_VERSION=$((10000 + GIT_VERSION + 200))
+			else
+				KSU_VERSION="unknown"
+			fi
+		else
+			# Default
+			KSU_VERSION=11998
+		fi
+	fi
+	
+	# Get SUSFS_VERSION if SuS is enabled
+	if [[ "$CR_SUS" =~ ^[yY]$ ]]; then
+		SUSFS_HEADER="include/linux/susfs.h"
+		if [ -f "$SUSFS_HEADER" ]; then
+			SUSFS_VERSION=$(grep -E '^#define[[:space:]]+SUSFS_VERSION' "$SUSFS_HEADER" | awk '{print $3}' | tr -d '"')
+		else
+			SUSFS_VERSION="unknown"
+		fi
+	fi
+
 	echo "----------------------------------------------"
 	echo " Apollo Kernel Build Options "
 	echo " "
 	echo " Kernel		- $CR_IMAGE_NAME"
 	echo " Device		- $CR_VARIANT"
 	echo " Compiler	- $CR_COMPILER_ARG"
+
 	if [[ "$CR_CLEAN" =~ ^[yY]$ ]]; then
 		echo " Env		- Clean Build"
 	else
 		echo " Env		- Dirty Build"
 	fi
-	if [ $CR_SELINUX = "1" ]; then
+
+	if [ "$CR_SELINUX" = "1" ]; then
 		echo " Selinux	- Permissive"
 	else
 		echo " Selinux	- Enforcing"
 	fi
+
 	if [[ "$CR_KSU" =~ ^[yY]$ ]]; then
 		if [ -n "$KSU_VERSION" ]; then
-		echo " KernelSU	- Version: $KSU_VERSION"
+			echo " KernelSU	- Version: $KSU_VERSION"
 		else
-		echo " KernelSU	- Enabled"
+			echo " KernelSU	- Enabled"
+		fi
+
+		if [[ "$CR_SUS" =~ ^[yY]$ ]]; then
+			if [ -n "$SUSFS_VERSION" ]; then
+				echo " SuSFS		- Version: $SUSFS_VERSION"
+			else
+				echo " SuSFS		- Enabled"
+			fi
+		else
+			echo " SuSFS		- Disabled"
 		fi
 	else
 		echo " KernelSU	- Disabled"
 	fi
+
 	echo " "
 }
+
 
 # Config Generation Function
 
@@ -359,13 +403,68 @@ BUILD_GENERATE_CONFIG()
   else
     echo " Building SElinux Enforced Kernel"
   fi
+  # Kernel SU
+  # Ensure Submodule is present
+  git submodule update --init --recursive
+  # Default
+  git config -f .gitmodules submodule.KernelSU.branch next
+  BRANCH="next"
+  if [[ "$CR_SUS" =~ ^[yY]$ ]]; then
+    BRANCH="next-susfs"
+  fi
   if [[ "$CR_KSU" =~ ^[yY]$ ]]; then
-    echo " Building KernelSU"
+    echo " Building KernelSU-Next"
     echo "CONFIG_KSU=y" >> $CR_DEFCONFIG/tmp_defconfig
     CR_IMAGE_NAME=$CR_IMAGE_NAME-ksu
     zver=$zver-KernelSU
-    echo " Updating KernelSU-Next Module"
-    git submodule update --remote --merge
+  if [[ "$CR_SUS" =~ ^[yY]$ ]]; then
+    echo " Adding KernelSU-Next-SuSFS"
+    # SuSFS Config
+    echo "CONFIG_KSU_SUSFS=y" >> $CR_DEFCONFIG/tmp_defconfig
+    echo "CONFIG_KSU_SUSFS_HAS_MAGIC_MOUNT=y" >> $CR_DEFCONFIG/tmp_defconfig
+    echo "CONFIG_KSU_SUSFS_SUS_PATH=n" >> $CR_DEFCONFIG/tmp_defconfig
+    echo "CONFIG_KSU_SUSFS_SUS_MOUNT=y" >> $CR_DEFCONFIG/tmp_defconfig
+    echo "CONFIG_KSU_SUSFS_AUTO_ADD_SUS_KSU_DEFAULT_MOUNT=y" >> $CR_DEFCONFIG/tmp_defconfig
+    echo "CONFIG_KSU_SUSFS_AUTO_ADD_SUS_BIND_MOUNT=y" >> $CR_DEFCONFIG/tmp_defconfig
+    echo "CONFIG_KSU_SUSFS_SUS_KSTAT=y" >> $CR_DEFCONFIG/tmp_defconfig
+    echo "CONFIG_KSU_SUSFS_SUS_OVERLAYFS=y" >> $CR_DEFCONFIG/tmp_defconfig
+    echo "CONFIG_KSU_SUSFS_TRY_UMOUNT=y" >> $CR_DEFCONFIG/tmp_defconfig
+    echo "CONFIG_KSU_SUSFS_AUTO_ADD_TRY_UMOUNT_FOR_BIND_MOUNT=y" >> $CR_DEFCONFIG/tmp_defconfig
+    echo "CONFIG_KSU_SUSFS_SPOOF_UNAME=n" >> $CR_DEFCONFIG/tmp_defconfig
+    echo "CONFIG_KSU_SUSFS_ENABLE_LOG=y" >> $CR_DEFCONFIG/tmp_defconfig
+    echo "CONFIG_KSU_SUSFS_HIDE_KSU_SUSFS_SYMBOLS=y" >> $CR_DEFCONFIG/tmp_defconfig
+    echo "CONFIG_KSU_SUSFS_SPOOF_CMDLINE_OR_BOOTCONFIG=n" >> $CR_DEFCONFIG/tmp_defconfig
+    echo "CONFIG_KSU_SUSFS_OPEN_REDIRECT=y" >> $CR_DEFCONFIG/tmp_defconfig
+    echo "CONFIG_KSU_SUSFS_SUS_SU=y" >> $CR_DEFCONFIG/tmp_defconfig
+    CR_IMAGE_NAME=$CR_IMAGE_NAME-susfs
+    zver=$zver-SuSFS
+  else
+    # Disable SuSFS
+    echo "CONFIG_KSU_SUSFS=n" >> $CR_DEFCONFIG/tmp_defconfig
+    echo "CONFIG_KSU_SUSFS_HAS_MAGIC_MOUNT=n" >> $CR_DEFCONFIG/tmp_defconfig
+    echo "CONFIG_KSU_SUSFS_SUS_PATH=n" >> $CR_DEFCONFIG/tmp_defconfig
+    echo "CONFIG_KSU_SUSFS_SUS_MOUNT=n" >> $CR_DEFCONFIG/tmp_defconfig
+    echo "CONFIG_KSU_SUSFS_AUTO_ADD_SUS_KSU_DEFAULT_MOUNT=n" >> $CR_DEFCONFIG/tmp_defconfig
+    echo "CONFIG_KSU_SUSFS_AUTO_ADD_SUS_BIND_MOUNT=n" >> $CR_DEFCONFIG/tmp_defconfig
+    echo "CONFIG_KSU_SUSFS_SUS_KSTAT=n" >> $CR_DEFCONFIG/tmp_defconfig
+    echo "CONFIG_KSU_SUSFS_SUS_OVERLAYFS=n" >> $CR_DEFCONFIG/tmp_defconfig
+    echo "CONFIG_KSU_SUSFS_TRY_UMOUNT=n" >> $CR_DEFCONFIG/tmp_defconfig
+    echo "CONFIG_KSU_SUSFS_AUTO_ADD_TRY_UMOUNT_FOR_BIND_MOUNT=n" >> $CR_DEFCONFIG/tmp_defconfig
+    echo "CONFIG_KSU_SUSFS_SPOOF_UNAME=n" >> $CR_DEFCONFIG/tmp_defconfig
+    echo "CONFIG_KSU_SUSFS_ENABLE_LOG=n" >> $CR_DEFCONFIG/tmp_defconfig
+    echo "CONFIG_KSU_SUSFS_HIDE_KSU_SUSFS_SYMBOLS=n" >> $CR_DEFCONFIG/tmp_defconfig
+    echo "CONFIG_KSU_SUSFS_SPOOF_CMDLINE_OR_BOOTCONFIG=n" >> $CR_DEFCONFIG/tmp_defconfig
+    echo "CONFIG_KSU_SUSFS_OPEN_REDIRECT=n" >> $CR_DEFCONFIG/tmp_defconfig
+    echo "CONFIG_KSU_SUSFS_SUS_SU=n" >> $CR_DEFCONFIG/tmp_defconfig
+  fi
+    echo " Fetching KernelSU-Next $BRANCH Branch"
+    cd $CR_DIR/KernelSU
+    git reset --hard
+    git clean -fdx
+    git fetch origin
+    git checkout -B "$BRANCH" origin/"$BRANCH"
+    git pull --ff-only origin "$BRANCH"
+    cd $CR_DIR
   else
     echo "# CONFIG_KSU is not set" >> $CR_DEFCONFIG/tmp_defconfig
   fi
@@ -571,6 +670,7 @@ CR_TARGET=5
 CR_COMPILER=3
 CR_SELINUX=0
 CR_KSU="y"
+CR_SUS="n"
 CR_CLEAN="n"
 echo " DEBUG : Set Build options "
 echo " DEBUG : Variant  : $CR_VARIANT_G965N"
@@ -717,6 +817,9 @@ echo " "
 read -p "Please select your SElinux mode (1-2) > " CR_SELINUX
 echo " "
 read -p "Enable KernelSU? (y/n) > " CR_KSU
+if [[ "$CR_KSU" =~ ^[yY]$ ]]; then
+read -p "Enable KSU + SuSFS? (y/n) > " CR_SUS
+fi
 echo " "
 if [ "$CR_TARGET" = "8" ]; then
 echo "Build Aborted"
@@ -742,6 +845,9 @@ fi
 
 if ! [[ "$CR_KSU" =~ ^[yYnN]$ ]]; then
     CR_KSU=$DEFAULT_KSU
+fi
+if ! [[ "$CR_SUS" =~ ^[yYnN]$ ]]; then
+    CR_SUS=$DEFAULT_SUS
 fi
 if ! [[ "$CR_CLEAN" =~ ^[yYnN]$ ]]; then
     CR_CLEAN=$DEFAULT_CLEAN
