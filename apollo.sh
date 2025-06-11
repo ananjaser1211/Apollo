@@ -83,7 +83,7 @@ DEFAULT_KSU=y      # enabled
 DEFAULT_SUS=n	   # Disable susfs
 DEFAULT_CLEAN=n    # dirty
 #####################################################
-READY=$CR_DIR/buildtools
+READY="$CR_DIR/buildtools"
 # Function for first-time setup
 first_time_setup() {
     local packages=(
@@ -106,35 +106,41 @@ first_time_setup() {
         "unzip"
         "fontconfig"
         "python-dev-is-python3"
+        "bsdiff"
     )
-    
-    echo "First Time Setup: The following packages are required for the build tools:"
-    printf '%s\n' "${packages[@]}"
-    
-    read -p "Do you want to install these packages? This requires sudo privileges. (y/n) > " INSTALL_BUILD_TOOLS
-    
-    if [ "$INSTALL_BUILD_TOOLS" = "y" ]; then
-        echo "Installing required packages..."
-        sudo apt update
-        sudo apt install -y "${packages[@]}"
-        
-        for package in "${packages[@]}"; do
-            if ! dpkg-query -W -f='${Status}' "$package" | grep "ok installed" > /dev/null; then
-                echo "Failed to install $package. Please try installing it manually."
-                exit 1
-            fi
-        done
-        
-        # Create the file if all packages are installed
-        touch "$READY"
-	echo " "
-	echo " "
-        echo "$READY created successfully, Delete to re-run."
-	echo " "
-	echo " "     
+
+    # Check if apt and dpkg-query are available (Debian-like system)
+    if command -v apt >/dev/null && command -v dpkg-query >/dev/null; then
+    	echo -e "\nFirst Time Setup: The following packages are required for the build tools:"
+	printf ' - %s\n' "${packages[@]}"
+        read -p "Do you want to install these packages? This requires sudo privileges. (y/n) > " INSTALL_BUILD_TOOLS
+        if [[ "$INSTALL_BUILD_TOOLS" =~ ^[yY]$ ]]; then
+            echo "Installing required packages..."
+            sudo apt update
+            sudo apt install -y "${packages[@]}"
+
+            echo "Verifying package installation..."
+            for package in "${packages[@]}"; do
+                if ! dpkg-query -W -f='${Status}' "$package" 2>/dev/null | grep -q "ok installed"; then
+                    echo "Failed to install $package. Please try installing it manually."
+                    exit 1
+                fi
+            done
+
+            touch "$READY"
+            echo -e "\n$READY created successfully. Delete this file to re-run setup.\n"
+        else
+            echo "Installation skipped. Please install the required packages manually and re-run."
+            exit 1
+        fi
+
     else
-        echo "Please install the required packages with 'sudo apt install <package>' and try again."
-        exit 1
+    	echo -e "\nFirst Time Setup: "
+        echo -e "\nNon-Debian system detected (missing apt or dpkg-query)."
+        echo "Please install the following packages manually:"
+        printf ' - %s\n' "${packages[@]}"
+        echo -e "\nTo hide this message in the future, run:"
+        echo -e "\n  touch $READY\n"
     fi
 }
 
@@ -694,24 +700,6 @@ echo " Packing ZIP "
 # Variables
 CR_BASE_KERNEL=$CR_OUTZIP/floyd/G960F-kernel
 CR_BASE_DTB=$CR_OUTZIP/floyd/G960F-dtb
-
-# Check packages
-if ! dpkg-query -W -f='${Status}' bsdiff  | grep "ok installed"; then 
-	echo "bsdiff is missing and is required for ZIP Packaging."
-	read -p "Do you want to install bsdiff? This requires sudo privileges. (y/n) > " INSTALL_BSDIFF
-	if [ "$INSTALL_BSDIFF" = "y" ]; then
-		echo "installing bsdiff."
-		sudo apt update
-		sudo apt install -y bsdiff
-		if ! dpkg-query -W -f='${Status}' bsdiff | grep "ok installed"; then
-			echo "Failed to install bsdiff. Please try installing it manually."
-			exit 0;
-		fi
-	else
-		echo "Please install bsdiff with sudo apt install bsdiff and try again."
-		exit 0;
-	fi
-fi
 
 # Initalize with base image (Starlte)
 if [ "$CR_TARGET" = "1" ]; then # Always must run ONCE during BUILD_ALL otherwise fail. Setup directories
