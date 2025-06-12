@@ -292,8 +292,6 @@ BUILD_IMAGE_NAME()
 {
 	CR_IMAGE_NAME=$CR_NAME-$CR_VERSION-$CR_VARIANT-$CR_DATE
 	zver=$CR_NAME-$CR_VERSION-$CR_DATE
-	# List zips
-	COMPILED_ZIPS+=("$zver")
     
 }
 
@@ -825,6 +823,8 @@ if [ "$CR_TARGET" = "6" ]; then # Final kernel build
 	echo "$CR_NAME kernel build finished."
 	echo "Compiled Package Size = $sizdz Kb"
 	echo "$zver.zip Ready"
+	# Store zips
+	COMPILED_ZIPS+=("$zver")
 	echo "Press Any key to end the script"
 	echo "----------------------------------------------"
 fi
