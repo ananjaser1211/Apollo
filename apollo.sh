@@ -1,6 +1,6 @@
 #!/bin/bash
 #
-# Apollo Build Script V3.5
+# Apollo Build Script V3.6
 # For Exynos9810
 # Forked from Exynos8890 Script
 # Coded by AnanJaser1211 @ 2019-2022
@@ -292,6 +292,8 @@ BUILD_IMAGE_NAME()
 {
 	CR_IMAGE_NAME=$CR_NAME-$CR_VERSION-$CR_VARIANT-$CR_DATE
 	zver=$CR_NAME-$CR_VERSION-$CR_DATE
+	# List zips
+	COMPILED_ZIPS+=("$zver")
     
 }
 
@@ -493,6 +495,23 @@ BUILD_OUT()
   echo "----------------------------------------------"
 }
 
+LIST_COMPILED_ZIPS() {
+    echo ""
+    echo "----------------------------------------------"
+    echo "Compiled ZIPs (this session):"
+    echo "----------------------------------------------"
+
+    for zver in "${COMPILED_ZIPS[@]}"; do
+        find "$CR_PRODUCT" -type f -name "$zver*.zip" | sort | while read zipfile; do
+            size_kb=$(du -k "$zipfile" | cut -f1)
+            echo "$(basename "$zipfile") - ${size_kb} KB"
+        done
+    done
+
+    echo "----------------------------------------------"
+}
+
+
 # Kernel Compile Function
 BUILD_ZIMAGE()
 {
@@ -668,6 +687,53 @@ BUILD
 export -n "CONFIG_MACH_EXYNOS9810_CROWNLTE_KOR"
 }
 
+BUILD_ALL_COMBINATIONS(){
+echo "----------------------------------------------"
+echo " Compiling ALL ZIPs "
+echo " ZIP - Non-Root "
+echo "----------------------------------------------"
+CR_COMPILER=3 # clang18
+CR_SELINUX=2  # enforce
+CR_KSU=n      # disable ksu
+CR_SUS=n	   # Disable susfs
+BUILD_ALL
+echo "----------------------------------------------"
+echo " ZIP - Non-Root - Permissive"
+CR_COMPILER=3 # clang18
+CR_SELINUX=1  # permissive
+CR_KSU=n      # disable ksu
+CR_SUS=n	   # Disable susfs
+BUILD_ALL
+echo "----------------------------------------------"
+echo " ZIP - Root "
+CR_COMPILER=3 # clang18
+CR_SELINUX=2  # enforce
+CR_KSU=y      # enable ksu
+CR_SUS=n	   # Disable susfs
+BUILD_ALL
+echo "----------------------------------------------"
+echo " ZIP - Root - Permissive"
+CR_COMPILER=3 # clang18
+CR_SELINUX=1  # permissive
+CR_KSU=y      # enable ksu
+CR_SUS=n	   # Disable susfs
+BUILD_ALL
+echo "----------------------------------------------"
+echo " ZIP - Root - SuSFS"
+CR_COMPILER=3 # clang18
+CR_SELINUX=2  # enforce
+CR_KSU=y      # enable ksu
+CR_SUS=y	   # enable susfs
+BUILD_ALL
+echo "----------------------------------------------"
+echo " ZIP - Root - SuSFS - Permissive"
+CR_COMPILER=3 # clang18
+CR_SELINUX=1  # permissive
+CR_KSU=y      # enable ksu
+CR_SUS=y	   # enable susfs
+BUILD_ALL
+}
+
 # Preconfigured Debug build
 BUILD_DEBUG(){
 echo "----------------------------------------------"
@@ -768,85 +834,95 @@ fi
 clear
 echo "----------------------------------------------"
 echo "$CR_NAME $CR_VERSION Build Script $CR_DATE"
+
 if [ "$1" = "-d" ]; then
-BUILD_DEBUG
+    BUILD_DEBUG
 fi
-echo " "
-echo " "
+
+echo ""
 if [ ! -f "$READY" ]; then
     first_time_setup
-echo "----------------------------------------------"
+    echo "----------------------------------------------"
 else
     echo "Build tools are installed."
-echo "----------------------------------------------"
-echo " "
-echo " "
+    echo "----------------------------------------------"
+    echo ""
 fi
-echo "1) starlte" "   2) star2lte" "   3) crownlte"
-echo "4) starltekor" "5) star2ltekor" "6) crownltekor"
-echo  " "
-echo "7) Build All/ZIP"               "8) Abort"
-echo "----------------------------------------------"
-read -p "Please select your build target (1-8) > " CR_TARGET
-echo "----------------------------------------------"
-echo " "
-echo "1) Clang 12 (LLVM +LTO)"
-echo "2) Clang 14 (LLVM +LTO)"
-echo "3) [Default] Clang 18 (LLVM +LTO PGO Bolt Mlgo Poly)"
-echo "4) Clang 19 (^)"
-echo "5) Neutron Clang 18 (^)"
-echo "6) Neutron Clang 19 (^)"
-echo "7) Other (Apollo/toolchain/clang-custom)"
-echo " "
-read -p "Please select your compiler (1-7) > " CR_COMPILER
-echo " "
-echo "1) Selinux Permissive " "[Default] 2) Selinux Enforcing"
-echo " "
-read -p "Please select your SElinux mode (1-2) > " CR_SELINUX
-echo " "
-read -p "Enable KernelSU? (y/n) > " CR_KSU
-if [[ "$CR_KSU" =~ ^[yY]$ ]]; then
-read -p "Enable KSU + SuSFS? (y/n) > " CR_SUS
-fi
-echo " "
-if [ "$CR_TARGET" = "8" ]; then
-echo "Build Aborted"
-exit
-fi
-echo " "
-read -p "Clean Builds? (y/n) > " CR_CLEAN
-echo " "
 
-# Validate options
+# Target Menu
+echo "1) starlte      2) star2lte      3) crownlte"
+echo "4) starltekor   5) star2ltekor   6) crownltekor"
+echo "7) Build All/ZIP"
+echo "8) Build All/ZIP Combinations"
+echo "9) Abort"
+echo "----------------------------------------------"
+read -p "Please select your build target (1-9) > " CR_TARGET
+echo "----------------------------------------------"
+
+# Abort
+if [ "$CR_TARGET" = "9" ]; then
+    echo "Build Aborted"
+    exit 0
+fi
+
+# Compiler & Options (only if not option 8)
+if [ "$CR_TARGET" != "8" ]; then
+    echo ""
+    echo "1) Clang 12 (LLVM +LTO)"
+    echo "2) Clang 14 (LLVM +LTO)"
+    echo "3) [Default] Clang 18 (LLVM +LTO PGO Bolt Mlgo Poly)"
+    echo "4) Clang 19 (^)"
+    echo "5) Neutron Clang 18 (^)"
+    echo "6) Neutron Clang 19 (^)"
+    echo "7) Other (Apollo/toolchain/clang-custom)"
+    echo ""
+    read -p "Please select your compiler (1-7) > " CR_COMPILER
+
+    echo ""
+    echo "1) Selinux Permissive   [Default] 2) Selinux Enforcing"
+    echo ""
+    read -p "Please select your SElinux mode (1-2) > " CR_SELINUX
+
+    echo ""
+    read -p "Enable KernelSU? (y/n) > " CR_KSU
+    if [[ "$CR_KSU" =~ ^[yY]$ ]]; then
+        read -p "Enable KSU + SuSFS? (y/n) > " CR_SUS
+    fi
+    echo ""
+fi
+
+# Clean Builds
+read -p "Clean Builds? (y/n) > " CR_CLEAN
+echo ""
+
+# Validation
 if ! [[ "$CR_TARGET" =~ ^[1-8]$ ]]; then
     CR_TARGET=$DEFAULT_TARGET
-    echo " No target selected, defaulting to star2ltekor"
+    echo "No valid target selected, defaulting to star2ltekor"
 fi
 
-if ! [[ "$CR_COMPILER" =~ ^[1-7]$ ]]; then
-    CR_COMPILER=$DEFAULT_COMPILER
-fi
+# Default Entry
+if ! [[ "$CR_COMPILER" =~ ^[1-7]$ ]]; then CR_COMPILER=$DEFAULT_COMPILER; fi
+if ! [[ "$CR_SELINUX" =~ ^[1-2]$ ]]; then CR_SELINUX=$DEFAULT_SELINUX; fi
+if ! [[ "$CR_KSU" =~ ^[yYnN]$ ]]; then CR_KSU=$DEFAULT_KSU; fi
+if ! [[ "$CR_SUS" =~ ^[yYnN]$ ]]; then CR_SUS=$DEFAULT_SUS; fi
+if ! [[ "$CR_CLEAN" =~ ^[yYnN]$ ]]; then CR_CLEAN=$DEFAULT_CLEAN; fi
 
-if ! [[ "$CR_SELINUX" =~ ^[1-2]$ ]]; then
-    CR_SELINUX=$DEFAULT_SELINUX
-fi
-
-if ! [[ "$CR_KSU" =~ ^[yYnN]$ ]]; then
-    CR_KSU=$DEFAULT_KSU
-fi
-if ! [[ "$CR_SUS" =~ ^[yYnN]$ ]]; then
-    CR_SUS=$DEFAULT_SUS
-fi
-if ! [[ "$CR_CLEAN" =~ ^[yYnN]$ ]]; then
-    CR_CLEAN=$DEFAULT_CLEAN
-fi
-
-# Call functions
-if [ "$CR_TARGET" = "7" ]; then
-echo " "
-read -p "Build Flashable ZIP ? (y/n) > " CR_MKZIP
-echo " "
-BUILD_ALL
+# Build Logic
+if [ "$CR_TARGET" = "8" ]; then
+    echo ""
+    read -p "Build Flashable ZIP Combinations? (y/n) (n to build .imgs)> " CR_MKZIP
+    echo ""
+    BUILD_ALL_COMBINATIONS
+    echo "All combinations compiled."
+    LIST_COMPILED_ZIPS
+    COMPILED_ZIPS=""
+elif [ "$CR_TARGET" = "7" ]; then
+    echo ""
+    read -p "Build Flashable ZIP? (y/n) (n to build .imgs)> " CR_MKZIP
+    echo ""
+    BUILD_ALL
 else
-BUILD
+    BUILD
 fi
+
