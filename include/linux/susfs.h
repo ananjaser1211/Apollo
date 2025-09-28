@@ -8,7 +8,7 @@
 #include <linux/path.h>
 #include <linux/susfs_def.h>
 
-#define SUSFS_VERSION "v1.5.9"
+#define SUSFS_VERSION "v1.5.10"
 #if LINUX_VERSION_CODE < KERNEL_VERSION(5,0,0)
 #define SUSFS_VARIANT "NON-GKI"
 #else
@@ -182,6 +182,7 @@ struct filename* susfs_get_redirected_path(unsigned long ino);
 #endif
 
 int susfs_get_enabled_features(char __user* buf, size_t bufsize);
+void susfs_set_avc_log_spoofing(bool enabled);
 
 /* susfs_init */
 void susfs_init(void);
