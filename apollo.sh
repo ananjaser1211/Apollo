@@ -414,15 +414,32 @@ BUILD_GENERATE_CONFIG()
   git submodule update --init --recursive
   # Default
   git config -f .gitmodules submodule.KernelSU.branch next
-  BRANCH="next"
-  if [[ "$CR_SUS" =~ ^[yY]$ ]]; then
-    BRANCH="next-susfs"
-  fi
   if [[ "$CR_KSU" =~ ^[yY]$ ]]; then
     echo " Building KernelSU-Next"
+    # SUSFS-NEXT on Fork
+    if [[ "$CR_SUS" =~ ^[yY]$ ]]; then
+      REPO_URL="https://github.com/sidex15/KernelSU-Next"
+      BRANCH="next-susfs"
+      echo " Using sidex15 SuSFS repository and branch"
+    else
+      REPO_URL="https://github.com/KernelSU-Next/KernelSU-Next"
+      BRANCH="next"
+      echo " Using standard repository and branch"
+    fi
+    
+    # Update .gitmodules with correct repository
+    git config -f .gitmodules submodule.KernelSU.url "$REPO_URL"
+    git config -f .gitmodules submodule.KernelSU.branch "$BRANCH"
+    
+    # Sync and update submodule
+    git submodule sync --recursive
+    git submodule update --init --recursive
+    
+    # Image Info
     echo "CONFIG_KSU=y" >> $CR_DEFCONFIG/tmp_defconfig
     CR_IMAGE_NAME=$CR_IMAGE_NAME-ksu
     zver=$zver-KernelSU
+    
   if [[ "$CR_SUS" =~ ^[yY]$ ]]; then
     echo " Adding KernelSU-Next-SuSFS"
     # SuSFS Config
@@ -463,7 +480,7 @@ BUILD_GENERATE_CONFIG()
     echo "CONFIG_KSU_SUSFS_OPEN_REDIRECT=n" >> $CR_DEFCONFIG/tmp_defconfig
     echo "CONFIG_KSU_SUSFS_SUS_SU=n" >> $CR_DEFCONFIG/tmp_defconfig
   fi
-    echo " Fetching KernelSU-Next $BRANCH Branch"
+    echo " Fetching KernelSU-Next $BRANCH Branch from $REPO_URL"
     cd $CR_DIR/KernelSU
     git reset --hard
     git clean -fdx
